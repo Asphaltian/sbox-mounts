@@ -82,11 +82,11 @@ internal sealed partial class MapLoader : SceneLoader<BaseMount>
 			renderer.Enabled = true;
 		}
 
-		BuildWater( geometry );
+		var atmosphere = BuildFog( bsp, world );
+		BuildWater( bsp, geometry, atmosphere );
 		BuildWorldPhysics( bsp, geometry );
 		AddShadowBlocker( BuildShadowModel( bsp, 0 ), geometry );
 		BuildEntities( bsp, world );
-		BuildFog( bsp, world );
 		BuildLightProbes( bsp, world );
 		BuildSkybox3D( bsp, world );
 	}
