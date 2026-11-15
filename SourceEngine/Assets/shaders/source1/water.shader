@@ -76,6 +76,17 @@ PS
 	SamplerState g_sSourceCube < Attribute( "g_tSourceEnvCubeSampler" ); Filter( TRILINEAR ); AddressU( CLAMP ); AddressV( CLAMP ); AddressW( CLAMP ); >;
 	SamplerState g_sSourceClamp < Filter( TRILINEAR ); AddressU( CLAMP ); AddressV( CLAMP ); AddressW( CLAMP ); >;
 	Texture2D g_tSourceScene < Attribute( "FrameBufferCopyTexture" ); SrgbRead( false ); >;
+	Texture2D g_tSourceWaterReflection < Attribute( "SourceWaterReflection" ); SrgbRead( false ); >;
+	Texture2D g_tSourceWaterRefraction < Attribute( "SourceWaterRefraction" ); SrgbRead( false ); >;
+	Texture2D g_tSourceWaterRefractionDepth < Attribute( "SourceWaterRefractionDepth" ); SrgbRead( false ); >;
+	bool g_bSourceWaterHasReflection < Attribute( "SourceWaterHasReflection" ); Default( 0 ); >;
+	bool g_bSourceWaterHasRefraction < Attribute( "SourceWaterHasRefraction" ); Default( 0 ); >;
+	float4 g_vSourceWaterPlane < Attribute( "SourceWaterPlane" ); Default4( 0, 0, 1, 0 ); >;
+	float4 g_vSourceWaterReflectionViewport < Attribute( "SourceWaterReflectionViewport" ); Default4( 0, 0, 1, 1 ); >;
+	float4 g_vSourceWaterRefractionViewport < Attribute( "SourceWaterRefractionViewport" ); Default4( 0, 0, 1, 1 ); >;
+	float4 g_vSourceWaterRefractionDepthUvScaleBias < Attribute( "SourceWaterRefractionDepthUvScaleBias" ); Default4( 1, 1, 0, 0 ); >;
+	float2 g_vSourceWaterRefractionDepthRange < Attribute( "SourceWaterRefractionDepthRange" ); Default2( 0, 1 ); >;
+	float4x4 g_matSourceWaterRefractionProjectionToView < Attribute( "SourceWaterRefractionProjectionToView" ); >;
 
 	CreateInputTexture2D( SourceNormal, Linear, 8, "None", "_normal", "Source 1", Default4( 0.5, 0.5, 1.0, 1.0 ) );
 	CreateInputTexture2D( SourceNormal2, Linear, 8, "None", "_normal", "Source 1", Default4( 0.5, 0.5, 1.0, 1.0 ) );
@@ -116,12 +127,44 @@ PS
 
 	float3 SourceSampleScene( float2 position )
 	{
+		#if S_SOURCE_WATER
+			if ( g_bSourceWaterHasRefraction )
+			{
+				float2 captureUv = g_vSourceWaterRefractionViewport.xy + saturate( CalculateViewportUv( position ) ) * g_vSourceWaterRefractionViewport.zw;
+				return g_tSourceWaterRefraction.SampleLevel( g_sSourceClamp, captureUv, 0 ).rgb;
+			}
+		#endif
 		float2 uv = saturate( CalculateViewportUv( position ) ) * g_vFrameBufferCopyInvSizeAndUvScale.zw;
 		return g_tSourceScene.SampleLevel( g_sSourceClamp, uv, 0 ).rgb;
 	}
 
+	bool SourceRefractionPosition( float2 position, out float3 viewPosition )
+	{
+		viewPosition = 0;
+		float2 colorUv = g_vSourceWaterRefractionViewport.xy + saturate( CalculateViewportUv( position ) ) * g_vSourceWaterRefractionViewport.zw;
+		float2 uv = colorUv * g_vSourceWaterRefractionDepthUvScaleBias.xy + g_vSourceWaterRefractionDepthUvScaleBias.zw;
+		uint width, height;
+		g_tSourceWaterRefractionDepth.GetDimensions( width, height );
+		int2 pixel = clamp( int2( uv * float2( width, height ) ), int2( 0, 0 ), int2( width - 1, height - 1 ) );
+		float depth = saturate( (g_tSourceWaterRefractionDepth.Load( int3( pixel, 0 ) ).r - g_vSourceWaterRefractionDepthRange.x)
+			/ max( g_vSourceWaterRefractionDepthRange.y - g_vSourceWaterRefractionDepthRange.x, 0.000001 ) );
+		if ( depth <= 0 ) return false;
+		uv = ((float2( pixel ) + 0.5) / float2( width, height ) - g_vSourceWaterRefractionViewport.xy) / g_vSourceWaterRefractionViewport.zw;
+		float4 point = mul( float4( uv * float2( 2, -2 ) + float2( -1, 1 ), depth, 1 ), g_matSourceWaterRefractionProjectionToView );
+		if ( point.w <= 0.000001 ) return false;
+		viewPosition = point.xyz / point.w;
+		return true;
+	}
+
 	float SourceSceneDepth( float2 position )
 	{
+		#if S_SOURCE_WATER
+			if ( g_bSourceWaterHasRefraction )
+			{
+				float3 point;
+				return SourceRefractionPosition( position, point ) ? -point.z : 1e20;
+			}
+		#endif
 		position = clamp( position, 0, 1 / g_vInvViewportSize - 1 );
 		#if D_SKYBOX
 			return Depth::Linearize( 0, position );
@@ -132,6 +175,18 @@ PS
 
 	float SourceWaterDepth( float2 position, float waterHeight )
 	{
+		if ( g_flSourceAboveWater < 0.5 ) return 1;
+		if ( g_bSourceWaterHasRefraction )
+		{
+			float3 point;
+			if ( !SourceRefractionPosition( position, point ) ) return 1;
+			float eyeDistance = dot( g_vCameraPositionWs.xyz, g_vSourceWaterPlane.xyz ) - g_vSourceWaterPlane.w;
+			float receiverDistance = eyeDistance + dot( point, Vector3WsToVs( g_vSourceWaterPlane.xyz ) );
+			float height = eyeDistance - receiverDistance;
+			if ( abs( height ) < 0.0001 ) return 0;
+			float fraction = saturate( -receiverDistance / height );
+			return saturate( fraction * -point.z / max( g_flSourceFogEnd - g_flSourceFogStart, 0.001 ) );
+		}
 		#if D_SKYBOX
 			return 1;
 		#else
@@ -179,8 +234,9 @@ PS
 		float3 positionWs = i.vPositionWithOffsetWs + g_vHighPrecisionLightingOffsetWs.xyz;
 		float3 perturbation = Vector3WsToVs( normalTs.x * i.vTangentUWs + normalTs.y * i.vTangentVWs );
 		float2 offset = float2( perturbation.x, -perturbation.y ) * g_flSourceRefractAmount * alpha;
+		float unwarpedWaterDepth = 1;
 		#if S_SOURCE_WATER
-			float unwarpedWaterDepth = SourceWaterDepth( i.vPositionSs.xy, positionWs.z );
+			unwarpedWaterDepth = SourceWaterDepth( i.vPositionSs.xy, positionWs.z );
 			offset = normalTs.xy * normalSample.a * g_flSourceRefractAmount * alpha;
 			if ( g_flSourceBlurRefract < 0.5 )
 				offset *= unwarpedWaterDepth;
@@ -229,20 +285,23 @@ PS
 		if ( g_flSourceHasTint > 0.5 )
 			tint *= g_tSourceTint.Sample( g_sSourceTint, uv ).rgb;
 		float3 color = scene * tint;
-		if ( g_bFogEnabled )
-			color += Fog::Apply( positionWs, i.vPositionSs.xy, float3( 0, 0, 0 ) ) * (1 - tint);
+		#if !S_SOURCE_WATER
+			if ( g_bFogEnabled )
+				color += Fog::Apply( positionWs, i.vPositionSs.xy, float3( 0, 0, 0 ) ) * (1 - tint);
+		#endif
 
 		#if S_SOURCE_WATER
 			float fog = g_flSourceAboveWater > 0.5 ? saturate( waterDepth - 0.05 )
 				: saturate( (surfaceDepth - g_flSourceFogStart) / max( g_flSourceFogEnd - g_flSourceFogStart, 0.001 ) );
 			if ( g_flSourceCheapWater > 0.5 ) fog = 1;
-			float3 waterColor = g_vSourceFogColor;
-			if ( g_bFogEnabled )
-				waterColor = Fog::Apply( positionWs, i.vPositionSs.xy, waterColor );
-			color = lerp( color, waterColor, fog );
+			color = lerp( color, g_vSourceFogColor, fog );
 		#endif
 
-		if ( g_flSourceHasEnvCube > 0.5 || g_flSourceSceneReflection > 0.5 )
+		bool planarReflection = false;
+		#if S_SOURCE_WATER
+			planarReflection = g_bSourceWaterHasReflection;
+		#endif
+		if ( planarReflection || g_flSourceHasEnvCube > 0.5 || g_flSourceSceneReflection > 0.5 )
 		{
 			float3 normalWs = Vec3TsToWsNormalized( normalTs, normalize( i.vNormalWs ), normalize( i.vTangentUWs ), normalize( i.vTangentVWs ) );
 			float3 view = normalize( g_vCameraPositionWs.xyz - positionWs );
@@ -256,7 +315,16 @@ PS
 					fresnel *= saturate( (waterDepth - 0.05) * 20 );
 			#endif
 			float3 reflection;
-			if ( g_flSourceHasEnvCube > 0.5 )
+			if ( planarReflection )
+			{
+				float2 reflectedOffset = normalTs.xy * normalSample.a * g_flSourceReflectAmount;
+				if ( g_flSourceBlurRefract < 0.5 )
+					reflectedOffset *= unwarpedWaterDepth;
+				float2 reflectionUv = saturate( CalculateViewportUv( i.vPositionSs.xy ) + reflectedOffset );
+				reflectionUv = g_vSourceWaterReflectionViewport.xy + reflectionUv * g_vSourceWaterReflectionViewport.zw;
+				reflection = g_tSourceWaterReflection.SampleLevel( g_sSourceClamp, reflectionUv, 0 ).rgb;
+			}
+			else if ( g_flSourceHasEnvCube > 0.5 )
 			{
 				reflection = g_tSourceEnvCube.SampleLevel( g_sSourceCube, reflect( -view, normalWs ), 0 ).rgb;
 			}
@@ -265,8 +333,10 @@ PS
 				reflection = EnvMap::From( positionWs, i.vPositionSs, normalWs, float2( 0.02, 0.02 ) );
 			}
 			reflection *= g_vSourceReflectTint;
-			if ( g_bFogEnabled )
-				reflection = Fog::Apply( positionWs, i.vPositionSs.xy, reflection );
+			#if !S_SOURCE_WATER
+				if ( g_bFogEnabled )
+					reflection = Fog::Apply( positionWs, i.vPositionSs.xy, reflection );
+			#endif
 			float reflectionMask = lerp( 1, normalSample.a, g_flSourceEnvAlphaMask );
 			#if S_SOURCE_WATER
 				color = lerp( color, reflection, saturate( fresnel ) );
@@ -274,6 +344,11 @@ PS
 				color = lerp( color, reflection, saturate( fresnel * g_flSourceReflectAmount * reflectionMask ) );
 			#endif
 		}
+
+		#if S_SOURCE_WATER
+			if ( g_bFogEnabled )
+				color = Fog::Apply( positionWs, i.vPositionSs.xy, color );
+		#endif
 
 		float2 screenUv = saturate( CalculateViewportUv( i.vPositionSs.xy ) ) * g_vFrameBufferCopyInvSizeAndUvScale.zw;
 		float3 background = g_tSourceScene.SampleLevel( g_sSourceClamp, screenUv, 0 ).rgb;

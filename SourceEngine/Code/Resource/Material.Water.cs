@@ -43,7 +43,6 @@ internal sealed partial class SourceMaterialBuilder
 		material.Set( "g_flSourceBlurRefract", water && parameters.Boolean( "$blurrefract" ) );
 		if ( water )
 		{
-			Log.Warning( $"{FullPath}: water uses native framebuffer refraction and cubemap reflections; Source planar views and underwater volume fog are not supported by engine components." );
 			foreach ( var key in new[]
 			{
 				"$flowmap",

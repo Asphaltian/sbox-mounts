@@ -10,6 +10,7 @@ public abstract partial class BaseMount
 	private readonly HashSet<string> missingSurfaces = new( StringComparer.OrdinalIgnoreCase );
 
 	private string SurfaceResourceName( string name ) => $"{Ident}_{Uri.EscapeDataString( name.ToLowerInvariant() )}";
+	private string FootstepResourcePath( SourceSurfaceDefinition surface, string key ) => $"sounds/footsteps/{SurfaceResourceName( surface.Name )}_{key}.sound";
 
 	private void MountSurfaces( MountContext context, FileIndex files )
 	{
@@ -32,6 +33,7 @@ public abstract partial class BaseMount
 
 		var wanted = files.Surfaces.Values.SelectMany( surface => SurfaceSoundKeys.Select( key => surface.Parameters.String( key ) ) )
 			.Where( name => !string.IsNullOrWhiteSpace( name ) ).ToHashSet( StringComparer.OrdinalIgnoreCase );
+		wanted.Add( "Player.AmbientUnderWater" );
 		var scripts = new Dictionary<string, (VmtNode Root, string Path)>( StringComparer.OrdinalIgnoreCase );
 		const string soundsManifest = "scripts/game_sounds_manifest.txt";
 		try
@@ -89,7 +91,23 @@ public abstract partial class BaseMount
 		foreach ( var sound in files.SurfaceSounds.Values )
 			context.Add( ResourceType.GameResource, $"sounds/surfaces/{SurfaceResourceName( sound.Name )}.sound", new SurfaceSoundLoader( sound ) );
 		foreach ( var surface in files.Surfaces.Values )
+		{
 			context.Add( ResourceType.GameResource, $"surfaces/{SurfaceResourceName( surface.Name )}.surface", new SourceSurfaceLoader( surface ) );
+			foreach ( var key in new[] { "stepleft", "stepright" } )
+			{
+				var name = surface.Parameters.String( key );
+				if ( string.IsNullOrWhiteSpace( name ) || !files.SurfaceSounds.TryGetValue( name, out var sound ) )
+					continue;
+				var volume = surface.GameMaterial switch
+				{
+					'D' => 0.55f,
+					'V' => 0.7f,
+					_ => 0.5f
+				};
+				context.Add( ResourceType.GameResource, FootstepResourcePath( surface, key ),
+					new SurfaceSoundLoader( sound with { Volume = (volume, volume) } ) );
+			}
+		}
 
 		string Read( string path )
 		{
@@ -133,11 +151,14 @@ public abstract partial class BaseMount
 		return MountUtility.IsMountPath( surface.ResourcePath ) ? surface.ResourcePath : surface.ResourceName;
 	}
 
-	internal SoundEvent GetSurfaceSound( string name )
+	internal SoundEvent GetSurfaceFootstep( SourceSurfaceDefinition surface, string key )
+		=> GetSurfaceSound( surface.Parameters.String( key ), FootstepResourcePath( surface, key ) );
+
+	internal SoundEvent GetSurfaceSound( string name, string resourcePath = null )
 	{
 		if ( string.IsNullOrWhiteSpace( name ) || !index.SurfaceSounds.ContainsKey( name ) )
 			return null;
-		var path = $"mount://{Ident}/sounds/surfaces/{SurfaceResourceName( name )}.sound";
+		var path = $"mount://{Ident}/{resourcePath ?? $"sounds/surfaces/{SurfaceResourceName( name )}.sound"}";
 		var sound = GameResource.Load<SoundEvent>( path );
 		if ( sound is null )
 			Log.Trace( $"{Title}: surface sound '{name}' could not be loaded; its sound slot will be empty. Physical surface properties remain available." );
