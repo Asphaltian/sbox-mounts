@@ -10,7 +10,13 @@ public abstract partial class BaseMount
 	private readonly HashSet<string> missingSurfaces = new( StringComparer.OrdinalIgnoreCase );
 
 	private string SurfaceResourceName( string name ) => $"{Ident}_{Uri.EscapeDataString( name.ToLowerInvariant() )}";
-	private string FootstepResourcePath( SourceSurfaceDefinition surface, string key ) => $"sounds/footsteps/{SurfaceResourceName( surface.Name )}_{key}.sound";
+	private string FootstepResourcePath( string name, int volume ) => $"sounds/footsteps/{SurfaceResourceName( name )}_{volume}.sound";
+	private static int FootstepVolume( SourceSurfaceDefinition surface ) => surface.GameMaterial switch
+	{
+		'D' => 55,
+		'V' => 70,
+		_ => 50
+	};
 
 	private void MountSurfaces( MountContext context, FileIndex files )
 	{
@@ -90,6 +96,7 @@ public abstract partial class BaseMount
 
 		foreach ( var sound in files.SurfaceSounds.Values )
 			context.Add( ResourceType.GameResource, $"sounds/surfaces/{SurfaceResourceName( sound.Name )}.sound", new SurfaceSoundLoader( sound ) );
+		var footsteps = new HashSet<string>( StringComparer.Ordinal );
 		foreach ( var surface in files.Surfaces.Values )
 		{
 			context.Add( ResourceType.GameResource, $"surfaces/{SurfaceResourceName( surface.Name )}.surface", new SourceSurfaceLoader( surface ) );
@@ -98,13 +105,11 @@ public abstract partial class BaseMount
 				var name = surface.Parameters.String( key );
 				if ( string.IsNullOrWhiteSpace( name ) || !files.SurfaceSounds.TryGetValue( name, out var sound ) )
 					continue;
-				var volume = surface.GameMaterial switch
-				{
-					'D' => 0.55f,
-					'V' => 0.7f,
-					_ => 0.5f
-				};
-				context.Add( ResourceType.GameResource, FootstepResourcePath( surface, key ),
+				var level = FootstepVolume( surface );
+				var path = FootstepResourcePath( name, level );
+				if ( !footsteps.Add( path ) ) continue;
+				var volume = level / 100.0f;
+				context.Add( ResourceType.GameResource, path,
 					new SurfaceSoundLoader( sound with { Volume = (volume, volume) } ) );
 			}
 		}
@@ -152,7 +157,11 @@ public abstract partial class BaseMount
 	}
 
 	internal SoundEvent GetSurfaceFootstep( SourceSurfaceDefinition surface, string key )
-		=> GetSurfaceSound( surface.Parameters.String( key ), FootstepResourcePath( surface, key ) );
+	{
+		var name = surface.Parameters.String( key );
+		return string.IsNullOrWhiteSpace( name ) ? null
+			: GetSurfaceSound( name, FootstepResourcePath( name, FootstepVolume( surface ) ) );
+	}
 
 	internal SoundEvent GetSurfaceSound( string name, string resourcePath = null )
 	{

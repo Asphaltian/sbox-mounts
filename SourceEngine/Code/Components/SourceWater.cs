@@ -45,18 +45,17 @@ public sealed class SourceWater : Component, Component.ExecuteInEditor
 			_cameras.Clear();
 		}
 		camera ??= Scene.Camera;
-		if ( !camera.IsValid() )
-		{
-			Renderer.ExecuteBefore = null;
-			return;
-		}
-
 		var commands = _captures[_captureIndex ^= 1];
 		commands.Reset();
 		commands.Attributes.Set( "SourceWaterHasReflection", false );
 		commands.Attributes.Set( "SourceWaterHasRefraction", false );
+		Renderer.ExecuteBefore = commands;
+		if ( !camera.IsValid() || camera.Orthographic || camera.CustomProjectionMatrix is not null )
+			return;
 		var origin = WorldTransform.PointToWorld( new Vector3( 0, 0, Height ) );
 		var normal = WorldRotation.Up * (WorldScale.z < 0 ? -1 : 1);
+		if ( AboveWater != (Vector3.Dot( camera.WorldPosition - origin, normal ) >= 0) )
+			return;
 		commands.Attributes.Set( "SourceWaterPlane", new Vector4( normal, Vector3.Dot( origin, normal ) ) );
 		var atmosphere = GetAtmosphere();
 		int filterKey = (ReflectEntities ? 1 : 0) | (ReflectSky ? 2 : 0) | (ReflectSkybox3D ? 4 : 0);
@@ -124,13 +123,11 @@ public sealed class SourceWater : Component, Component.ExecuteInEditor
 			commands.Attributes.Set( "SourceWaterRefractionDepthRange", view.DepthRange );
 			commands.Attributes.Set( "SourceWaterHasRefraction", view.IsValid );
 		}
-
-		Renderer.ExecuteBefore = commands;
 	}
 
 	FogSetup GetAtmosphere()
 	{
-		if ( !Atmosphere.IsValid() )
+		if ( !Atmosphere.IsValid() || !Atmosphere.Active )
 			return new FogSetup { Enabled = false };
 
 		return new FogSetup

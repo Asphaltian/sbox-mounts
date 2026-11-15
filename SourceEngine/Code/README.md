@@ -203,6 +203,9 @@ reconstructs the submerged path for water absorption. Atmospheric fog applies to
 completed water blend, including planar reflections. Captures honor `$forcecheap`,
 `$forceexpensive`, reflection/refraction texture presence and sky reflection flags.
 Entity reflections are enabled by default and can be disabled on `SourceWater`.
+Compatible coplanar surfaces share a renderer while retaining their materials and UVs.
+Only the camera-facing side submits captures; orthographic and custom-projection
+cameras retain framebuffer/cubemap fallback.
 `SourceWaterMap` retains a pruned BSP tree for exact leaf-water membership.
 `SourceWaterVolume` selects native underwater fog from the volume's bottom material,
 without approximating the water region with a bounding box.
@@ -294,6 +297,7 @@ WAV/MP3 files are mounted directly; surface sound
 events retain their authored wave variants, volume, pitch and attenuation.
 Footstep slots use separate events with Source's running-step volume (0.5 by
 default, 0.55 for dirt, 0.7 for vents), rather than full sound-script volume.
+Surfaces sharing a sound script and footstep gain share the same event.
 The engine player controller owns footstep and landing playback and volume scaling.
 Impact, scrape, break and ambient events keep their authored volume.
 Unavailable wave references are reported once per sound during mounting.

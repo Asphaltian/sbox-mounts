@@ -6,14 +6,15 @@ namespace Source1;
 
 partial class MapLoader
 {
-	private readonly List<(Model Model, Material Material, float Height, bool Above, bool Skybox)> _waterModels = [];
+	private readonly record struct WaterCaptureSettings( bool Above, bool Reflect, bool Refract, bool Sky, bool Skybox3D, Color ClearColor );
+	private readonly List<(Model Model, Material Material, float Height, WaterCaptureSettings Capture, bool Skybox)> _waterModels = [];
 	private void BuildWater( BspFile bsp, GameObject geometry, Fog atmosphere = null, bool skybox = false )
 	{
 		foreach ( var water in _waterModels )
 		{
 			if ( water.Skybox != skybox )
 				continue;
-			var child = new GameObject( false, water.Above ? "water" : "water underside" )
+			var child = new GameObject( false, water.Capture.Above ? "water" : "water underside" )
 			{
 				Parent = geometry,
 				IsStatic = true
@@ -27,16 +28,13 @@ partial class MapLoader
 			surface.Renderer = renderer;
 			surface.Material = water.Material;
 			surface.Height = water.Height;
-			surface.AboveWater = water.Above;
+			surface.AboveWater = water.Capture.Above;
 			surface.Atmosphere = atmosphere;
-			var parameters = WaterParameters( water.Material );
-			var cheap = parameters.Boolean( "$forcecheap" );
-			surface.Reflect = !cheap && parameters.Boolean( "$forceexpensive", true )
-				&& !string.IsNullOrWhiteSpace( parameters.String( "$reflecttexture", "_rt_WaterReflection" ) );
-			surface.Refract = !cheap && !string.IsNullOrWhiteSpace( parameters.String( "$refracttexture", "_rt_WaterRefraction" ) );
+			surface.Reflect = water.Capture.Reflect;
+			surface.Refract = water.Capture.Refract;
 			surface.ReflectEntities = true;
-			surface.ReflectSky = parameters.Boolean( "$reflect2dskybox", true );
-			surface.ReflectSkybox3D = parameters.Boolean( "$reflect3dskybox" );
+			surface.ReflectSky = water.Capture.Sky;
+			surface.ReflectSkybox3D = water.Capture.Skybox3D;
 			child.Enabled = true;
 		}
 
@@ -45,14 +43,31 @@ partial class MapLoader
 
 	private void BuildWaterModels( Dictionary<(int Texture, float Height), MeshGroup> groups, bool skybox )
 	{
-		foreach ( var (key, group) in groups )
+		foreach ( var batch in groups.GroupBy( entry => (entry.Key.Height, Capture: GetWaterCaptureSettings( entry.Value.Material )) ) )
 		{
+			var first = batch.First();
 			var builder = Model.Builder;
-			var (bounds, _) = BuildWorldMesh( builder, group.Material, [group] );
-			var model = CreateWorldModel( builder.WithViewBounds( bounds ), $"{(skybox ? "skybox_" : "")}water_{key.Texture}_{_waterModels.Count}.vmdl" );
-			var above = WaterParameters( group.Material ).Boolean( "$abovewater", true );
-			_waterModels.Add( (model, group.Material, key.Height, above, skybox) );
+			var bounds = new BBox( first.Value.Vertices[0].Position, first.Value.Vertices[0].Position );
+			foreach ( var (_, group) in batch )
+			{
+				var (meshBounds, _) = BuildWorldMesh( builder, group.Material, [group] );
+				bounds = bounds.AddBBox( meshBounds );
+			}
+			var model = CreateWorldModel( builder.WithViewBounds( bounds ), $"{(skybox ? "skybox_" : "")}water_{first.Key.Texture}_{_waterModels.Count}.vmdl" );
+			_waterModels.Add( (model, first.Value.Material, batch.Key.Height, batch.Key.Capture, skybox) );
 		}
+	}
+
+	WaterCaptureSettings GetWaterCaptureSettings( Material material )
+	{
+		var parameters = WaterParameters( material );
+		var cheap = parameters.Boolean( "$forcecheap" );
+		var above = parameters.Boolean( "$abovewater", true );
+		var reflect = !cheap && parameters.Boolean( "$forceexpensive", true )
+			&& !string.IsNullOrWhiteSpace( parameters.String( "$reflecttexture", "_rt_WaterReflection" ) );
+		var refract = !cheap && !string.IsNullOrWhiteSpace( parameters.String( "$refracttexture", "_rt_WaterRefraction" ) );
+		return new( above, reflect, refract, parameters.Boolean( "$reflect2dskybox", true ),
+			parameters.Boolean( "$reflect3dskybox" ), above && refract ? material.GetColor( "g_vSourceFogColor" ).WithAlpha( 1 ) : Color.Black );
 	}
 
 	VmtParameters WaterParameters( Material material )
