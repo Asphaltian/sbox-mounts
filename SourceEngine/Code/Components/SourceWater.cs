@@ -13,9 +13,10 @@ public sealed class SourceWater : Component, Component.ExecuteInEditor
 	[Property] public bool AboveWater { get; set; } = true;
 	[Property] public bool Reflect { get; set; } = true;
 	[Property] public bool Refract { get; set; } = true;
-	[Property] public bool ReflectEntities { get; set; } = true;
+	[Property] public bool ReflectEntities { get; set; }
 	[Property] public bool ReflectSky { get; set; } = true;
 	[Property] public bool ReflectSkybox3D { get; set; }
+	[Property] public float CheapWaterEndDistance { get; set; } = 0.1f;
 
 	readonly List<CameraComponent> _cameras = [];
 	CommandList[] _captures;
@@ -23,6 +24,7 @@ public sealed class SourceWater : Component, Component.ExecuteInEditor
 	TagSet _reflectionTags;
 	TagSet _reflectionExclusions;
 	readonly TagSet _refractionExclusions = new( ["source1_water"] );
+	readonly TagSet _underwaterExclusions = new( ["source1_water", "skybox", "source1_skybox2d", "source1_skybox3d"] );
 	int _filterKey = -1;
 
 	protected override void OnEnabled()
@@ -56,6 +58,17 @@ public sealed class SourceWater : Component, Component.ExecuteInEditor
 		var normal = WorldRotation.Up * (WorldScale.z < 0 ? -1 : 1);
 		if ( AboveWater != (Vector3.Dot( camera.WorldPosition - origin, normal ) >= 0) )
 			return;
+		// DetermineWaterRenderInfo keeps local reflections expensive, but lets
+		// refract-only water switch to cubemaps at water_lod_control's end distance.
+		if ( !Reflect )
+		{
+			var eye = WorldTransform.PointToLocal( camera.WorldPosition );
+			var bounds = Renderer.Model.Bounds;
+			var nearest = new Vector3( Math.Clamp( eye.x, bounds.Mins.x, bounds.Maxs.x ),
+				Math.Clamp( eye.y, bounds.Mins.y, bounds.Maxs.y ), Height );
+			if ( camera.WorldPosition.Distance( WorldTransform.PointToWorld( nearest ) ) >= CheapWaterEndDistance )
+				return;
+		}
 		commands.Attributes.Set( "SourceWaterPlane", new Vector4( normal, Vector3.Dot( origin, normal ) ) );
 		var atmosphere = GetAtmosphere();
 		int filterKey = (ReflectEntities ? 1 : 0) | (ReflectSky ? 2 : 0) | (ReflectSkybox3D ? 4 : 0);
@@ -80,6 +93,8 @@ public sealed class SourceWater : Component, Component.ExecuteInEditor
 			var target = commands.GetRenderTarget( "Source water reflection", 1, ImageFormat.RGBA16161616F, ImageFormat.None );
 			var view = commands.DrawReflection( camera, new Plane( origin, normal ), target, new ReflectionSetup
 			{
+				// CBaseWorldView::PushView clips reflections two units below the water.
+				ClipOffset = 2,
 				ViewSetup = new ViewSetup
 				{
 					EnablePostprocessing = false,
@@ -103,13 +118,18 @@ public sealed class SourceWater : Component, Component.ExecuteInEditor
 			var fogColor = Material.GetColor( "g_vSourceFogColor" ).WithAlpha( 1 );
 			var view = commands.DrawRefraction( camera, new Plane( origin, AboveWater ? -normal : normal ), target, new RefractionSetup
 			{
+				// DF_FUDGE_UP keeps two units above the surface for the underwater
+				// capture; the view from below keeps two units below it instead.
+				ClipOffset = -2,
 				RenderBehind = true,
 				ViewSetup = new ViewSetup
 				{
 					EnablePostprocessing = false,
 					EnableUI = false,
 					EnableDebugOverlays = false,
-					ExcludeTags = _refractionExclusions,
+					// CAboveWaterView::CRefractionView draws only the underwater world,
+					// while the underwater camera's refraction view includes the sky.
+					ExcludeTags = AboveWater ? _underwaterExclusions : _refractionExclusions,
 					Fog = AboveWater ? new FogSetup { Enabled = false } : atmosphere,
 					ClearColor = AboveWater ? fogColor : Color.Black,
 					ViewHash = HashCode.Combine( Id, 1 )

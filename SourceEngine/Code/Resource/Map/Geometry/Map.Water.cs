@@ -6,10 +6,11 @@ namespace Source1;
 
 partial class MapLoader
 {
-	private readonly record struct WaterCaptureSettings( bool Above, bool Reflect, bool Refract, bool Sky, bool Skybox3D, Color ClearColor );
+	private readonly record struct WaterCaptureSettings( bool Above, bool Reflect, bool Refract, bool Entities, bool Sky, bool Skybox3D, Color ClearColor );
 	private readonly List<(Model Model, Material Material, float Height, WaterCaptureSettings Capture, bool Skybox)> _waterModels = [];
 	private void BuildWater( BspFile bsp, GameObject geometry, Fog atmosphere = null, bool skybox = false )
 	{
+		var lod = bsp.Entities.FirstOrDefault( entity => entity.Get( "classname" ) == "water_lod_control" );
 		foreach ( var water in _waterModels )
 		{
 			if ( water.Skybox != skybox )
@@ -24,6 +25,13 @@ partial class MapLoader
 			var renderer = child.AddComponent<ModelRenderer>();
 			renderer.Model = water.Model;
 			renderer.RenderType = ModelRenderer.ShadowRenderType.Off;
+			// CSkyboxView draws water with the sky world, without reflection/refraction views.
+			// D_SKYBOX selects the cubemap water path in the shader, in sky-camera units.
+			if ( skybox )
+			{
+				child.Enabled = true;
+				continue;
+			}
 			var surface = child.AddComponent<SourceWater>();
 			surface.Renderer = renderer;
 			surface.Material = water.Material;
@@ -32,9 +40,10 @@ partial class MapLoader
 			surface.Atmosphere = atmosphere;
 			surface.Reflect = water.Capture.Reflect;
 			surface.Refract = water.Capture.Refract;
-			surface.ReflectEntities = true;
+			surface.ReflectEntities = water.Capture.Entities;
 			surface.ReflectSky = water.Capture.Sky;
 			surface.ReflectSkybox3D = water.Capture.Skybox3D;
+			surface.CheapWaterEndDistance = lod?.Number( "cheapwaterenddistance", 2000 ) ?? 0.1f;
 			child.Enabled = true;
 		}
 
@@ -64,9 +73,9 @@ partial class MapLoader
 		var cheap = parameters.Boolean( "$forcecheap" );
 		var above = parameters.Boolean( "$abovewater", true );
 		var reflect = !cheap && parameters.Boolean( "$forceexpensive", true )
-			&& !string.IsNullOrWhiteSpace( parameters.String( "$reflecttexture", "_rt_WaterReflection" ) );
-		var refract = !cheap && !string.IsNullOrWhiteSpace( parameters.String( "$refracttexture", "_rt_WaterRefraction" ) );
-		return new( above, reflect, refract, parameters.Boolean( "$reflect2dskybox", true ),
+			&& !string.IsNullOrWhiteSpace( parameters.String( "$reflecttexture" ) );
+		var refract = !cheap && !string.IsNullOrWhiteSpace( parameters.String( "$refracttexture" ) );
+		return new( above, reflect, refract, parameters.Boolean( "$reflectentities" ) || parameters.Contains( "$reflectonlymarkedentities" ), parameters.Boolean( "$reflect2dskybox", true ),
 			parameters.Boolean( "$reflect3dskybox" ), above && refract ? material.GetColor( "g_vSourceFogColor" ).WithAlpha( 1 ) : Color.Black );
 	}
 
@@ -130,7 +139,9 @@ partial class MapLoader
 			var start = material.GetVector4( "g_flSourceFogStart" ).x;
 			var end = material.GetVector4( "g_flSourceFogEnd" ).x;
 			fog.DistanceRange = new Vector2( start, start == end ? start + 1 : end );
-			fog.FalloffExponent = 2;
+			// BlendPixelFog uses a linear factor for height (water) fog, unlike range fog.
+			fog.FalloffExponent = 1;
+			fog.ColorSource = FogColorSource.Constant;
 			fog.Color = material.GetColor( "g_vSourceFogColor" ).WithAlpha( 1 );
 			fog.SunLightingEnabled = false;
 			fog.SkyAffect = 1;
