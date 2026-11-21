@@ -36,20 +36,7 @@ public sealed class Shotgun : BulletWeapon
 		Ballistics = new() { Damage = 5, Range = 2048, Radius = 0 };
 	}
 
-	// An untouched SDK pickup contains twelve shells. Eight fill the tube on first pickup.
-	protected override void OnAdded( BaseInventoryComponent inventory )
-	{
-		var fresh = Clip1 < 0;
-		base.OnAdded( inventory );
-		if ( fresh ) inventory.GiveAmmo( PrimaryAmmoType, 4 );
-	}
-
-	protected override bool OnAdding( BaseInventoryComponent inventory )
-	{
-		if ( Clip1 >= 0 || !inventory.Items.OfType<Shotgun>().Any( gun => gun != this ) ) return base.OnAdding( inventory );
-		if ( inventory.GiveAmmo( PrimaryAmmoType, 12 ) > 0 ) GameObject.Destroy();
-		return false;
-	}
+	internal override int FreshPickupRounds => 12;
 
 	public override bool HasSecondaryAmmo() => !IsHeld || Clip1 >= 2;
 	public override bool CanReload() => NextPrimaryFire <= 0 && base.CanReload();

@@ -29,8 +29,9 @@ public sealed partial class RocketLauncher : ProjectileWeapon
 		PrimaryDelay = 1.5f;
 		SecondaryDelay = 0.2f;
 		ClipMaxSize = 1;
-		StartingAmmo = 1;
 	}
+
+	internal override int FreshPickupRounds => Networking.MaxPlayers > 1 ? 2 : 1;
 
 	internal override bool Release( Ray ray )
 	{

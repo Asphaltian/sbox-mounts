@@ -42,6 +42,26 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 	internal virtual string ReloadSequence => "reload";
 	internal virtual float IdleAfterReloadStart => 3;
 
+	// Some fresh SDK weapons carry more rounds than fit in their magazine.
+	internal virtual int FreshPickupRounds => ClipMaxSize;
+
+	protected override void OnAdded( BaseInventoryComponent inventory )
+	{
+		var extra = Clip1 < 0 && UsesPrimaryClip ? FreshPickupRounds - ClipMaxSize : 0;
+		base.OnAdded( inventory );
+		if ( extra > 0 ) inventory.GiveAmmo( PrimaryAmmoType, extra );
+	}
+
+	protected override bool OnAdding( BaseInventoryComponent inventory )
+	{
+		if ( Clip1 >= 0 || !UsesPrimaryClip || FreshPickupRounds <= ClipMaxSize ||
+			!inventory.Items.Any( item => item != this && item.GetType() == GetType() ) )
+			return base.OnAdding( inventory );
+
+		if ( inventory.GiveAmmo( PrimaryAmmoType, FreshPickupRounds ) > 0 ) GameObject.Destroy();
+		return false;
+	}
+
 	internal abstract void Configure();
 	protected override bool WantsReload() => base.WantsReload() ||
 		(AutoReload && UsesPrimaryClip && Clip1 == 0 && NextPrimaryFire <= 0 &&
