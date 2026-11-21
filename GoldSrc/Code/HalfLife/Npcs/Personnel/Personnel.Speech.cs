@@ -22,6 +22,7 @@ public abstract partial class Personnel
 
 	protected float SpeechPitch => VoicePitch + Game.Random.Int( 0, 3 ) / 100f;
 	protected abstract int PainVariants { get; }
+	float IdleSentenceDuration => PreDisaster ? Game.Random.Float( 4.8f, 5.2f ) : Game.Random.Float( 2.8f, 3.2f );
 	protected virtual string PreDisasterGreeting => null;
 	protected virtual string PreDisasterIdle => null;
 	TimeUntil _nextPain;
@@ -42,6 +43,7 @@ public abstract partial class Personnel
 
 	internal void Say( string line, GameObject listener = null, float duration = 3 )
 	{
+		_speaker = null;
 		EmitSentence( line );
 		HasSpoken = true;
 		_listener = listener;
@@ -64,6 +66,7 @@ public abstract partial class Personnel
 	}
 
 	internal virtual float AnswerDelay( float questionDuration ) => questionDuration;
+	protected void CancelAnswer() => _speaker = null;
 
 	internal bool AnswerQuestion()
 	{
@@ -71,7 +74,7 @@ public abstract partial class Personnel
 		var speaker = _speaker;
 		_speaker = null;
 		if ( speaker.Health <= 0 ) return false;
-		Say( "ANSWER", speaker.GameObject );
+		Say( "ANSWER", speaker.GameObject, Game.Random.Float( 2.8f, 3.2f ) );
 		return true;
 	}
 
@@ -83,8 +86,19 @@ public abstract partial class Personnel
 		base.Think();
 		if ( Action is not null || PhysicsCarrier.IsValid() || Health <= 0 )
 		{
+			CancelAnswer();
 			StopWatching();
 			return;
+		}
+		if ( _speaker.IsValid() )
+		{
+			if ( _speaker.Health <= 0 || FindVisibleEnemy().IsValid() || FindVisibleThreat().IsValid() )
+				_speaker = null;
+			else
+			{
+				if ( !AnswerQuestion() ) Animation.SetLookTarget( _speaker.GameObject );
+				return;
+			}
 		}
 		if ( _previousTurnsBody.HasValue && WatchPlayer() ) return;
 		if ( _nextIdleLine > 0 )
@@ -94,7 +108,7 @@ public abstract partial class Personnel
 		}
 		_nextIdleLine = Game.Random.Float( 0.4f, 0.7f );
 		if ( FindVisibleEnemy().IsValid() || FindVisibleThreat().IsValid() ) return;
-		if ( AnswerQuestion() || _talkUntil > 0 ) return;
+		if ( _talkUntil > 0 ) return;
 		var player = Senses?.FindNearestVisible( "player" );
 		if ( !player.IsValid() || player.WorldPosition.DistanceSquared( WorldPosition ) > 500 * 500 ) return;
 		if ( !CanStartConversation )
@@ -133,13 +147,13 @@ public abstract partial class Personnel
 		var friend = NearestColleague();
 		if ( friend.IsValid() && friend.Movement?.IsMoving != true && Game.Random.Int( 0, 99 ) < 75 )
 		{
-			Ask( friend, PreDisaster ? "PQUEST" : "QUESTION", Game.Random.Float( 2.8f, 3.2f ) );
+			Ask( friend, PreDisaster ? "PQUEST" : "QUESTION", IdleSentenceDuration );
 			_idleLines++;
 		}
 		else if ( Game.Random.Int( 0, 1 ) == 1 )
 		{
 			var line = PreDisaster ? PreDisasterIdle : "IDLE";
-			if ( line is not null ) Say( line, player );
+			if ( line is not null ) Say( line, player, IdleSentenceDuration );
 			_idleLines++;
 		}
 	}

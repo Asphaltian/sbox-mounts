@@ -13,7 +13,8 @@ public sealed partial class Scientist : ScientistBase
 	protected override void Think()
 	{
 		UpdateTreatment();
-		if ( !RespondToDanger() ) base.Think();
+		if ( RespondToDanger() ) CancelAnswer();
+		else base.Think();
 	}
 
 	internal override void FinishAction( string name )

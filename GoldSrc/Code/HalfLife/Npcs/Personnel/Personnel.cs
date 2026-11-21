@@ -64,6 +64,7 @@ public abstract partial class Personnel : TalkingNpc, Component.IPressable
 	protected override void OnDamaged( Component.IDamageable.DamageEvent damage )
 	{
 		base.OnDamaged( damage );
+		_speaker = null;
 		if ( IsBarnacleVictim || damage.Instigator?.GetComponentInParent<PlayerController>() is null ) return;
 		NearestColleague()?.Say( "SCARED" );
 	}
