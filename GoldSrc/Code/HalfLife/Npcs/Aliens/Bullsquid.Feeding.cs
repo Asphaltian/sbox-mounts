@@ -25,8 +25,9 @@ public sealed partial class Bullsquid
 				return;
 			}
 		}
-		if ( Action is null && _nextMeal <= 0 && !IsAdultHeadcrab( enemy )
-			&& Senses?.Disturbance is { Kind: "carcass" or "meat" or "garbage" } scent && Movement.IsValid() && Find( "eat" ) is not null )
+		if ( Action is null && _nextMeal <= 0 && Movement.IsValid() && Find( "eat" ) is not null
+			&& Senses?.Disturbance is { Kind: "carcass" or "meat" or "garbage" } scent
+			&& (!enemy.IsValid() || (enemy == LastHostile && !IsAdultHeadcrab( enemy ) && scent.Kind != "garbage")) )
 		{
 			_enemyAtMeal = enemy;
 			_wallow = scent.Kind == "garbage";
