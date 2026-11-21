@@ -30,17 +30,9 @@ public class Hornet : NpcProjectile, Component.IDamageable
 	{
 		if ( _trailStarted || Age < 0.1f || Application.IsDedicatedServer ) return;
 		_trailStarted = true;
-		var exhaust = new GameObject( GameObject, false, "Hornet trail" ) { NetworkMode = NetworkMode.Never };
-		var trail = exhaust.AddComponent<TrailRenderer>();
-		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount )
-			trail.Texturing = TrailTextureConfig.Default with { Material = mount.GetTrailMaterial( "laserbeam" ) };
-		trail.LifeTime = 1;
-		trail.Width = 2;
-		trail.Opaque = false;
-		trail.BlendMode = BlendMode.Lighten;
+		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount ) return;
 		Color tint = Red ? new Color32( 179, 39, 14, 128 ) : new Color32( 255, 128, 0, 128 );
-		trail.Color = tint;
-		exhaust.Enabled = true;
+		ProjectileTrail.Attach( GameObject, mount, "Hornet trail", "laserbeam", 1, 2, tint );
 	}
 
 	internal override void Guide()
