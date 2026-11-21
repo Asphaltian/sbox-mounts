@@ -29,6 +29,13 @@ internal sealed class StudioAnimationGraphs( Skeleton skeleton, string modelPath
 	internal const string HeadParameter = "head_turn";
 	internal const string MouthParameter = "mouth_open";
 
+	internal Graph CreatePreview( StudioSequence sequence, string path )
+	{
+		var builder = new GraphBuilder().WithSkeleton( skeleton );
+		var clip = GetClip( sequence.Name, sequence.Frames, sequence.Description.Fps );
+		return builder.Create( builder.Pose( clip, new GraphBuilder.PoseSettings() ), path );
+	}
+
 	internal Graph GetGraph( params StudioSequence[] sequences ) => GetGraph( sequences, null, [] );
 
 	internal Graph GetGraph( StudioSequence[] sequences, StudioController[] controllers, string[] parameters )

@@ -6,6 +6,29 @@ namespace GoldSrc;
 
 class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefinitionAttribute npc = null ) : ResourceLoader<GameMount>
 {
+	protected override ResourceLoader ResolveChild( string name, out ResourceType type )
+	{
+		type = default;
+		if ( !npcAnimations || !name.StartsWith( "preview/", StringComparison.OrdinalIgnoreCase ) ||
+			!name.EndsWith( ".ag", StringComparison.OrdinalIgnoreCase ) ) return null;
+		type = ResourceType.AnimationGraph;
+		return new PreviewPoseLoader( name[8..^3] );
+	}
+
+	sealed class PreviewPoseLoader( string pose ) : ResourceLoader<GameMount>
+	{
+		protected override object Load()
+		{
+			var studio = (ModelLoader)Parent;
+			if ( Model.Load( studio.Path ) is not { IsError: false } ) return null;
+			var sequences = studio.Sequences;
+			var chosen = sequences.FirstOrDefault( x => x.Name.Equals( pose, StringComparison.OrdinalIgnoreCase ) )
+				?? sequences.Where( x => x.Description.Activity == 1 ).MaxBy( x => x.Description.ActWeight )
+				?? sequences.FirstOrDefault();
+			return chosen is null ? null : studio.AnimationGraphs.CreatePreview( chosen, Path );
+		}
+	}
+
 	byte[] _transitions = [];
 	int _nodeCount;
 	internal List<Vector3> GibHull( string group, int variant ) => _gibHulls?.GetValueOrDefault( (group, variant) );
