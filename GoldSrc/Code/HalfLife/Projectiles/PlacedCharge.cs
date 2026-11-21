@@ -1,11 +1,17 @@
 namespace GoldSrc.HalfLife;
 
 [Hide]
-public sealed partial class PlacedCharge : Component, Component.IDamageable, Component.ICollisionListener
+public sealed partial class PlacedCharge : Component, Component.IDamageable, Component.IDamageable.IEvents, Component.ICollisionListener
 {
 	[Property] public GameObject Thrower { get; set; }
 	[Property] public bool IsMine { get; set; }
 	bool _spent;
+
+	void Component.IDamageable.IEvents.OnDied( Component.IDamageable.DeathEvent death )
+	{
+		if ( !Networking.IsHost || Networking.MaxPlayers <= 1 || IsMine || death.Victim != Thrower ) return;
+		if ( Thrower.GetComponentInChildren<Satchel>( true ).IsValid() ) GameObject.Destroy();
+	}
 
 	internal static void Throw( PlayerController player, Ray ray )
 	{

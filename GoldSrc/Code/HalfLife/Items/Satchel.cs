@@ -10,6 +10,8 @@ public sealed class Satchel : ProjectileWeapon
 
 	internal override string HeldModelName => State == Charge ? Definition.Model : Definition.AlternateModel;
 	internal override string ShotSequence => "draw";
+	internal override bool CanIdle => State != Detonating;
+	internal override void PlayIdle( StudioWeaponView view ) => view.Play( "fidget1", idleAfter: Game.Random.Float( 10, 15 ) );
 	public override bool ShouldAvoid => State == Charge && base.ShouldAvoid;
 
 	void OnStateChanged( byte before, byte after )
