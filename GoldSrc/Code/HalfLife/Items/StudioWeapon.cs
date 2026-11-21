@@ -36,6 +36,7 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 	}
 	internal virtual string ShotSequence => "shoot";
 	internal virtual string ReloadSequence => "reload";
+	internal virtual float IdleAfterReloadStart => 3;
 
 	internal abstract void Configure();
 	internal virtual void PosePickup( SkinnedModelRenderer renderer ) { }

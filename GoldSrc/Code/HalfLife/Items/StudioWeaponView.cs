@@ -44,7 +44,7 @@ public sealed class StudioWeaponView : BaseWeaponModel
 	public override void OnAttack( Vector3? hitPoint = null, Vector3? origin = null ) =>
 		Play( _weapon.ShotSequence );
 	public override void OnReloadStart() =>
-		Play( _weapon.ReloadSequence );
+		Play( _weapon.ReloadSequence, idleAfter: _weapon.IdleAfterReloadStart );
 
 	protected override void OnUpdate()
 	{
@@ -52,7 +52,7 @@ public sealed class StudioWeaponView : BaseWeaponModel
 		if ( _current is null || !Renderer.Animation.IsValid ) return;
 		var time = _loop ? (float)_elapsed % _current.Duration : (float)_elapsed;
 		_sequenceEvents.Update( _audio, Renderer, time, _loop );
-		if ( _elapsed >= _idleAfter && _weapon.CanIdle )
+		if ( _elapsed >= _idleAfter && !_weapon.IsReloading && _weapon.CanIdle )
 		{
 			_weapon.PlayIdle( this );
 			time = _elapsed;

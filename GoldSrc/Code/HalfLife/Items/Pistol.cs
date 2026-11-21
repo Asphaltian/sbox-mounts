@@ -17,6 +17,7 @@ public sealed class Pistol : BulletWeapon
 	};
 	internal override string ShotSequence => !_rapidFire && Clip1 == 0 ? "shoot_empty" : "shoot";
 	internal override string ReloadSequence => Clip1 > 0 ? "reload_noshot" : "reload";
+	internal override float IdleAfterReloadStart => Game.Random.Float( 10, 15 );
 
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => hd ? new( 12.25f, 1.3f, 5.1f ) : new( 9.8f, 1.1f, 3.8f );
 

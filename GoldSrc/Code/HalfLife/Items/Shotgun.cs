@@ -128,7 +128,7 @@ public sealed class Shotgun : BulletWeapon
 	protected override void OnReloadFinished()
 	{
 		_insertPending = false;
-		ViewModel?.GetComponent<StudioWeaponView>()?.Play( "pump" );
+		ViewModel?.GetComponent<StudioWeaponView>()?.Play( "pump", idleAfter: 1.5f );
 		PlayPump();
 	}
 
