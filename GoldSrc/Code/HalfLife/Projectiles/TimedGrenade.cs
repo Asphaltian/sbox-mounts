@@ -4,7 +4,7 @@ namespace GoldSrc.HalfLife;
 public sealed class TimedGrenade : Component, Component.ICollisionListener
 {
 	[Property] public GameObject Thrower { get; set; }
-	TimeUntil _fuse, _nextBounce, _nextWarning;
+	TimeUntil _fuse, _nextBounce, _nextImpact, _nextTumble;
 	bool _settledWarning;
 	internal const string DangerStimulus = "grenade";
 
@@ -35,36 +35,67 @@ public sealed class TimedGrenade : Component, Component.ICollisionListener
 	{
 		var go = new GameObject( false, "Hand grenade" );
 		go.WorldPosition = origin;
-		var renderer = go.AddComponent<ModelRenderer>();
+		if ( !velocity.IsNearlyZero() ) go.WorldRotation = Rotation.LookAt( velocity );
+		var renderer = go.AddComponent<SkinnedModelRenderer>();
 		renderer.Model = Model.Load( "mount://hl1/valve/models/w_grenade.mdl.vmdl" );
+		renderer.UseAnimGraph = false;
+		renderer.Sequence.Name = renderer.Model.GetAnimationName( Game.Random.Int( 3, 6 ) );
 		var collider = go.AddComponent<SphereCollider>();
 		collider.Radius = 2;
 		collider.Elasticity = 0.45f;
 		collider.Friction = 0.8f;
 		var body = go.AddComponent<Rigidbody>();
 		body.GravityScale = 0.5f;
+		body.EnableImpactDamage = false;
 		var grenade = go.AddComponent<TimedGrenade>();
 		grenade.Thrower = owner;
 		grenade._fuse = fuse;
+		grenade._nextTumble = 0.1f;
+		body.RigidbodyFlags |= RigidbodyFlags.DisableCollisionSounds;
 		go.Enabled = true;
-		body.Velocity = velocity;
-		body.AngularVelocity = Vector3.Random * 6;
+		body.Velocity = fuse < 0.1f ? Vector3.Zero : velocity;
 		go.NetworkSpawn( true, null );
 	}
 
 	void ICollisionListener.OnCollisionStart( Collision collision )
 	{
-		if ( !Networking.IsHost ) return;
-		var velocity = GetComponent<Rigidbody>().Velocity;
+		if ( !Networking.IsHost || collision.Other.IsTrigger ) return;
+		var other = collision.Other.GameObject;
+		if ( Thrower.IsValid() && other.Root == Thrower.Root ) return;
+		var body = GetComponent<Rigidbody>();
+		var velocity = body.Velocity;
+		if ( _nextImpact <= 0 && collision.Contact.Speed.Length > 100 )
+		{
+			_nextImpact = 1;
+			if ( Thrower.IsValid() && other.GetComponentInParent<IDamageable>() is { } victim )
+			{
+				var hit = new DamageInfo { Damage = 1, Attacker = Thrower, Weapon = GameObject, Origin = WorldPosition, Position = collision.Contact.Point };
+				hit.Tags.Add( "club" );
+				victim.OnDamage( hit );
+			}
+		}
 		if ( !_settledWarning && velocity.WithZ( velocity.z * 0.45f ).Length <= 60 )
 		{
 			_settledWarning = true;
 			Scene.GetSystem<Sandbox.Npcs.NpcSystem>().EmitStimulus( DangerStimulus, WorldPosition, GameObject, 250, 0.3f );
 		}
-		if ( _nextBounce > 0 || System.MathF.Abs( collision.Contact.NormalSpeed ) < 10 ) return;
+		var rolling = System.MathF.Abs( collision.Contact.Normal.z ) > 0.7f && System.MathF.Abs( velocity.z ) < 30;
+		if ( rolling ) body.Velocity *= 0.8f;
+		var rate = System.MathF.Min( 1, body.Velocity.Length / 200 );
+		SetTumble( rolling, rate < 0.5f ? 0 : rate );
+		if ( rolling || _nextBounce > 0 || System.MathF.Abs( collision.Contact.NormalSpeed ) < 10 ) return;
 		_nextBounce = 0.12f;
 		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount )
 			mount.NpcAudio.Emit( "weapons/grenade_hit", WorldPosition, volume: 0.25f );
+	}
+
+	[Rpc.Broadcast( NetFlags.HostOnly )]
+	void SetTumble( bool rolling, float rate )
+	{
+		var renderer = GetComponent<SkinnedModelRenderer>();
+		if ( !renderer.IsValid() ) return;
+		if ( rolling && renderer.Sequence.Name != "roll1" ) renderer.Sequence.Name = "roll1";
+		renderer.PlaybackRate = rate;
 	}
 
 	protected override void OnFixedUpdate()
@@ -72,11 +103,18 @@ public sealed class TimedGrenade : Component, Component.ICollisionListener
 		if ( !Networking.IsHost ) return;
 		if ( _fuse > 0 )
 		{
-			if ( _fuse < 1 && _nextWarning <= 0 )
+			if ( _nextTumble > 0 ) return;
+			_nextTumble = 0.1f;
+			var body = GetComponent<Rigidbody>();
+			if ( _fuse < 1 )
 			{
-				_nextWarning = 0.1f;
-				var landing = WorldPosition + GetComponent<Rigidbody>().Velocity * (float)_fuse;
+				var landing = WorldPosition + body.Velocity * (float)_fuse;
 				Scene.GetSystem<Sandbox.Npcs.NpcSystem>().EmitStimulus( DangerStimulus, landing, GameObject, 400, 0.1f );
+			}
+			if ( WaterBody.Find( Scene, WorldPosition ).IsValid() )
+			{
+				body.Velocity *= 0.5f;
+				if ( GetComponent<SkinnedModelRenderer>().PlaybackRate != 0.2f ) SetTumble( false, 0.2f );
 			}
 			return;
 		}
