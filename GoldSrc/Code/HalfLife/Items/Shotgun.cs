@@ -2,7 +2,7 @@ namespace GoldSrc.HalfLife;
 
 [Title( "Shotgun" ), Category( "Half-Life" )]
 [WeaponPickup( "shotgun", "buckshot", 125 )]
-public sealed class Shotgun : StudioWeapon
+public sealed class Shotgun : BulletWeapon
 {
 	bool _double;
 	bool _reloadWhenReady;
@@ -30,7 +30,7 @@ public sealed class Shotgun : StudioWeapon
 		IncrementalReloading = true;
 		ReloadStartTime = 1.1f;
 		ReloadTime = 0.5f;
-		AttackDamageTags = ["bullet", "nevergib"];
+		AttackDamageTags = ["bullet"];
 		Ballistics = new() { Damage = 5, Range = 2048, Radius = 0 };
 	}
 
@@ -51,8 +51,9 @@ public sealed class Shotgun : StudioWeapon
 
 	public override bool HasSecondaryAmmo() => !IsHeld || Clip1 >= 2;
 	public override bool CanReload() => NextPrimaryFire <= 0 && base.CanReload();
-	static bool Deathmatch => Networking.MaxPlayers > 1;
-	public override Vector2 CurrentSpread => Deathmatch ? new Vector2( _double ? 10 : 5, 2.5f ) : new Vector2( 5, 5 );
+	internal override Vector2 PelletSpread => Deathmatch
+		? new Vector2( _double ? 0.17365f : 0.08716f, 0.04362f )
+		: Vector2.One * 0.08716f;
 	internal override void DrawShotTrail( Vector3 start, Vector3 end ) { }
 
 	protected override void Think()

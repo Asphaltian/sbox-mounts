@@ -2,13 +2,13 @@ namespace GoldSrc.HalfLife;
 
 [Title( "9mm Assault Rifle" ), Category( "Half-Life" )]
 [WeaponPickup( "9mmar", "9mm", 250 )]
-public sealed class Rifle : StudioWeapon
+public sealed class Rifle : BulletWeapon
 {
 	internal const string GrenadeAmmoPath = "ammo/argrenades.ammo";
 	TimeUntil _nextLaunch;
 
 	internal override string DeploySequence => "deploy";
-	int FreshRounds => Connection.All.Count > 1 ? 50 : 25;
+	int FreshRounds => Deathmatch ? 50 : 25;
 
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => hd ? new( 30, 2.7f, 5.4f ) : new( 17.8f, 1.65f, 4.9f );
 
@@ -21,7 +21,7 @@ public sealed class Rifle : StudioWeapon
 		SecondaryAutomatic = true;
 		SecondaryAmmoType = GameResource.Load<BaseAmmoResource>( $"mount://hl1/{GrenadeAmmoPath}" );
 		ReloadTime = 1.5f;
-		AttackDamageTags = ["bullet", "nevergib"];
+		AttackDamageTags = ["bullet"];
 		Ballistics = new() { Damage = 5, Range = 8192, Radius = 0 };
 	}
 
@@ -31,11 +31,12 @@ public sealed class Rifle : StudioWeapon
 		return base.OnAdding( inventory );
 	}
 
-	public override Vector2 CurrentSpread => Vector2.One * (Connection.All.Count > 1 ? 3 : 1.5f);
+	internal override Vector2 PelletSpread => Vector2.One * (Deathmatch ? 0.05234f : 0.02618f);
 
 	public override void PrimaryAttack()
 	{
 		if ( Underwater() ) return;
+		Ballistics = Ballistics with { Damage = Deathmatch ? 12 : 5 };
 		base.PrimaryAttack();
 	}
 

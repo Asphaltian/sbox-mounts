@@ -2,7 +2,7 @@ namespace GoldSrc.HalfLife;
 
 [Title( "9mm Handgun" ), Category( "Half-Life" )]
 [WeaponPickup( "9mmhandgun", "9mm", 250 )]
-public sealed class Pistol : StudioWeapon
+public sealed class Pistol : BulletWeapon
 {
 	bool _rapidFire;
 
@@ -28,11 +28,11 @@ public sealed class Pistol : StudioWeapon
 		SecondaryAutomatic = true;
 		ReloadTime = 1.5f;
 		CanCancelReload = false;
-		AttackDamageTags = ["bullet", "nevergib"];
+		AttackDamageTags = ["bullet"];
 		Ballistics = new() { Damage = 12, Range = 8192, Radius = 0 };
 	}
 
-	public override Vector2 CurrentSpread => Vector2.One * System.MathF.Atan( _rapidFire ? 0.1f : 0.01f ).RadianToDegree();
+	internal override Vector2 PelletSpread => Vector2.One * (_rapidFire ? 0.1f : 0.01f);
 	public override bool HasSecondaryAmmo() => HasPrimaryAmmo();
 	public override void PrimaryAttack() => FireRound( false );
 	public override void SecondaryAttack() => FireRound( true );
@@ -40,6 +40,7 @@ public sealed class Pistol : StudioWeapon
 	void FireRound( bool rapid )
 	{
 		_rapidFire = rapid;
+		Ballistics = Ballistics with { Damage = Deathmatch ? 12 : 8 };
 		base.PrimaryAttack();
 		SetNextFire( rapid ? SecondaryDelay : PrimaryDelay );
 	}

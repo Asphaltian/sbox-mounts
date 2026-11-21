@@ -70,6 +70,9 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 		GoldSrc.HalfLife.Npc.ClassOf( shot.HitObject ) is not (MonsterClass.None or MonsterClass.Machine);
 
 	protected override SceneTrace BulletTrace( Ray ray, float distance, float radius ) =>
+		TraceLineOfFire( ray, distance, radius );
+
+	SceneTrace TraceLineOfFire( Ray ray, float distance, float radius ) =>
 		base.BulletTrace( ray, distance, radius ).WithCollisionRules( "bullet" ).WithoutTags( "playercontroller" );
 
 	Transform _worldMuzzle;
@@ -92,12 +95,12 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 		{
 			if ( !IsHeld ) return base.AimRay;
 			var sight = IsProxy && Owner.IsValid() ? Owner.EyeTransform.ForwardRay : base.AimRay;
-			var aim = BulletTrace( sight, Ballistics.Range, 0 ).Run().EndPosition;
+			var aim = TraceLineOfFire( sight, Ballistics.Range, 0 ).Run().EndPosition;
 			var muzzle = GetMuzzleTransform().Position;
 
 			// If the barrel sticks through cover, keep the shot on the shooter's side.
 			var eye = Owner.IsValid() ? Owner.EyePosition : sight.Position;
-			var cover = BulletTrace( new Ray( eye, (muzzle - eye).Normal ), eye.Distance( muzzle ), 0 ).Run();
+			var cover = TraceLineOfFire( new Ray( eye, (muzzle - eye).Normal ), eye.Distance( muzzle ), 0 ).Run();
 			if ( cover.Hit || cover.StartedSolid )
 				return new Ray( cover.StartedSolid ? eye : cover.EndPosition - (muzzle - eye).Normal * 0.1f, (muzzle - eye).Normal );
 

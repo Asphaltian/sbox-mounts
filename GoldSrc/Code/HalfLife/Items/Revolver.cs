@@ -2,7 +2,7 @@ namespace GoldSrc.HalfLife;
 
 [Title( ".357 Magnum" ), Category( "Half-Life" )]
 [WeaponPickup( "357", "357", 36 )]
-public sealed class Revolver : StudioWeapon
+public sealed class Revolver : BulletWeapon
 {
 	internal override float ZoomFieldOfView => 40;
 	internal override string IdleSequence => Game.Random.Float( 0, 1 ) switch
@@ -27,7 +27,7 @@ public sealed class Revolver : StudioWeapon
 		Ballistics = new() { Damage = 50, Range = 8192, Radius = 0 };
 	}
 
-	public override Vector2 CurrentSpread => Vector2.One * System.MathF.Atan( 0.00873f ).RadianToDegree();
+	internal override Vector2 PelletSpread => Vector2.One * 0.00873f;
 
 	protected override void CreateViewModel()
 	{
@@ -42,6 +42,7 @@ public sealed class Revolver : StudioWeapon
 			Click();
 			return;
 		}
+		Ballistics = Ballistics with { Damage = Deathmatch ? 50 : 40 };
 		base.PrimaryAttack();
 	}
 
