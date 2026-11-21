@@ -76,7 +76,7 @@ public sealed class Apache : Aircraft
 		if ( _tracking > 2 && aim.Dot( direction ) > 0.98f )
 		{
 			TraceBullets( barrel, barrel + aim * 8192, 1, Definition.Damage, 0.0349f, 8192, tracerFrequency: 1 );
-			EmitSound( "turret/tu_fire1.wav", barrel );
+			PlayGunshot( "turret/tu_fire1.wav", barrel );
 		}
 
 		if ( _nextRocket > 0 || _rockets % 2 != 0 ) return;

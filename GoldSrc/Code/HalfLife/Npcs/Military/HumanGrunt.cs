@@ -95,8 +95,8 @@ public sealed partial class HumanGrunt : Npc
 	{
 		if ( GunDropped || Ammo <= 0 || FriendlyInLine( target ) ) return;
 		var shotgun = HasShotgun;
-		if ( shotgun || Ammo % 3 == 0 )
-			EmitSound( shotgun ? "weapons/sbarrel1.wav" : $"hgrunt/gr_mgun{Game.Random.Int( 1, 2 )}.wav", origin );
+		if ( IsFirstStrike )
+			PlayGunshot( shotgun ? "weapons/sbarrel1.wav" : $"hgrunt/gr_mgun{Game.Random.Int( 1, 2 )}.wav", origin );
 
 		Ammo--;
 		EjectShell( origin - (end - origin).Normal * 24, WorldRotation, shotgun );

@@ -27,6 +27,7 @@ public partial class Npc
 	}
 
 	internal bool IsAttacking( GameObject target ) => _action is not null && _hitTimes.Length > 0 && _target == target;
+	protected bool IsFirstStrike => _nextHit <= 1;
 
 	internal virtual float AttackRange => Definition.Range;
 
@@ -70,6 +71,7 @@ public partial class Npc
 		_nextAttack = duration / rate + 0.3f;
 		if ( attack is null )
 		{
+			_nextHit = 0;
 			Strike();
 			return;
 		}
@@ -177,7 +179,7 @@ public partial class Npc
 			return;
 		}
 
-		if ( Definition.Attack != NpcAttack.Bullet && (_nextHit <= 1 || Definition.Attack == NpcAttack.Projectile) )
+		if ( Definition.Attack != NpcAttack.Bullet && (IsFirstStrike || Definition.Attack == NpcAttack.Projectile) )
 			PlayAttackSound( origin );
 		switch ( Definition.Attack )
 		{

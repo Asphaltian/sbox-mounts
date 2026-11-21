@@ -76,7 +76,7 @@ public sealed partial class SecurityGuard : Personnel, Component.IDamageable.IEv
 	internal override void FireBullet( GameObject target, Vector3 origin, Vector3 end )
 	{
 		var shift = Game.Random.Int( 0, 20 );
-		EmitSound( Sounds.Attack, origin, pitch: shift > 10 ? 1 : (95 + shift) / 100f );
+		PlayGunshot( Sounds.Attack, origin, pitch: shift > 10 ? 1 : (95 + shift) / 100f );
 		TraceBullets( origin, end, 1, Definition.Damage, 0.01745f, 1024 );
 	}
 

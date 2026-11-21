@@ -87,7 +87,7 @@ public sealed class HumanAssassin : Npc
 	{
 		_spread = _sinceShot > 2 ? 0.1f : System.MathF.Max( 0.02f, _spread - 0.01f );
 		_sinceShot = 0;
-		EmitSound( $"weapons/pl_gun{Game.Random.Int( 1, 2 )}.wav", origin, Game.Random.Float( 0.6f, 0.8f ) );
+		PlayGunshot( $"weapons/pl_gun{Game.Random.Int( 1, 2 )}.wav", origin, Game.Random.Float( 0.6f, 0.8f ) );
 		TraceBullets( origin, end, 1, Definition.Damage, _spread, 2048 );
 		EjectShell( WorldPosition + Vector3.Up * 32 + WorldRotation.Forward * 12, WorldRotation );
 	}
