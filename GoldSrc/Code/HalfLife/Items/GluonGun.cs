@@ -2,14 +2,14 @@ namespace GoldSrc.HalfLife;
 
 [Title( "Gluon Gun" ), Category( "Half-Life" )]
 [WeaponPickup( "egon", "uranium", 100 )]
-public sealed class GluonGun : StudioWeapon
+public sealed partial class GluonGun : StudioWeapon
 {
 	internal override string ShotSequence => "fire1";
 	SoundHandle _beamSound;
 	bool _firing, _running;
 	TimeUntil _nextPulseDeadline, _windupEnds;
 	RealTimeUntil _shutdownEnds;
-	internal override Vector3 WorldMuzzleOffset( bool hd ) => new( 25, 2, 4 );
+	internal override Vector3 WorldMuzzleOffset( bool hd ) => hd ? new( 29, -5.2f, 0.5f ) : new( 28.4f, -5.1f, 0 );
 
 	protected override void Think()
 	{

@@ -14,7 +14,7 @@ internal sealed class WeaponPickupAttribute( string model, string ammo, int limi
 }
 
 [Hide]
-public abstract class StudioWeapon : BaseCombatWeapon
+public abstract partial class StudioWeapon : BaseCombatWeapon
 {
 	WeaponPickupAttribute _definition;
 	internal WeaponPickupAttribute Definition => _definition ??= Game.TypeLibrary.GetType( GetType() ).GetAttribute<WeaponPickupAttribute>();
@@ -72,7 +72,9 @@ public abstract class StudioWeapon : BaseCombatWeapon
 			_viewRenderer.GetAttachment( "attachment1" ) is { } muzzle )
 			return muzzle;
 
-		return WorldModel.IsValid() ? WorldModel.WorldTransform.ToWorld( _worldMuzzle ) : base.GetMuzzleTransform();
+		if ( !WorldModel.IsValid() ) return base.GetMuzzleTransform();
+		UpdateHeldGrip();
+		return WorldModel.WorldTransform.ToWorld( _worldMuzzle );
 	}
 
 	public override Ray AimRay
@@ -145,13 +147,6 @@ public abstract class StudioWeapon : BaseCombatWeapon
 		if ( GetComponent<ModelRenderer>( true ) is { } loose ) loose.Enabled = !IsHeld;
 	}
 
-	protected override void CreateWorldModel()
-	{
-		DestroyWorldModel();
-		if ( !HolderRenderer.IsValid() ) return;
-		WorldModel = MakeModel( $"models/p_{Definition.Model}.mdl", HolderRenderer.GetBoneObject( HoldBone ) ?? GameObject, false );
-	}
-
 	protected override void CreateViewModel()
 	{
 		if ( ViewModel.IsValid() || IsProxy || Holder is not PlayerController ) return;
@@ -183,12 +178,7 @@ public abstract class StudioWeapon : BaseCombatWeapon
 				view.TracerEffect = null;
 				view.Initialize( this, loader, mount.NpcAudio );
 			}
-			else if ( (model.Bones.GetBone( "Bip01 R Hand" ) ?? model.Bones.GetBone( "Bip01 R Forearm" ) ?? model.Bones.GetBone( "Bip01 R Arm2" )) is { } hand )
-			{
-				var grip = hand.LocalTransform;
-				go.LocalTransform = grip.ToLocal( global::Transform.Zero );
-				_worldMuzzle = grip.ToWorld( new Transform( WorldMuzzleOffset( dir.EndsWith( "_hd" ) ) ) );
-			}
+			else AlignHeldModel( renderer, dir.EndsWith( "_hd" ) );
 			go.Enabled = true;
 			return go;
 		}
