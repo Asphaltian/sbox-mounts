@@ -64,6 +64,7 @@ public sealed partial class Gargantua : Npc
 
 	internal override void PlaySequenceSound( NpcAudio audio, int id )
 	{
+		if ( Networking.IsHost && id is 3 or 4 ) GroundShake.Emit( Scene, WorldPosition, 4, 3, 1, 750 );
 		var sound = id switch { 3 or 4 => "garg/gar_step", 6 => "garg/gar_breathe", _ => null };
 		if ( sound is not null ) NpcAudio.Play( audio.Find( sound ), WorldPosition, pitch: Game.Random.Float( 0.9f, 1.1f ) );
 	}
@@ -77,6 +78,7 @@ public sealed partial class Gargantua : Npc
 		var end = Scene.Trace.Ray( start, start + aim * 1024 ).IgnoreGameObjectHierarchy( GameObject )
 			.WithoutTags( "npc", "player", "playercontroller", "trigger" ).Run().EndPosition;
 		StompWave.Spawn( this, start, end );
+		GroundShake.Emit( Scene, WorldPosition, 12, 100, 2, 1000 );
 		EmitSound( "garg/gar_stomp", WorldPosition, pitch: Game.Random.Float( 0.9f, 1.1f ) );
 		var floor = Scene.Trace.Ray( WorldPosition + Vector3.Up, WorldPosition + Vector3.Down * 20 )
 			.IgnoreGameObjectHierarchy( GameObject ).Run();

@@ -133,6 +133,7 @@ public sealed partial class Bullsquid : Npc
 		if ( id == 6 && TraceMelee( 70, 0, null, out _ ) is { } prey )
 		{
 			EmitSound( $"bullchicken/bc_bite{Game.Random.Int( 2, 3 )}.wav", WorldPosition, pitch: Game.Random.Float( 0.9f, 1.1f ) );
+			GroundShake.Emit( Scene, prey.WorldPosition, 25, 1.5f, 0.7f, 2 );
 			if ( prey.GameObject.GetComponent<PlayerController>() is { } player )
 			{
 				using ( Rpc.FilterInclude( player.Network.Owner ?? Connection.Local ) )
@@ -145,8 +146,6 @@ public sealed partial class Bullsquid : Npc
 	static void ThrowPlayer( PlayerController player, Vector3 impulse )
 	{
 		if ( !player.IsValid() || player.IsProxy || !player.Body.IsValid() ) return;
-		if ( player.IsOnGround && player.Scene.Camera is { } camera )
-			player.Scene.GetSystem<CameraEffectSystem>().AddShake( camera, 25, 1.5f, 0.7f );
 		player.Body.Velocity += impulse;
 	}
 
