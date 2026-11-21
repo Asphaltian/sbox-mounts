@@ -8,12 +8,13 @@ public abstract partial class StudioWeapon
 	// The studio hand bone starts at the wrist. Locate the handle inside the palm.
 	internal virtual Vector3 GripPoint( bool hd ) => new( 3.5f, 1, 0 );
 	internal virtual void SetupHeldModel( SkinnedModelRenderer renderer ) { }
+	internal virtual string HeldModelName => Definition.Model;
 
 	protected override void CreateWorldModel()
 	{
 		DestroyWorldModel();
 		if ( !HolderRenderer.IsValid() ) return;
-		WorldModel = MakeModel( $"models/p_{Definition.Model}.mdl", HolderRenderer.GetBoneObject( HoldBone ) ?? GameObject, false );
+		WorldModel = MakeModel( $"models/p_{HeldModelName}.mdl", HolderRenderer.GetBoneObject( HoldBone ) ?? GameObject, false );
 	}
 
 	void AlignHeldModel( SkinnedModelRenderer renderer, bool hd )
