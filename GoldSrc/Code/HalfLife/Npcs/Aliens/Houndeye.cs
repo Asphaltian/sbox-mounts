@@ -72,7 +72,7 @@ public sealed partial class Houndeye : Npc
 			var center = TargetHullCenter( victim.GameObject );
 			var damage = Definition.Damage * (1 + 1.1f * (pack - 1)) * (1 - origin.Distance( center ) / BlastRadius);
 			if ( damage <= 0 ) continue;
-			if ( !CanSeeBlastTarget( victim.GameObject, submerged ) )
+			if ( !CanSeeTargetEyes( victim.GameObject, submerged ) )
 			{
 				if ( victim.GameObject.GetComponent<PlayerController>().IsValid() ) damage *= 0.5f;
 				else if ( victim is not Prop ) continue;
@@ -82,14 +82,6 @@ public sealed partial class Houndeye : Npc
 			info.Tags.Add( "alwaysgib" );
 			((IDamageable)victim).OnDamage( info );
 		}
-	}
-
-	bool CanSeeBlastTarget( GameObject target, bool submerged )
-	{
-		if ( !SharesWaterLevel( target, submerged ) ) return false;
-		var trace = Scene.Trace.Ray( EyePosition, TargetEyePosition( target ) ).IgnoreGameObjectHierarchy( GameObject )
-			.WithoutTags( "npc", "player", "playercontroller", "trigger" ).Run();
-		return !trace.Hit || trace.GameObject?.Root == target.Root;
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]

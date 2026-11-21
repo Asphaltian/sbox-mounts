@@ -13,7 +13,8 @@ public sealed class Ichthyosaur : SwimmingNpc
 	[Property, Sync( SyncFlags.FromHost )] public bool Aggressive { get; set; }
 	float _distance = 384;
 	float _speed = 150;
-	TimeUntil _nextAlert, _blink;
+	TimeUntil _nextAlert, _blink, _contactExpires;
+	GameObject _lastContact;
 	int _eye = -1;
 
 	internal override string VoiceSample( string sample ) => sample switch
@@ -41,11 +42,18 @@ public sealed class Ichthyosaur : SwimmingNpc
 
 	internal override bool Hunt( GameObject target )
 	{
-		var center = target.GetBounds().Center;
+		var center = TargetHullCenter( target );
 		var delta = center - WorldPosition;
 		var toward = delta.Normal;
-		var contact = WorldPosition.Distance( target.GetBounds().ClosestPoint( WorldPosition ) ) <= 34;
-		if ( contact ) Aggressive = true;
+		var nearest = target.GetComponent<Rigidbody>()?.FindClosestPoint( WorldPosition )
+			?? target.GetComponentInChildren<Collider>()?.FindClosestPoint( WorldPosition ) ?? center;
+		var contact = WorldPosition.DistanceSquared( nearest ) <= 34 * 34;
+		if ( contact )
+		{
+			Aggressive = true;
+			_lastContact = target;
+			_contactExpires = 0.2f;
+		}
 		if ( Aggressive || (delta.Length <= 192 && _distance <= 192) )
 		{
 			_speed = System.MathF.Min( 400, _speed + 40 );
@@ -74,15 +82,22 @@ public sealed class Ichthyosaur : SwimmingNpc
 
 	internal override void HandleActionEvent( int id )
 	{
-		if ( id is not (1 or 2) || !IsLiveTarget( Prey ) ) return;
-		var end = Prey.GetBounds().Center;
-		var delta = end - WorldPosition;
-		var trace = Scene.Trace.Ray( WorldPosition, end ).IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "trigger" ).Run();
-		if ( delta.Length > 80 || trace.Hit && trace.GameObject?.Root != Prey.Root ) return;
-		if ( Vector3.Dot( WorldRotation.Forward, delta.Normal ) > 0.707f )
+		if ( id is not (1 or 2) ) return;
+		if ( IsLiveTarget( Prey ) && CanSeeTargetEyes( Prey, WaterBody.Find( Scene, EyePosition ).IsValid() ) )
 		{
-			DealDamage( Prey, WorldPosition, end, "slash" );
-			PushVictim( Prey.GetComponent<Component.IDamageable>() as Component, -WorldRotation.Right * 300 );
+			var end = TargetBodyPosition( Prey );
+			var delta = end - WorldPosition;
+			if ( delta.Length > 80 && (_lastContact != Prey || _contactExpires <= 0) ) return;
+			if ( WorldRotation.Forward.Dot( delta.Normal ) > 0.707f )
+			{
+				Aggressive = true;
+				var push = -WorldRotation.Right * 300;
+				if ( Prey.GetComponent<PlayerController>() is { } player )
+					PunchPlayer( player, push, new Angles( 5, 0, -18 ), new Angles( Game.Random.Float( -35, 35 ), Game.Random.Float( -90, 90 ), 0 ) );
+				else
+					PushVictim( Prey.GetComponent<Component.IDamageable>() as Component, push );
+				DealDamage( Prey, WorldPosition, end, "slash" );
+			}
 		}
 		EmitSound( Sounds.Attack, WorldPosition );
 		Bubbles( WorldPosition + WorldRotation.Forward * 32 );

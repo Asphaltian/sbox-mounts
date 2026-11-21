@@ -152,6 +152,14 @@ public partial class Npc
 		return CalculateEyePosition( target );
 	}
 
+	internal bool CanSeeTargetEyes( GameObject target, bool submerged )
+	{
+		if ( !SharesWaterLevel( target, submerged ) ) return false;
+		var trace = Scene.Trace.Ray( EyePosition, TargetEyePosition( target ) ).IgnoreGameObjectHierarchy( GameObject )
+			.WithoutTags( "npc", "player", "playercontroller", "trigger" ).Run();
+		return !trace.Hit || trace.GameObject?.Root == target.Root;
+	}
+
 	internal static bool SharesWaterLevel( GameObject target, bool sourceSubmerged )
 	{
 		// A wading target can be reached from either side of the surface.
@@ -259,17 +267,19 @@ public partial class Npc
 		return victim as Component;
 	}
 
-	internal static void PunchPlayer( PlayerController player, Vector3 push, Angles punch )
+	internal static void PunchPlayer( PlayerController player, Vector3 push, Angles punch, Angles turn = default )
 	{
 		using ( Rpc.FilterInclude( player.Network.Owner ?? Connection.Local ) )
-			HitPlayer( player, push, punch );
+			HitPlayer( player, push, punch, turn );
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
-	static void HitPlayer( PlayerController player, Vector3 push, Angles punch )
+	static void HitPlayer( PlayerController player, Vector3 push, Angles punch, Angles turn )
 	{
 		if ( !player.IsValid() || player.IsProxy ) return;
 		if ( player.Body.IsValid() ) player.Body.Velocity += push;
+		if ( turn != Angles.Zero )
+			player.EyeAngles = new Angles( (player.EyeAngles.pitch + turn.pitch).Clamp( -89, 89 ), player.EyeAngles.yaw + turn.yaw, 0 );
 		if ( !player.ThirdPerson && punch != Angles.Zero ) MeleeViewPunch.Apply( player.Scene.Camera, punch );
 	}
 
