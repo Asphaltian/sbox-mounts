@@ -122,24 +122,13 @@ public sealed class Barnacle : Npc
 		if ( State == FeedingState.Lifting )
 		{
 			State = FeedingState.Chewing;
-			_prey.GetComponent<Npc>()?.SetCaptured( true );
 			EmitSound( "barnacle/bcl_bite3.wav", WorldPosition );
 			_bite = 10;
+			Chomp();
 		}
 		else if ( _bite <= 0 )
 		{
-			var victim = _prey.GetComponent<IDamageable>();
-			if ( victim is null ) { Release(); return; }
-			var damage = new DamageInfo { Damage = victim.Health, Attacker = GameObject, Weapon = GameObject, Origin = WorldPosition, Position = TargetEyePosition( _prey ) };
-			damage.Tags.Add( "slash" );
-			damage.Tags.Add( "alwaysgib" );
-			victim.OnDamage( damage );
-			if ( !_prey.IsValid() || victim.Health <= 0 )
-			{
-				_storedGibs = 3;
-				Release();
-			}
-			else _bite = 0.1f;
+			Bite( playerChomp: false );
 		}
 		else if ( _nextChew <= 0 )
 		{
@@ -147,9 +136,31 @@ public sealed class Barnacle : Npc
 			if ( Game.Random.Int( 0, 49 ) == 0 )
 			{
 				EmitSound( "barnacle/bcl_chew", WorldPosition );
-				_prey.GetComponent<Npc>()?.SetCaptured( true );
+				Chomp();
 			}
 		}
+	}
+
+	void Chomp()
+	{
+		if ( _prey.GetComponent<PlayerController>().IsValid() ) Bite( playerChomp: true );
+		else _prey.GetComponent<Npc>()?.SetCaptured( true );
+	}
+
+	void Bite( bool playerChomp )
+	{
+		var victim = _prey.GetComponent<IDamageable>();
+		if ( victim is null ) { Release(); return; }
+		var damage = new DamageInfo { Damage = victim.Health + (playerChomp ? victim.Armour : 0), Attacker = GameObject, Weapon = GameObject, Origin = WorldPosition, Position = TargetEyePosition( _prey ) };
+		damage.Tags.Add( "slash" );
+		damage.Tags.Add( "alwaysgib" );
+		victim.OnDamage( damage );
+		if ( !_prey.IsValid() || victim.Health <= 0 )
+		{
+			if ( !playerChomp ) _storedGibs = 3;
+			Release();
+		}
+		else if ( !playerChomp ) _bite = 0.1f;
 	}
 
 	protected override void OnUpdate()
