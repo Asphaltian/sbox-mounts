@@ -91,6 +91,11 @@ public sealed partial class GaussGun : StudioWeapon
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
+		if ( !IsHeld )
+		{
+			CancelCharge();
+			return;
+		}
 		if ( _spinSound.IsValid() )
 		{
 			_spinSound.Position = WorldPosition;
@@ -173,11 +178,22 @@ public sealed partial class GaussGun : StudioWeapon
 		_spinSound = null;
 	}
 
-	protected override void OnDisabled()
+	void CancelCharge()
 	{
 		_aftershock = null;
 		_charging = _triggerHeld = false;
 		StopSpin();
+	}
+
+	protected override void OnHolstered()
+	{
+		CancelCharge();
+		base.OnHolstered();
+	}
+
+	protected override void OnDisabled()
+	{
+		CancelCharge();
 		base.OnDisabled();
 	}
 }
