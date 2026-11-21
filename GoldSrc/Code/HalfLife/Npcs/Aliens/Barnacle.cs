@@ -9,7 +9,8 @@ public sealed class Barnacle : Npc
 {
 	internal override NpcSounds Sounds { get; } = new( Alert: "barnacle/bcl_alert", Death: "barnacle/bcl_die", Attack: "barnacle/bcl_bite" );
 
-	internal override bool UsesStudioControllers => true;
+	static readonly string[] Controls = [StudioAnimationGraphs.ExtensionParameter];
+	internal override string[] ControllerParameters => Controls;
 	StudioController _tongue;
 
 	internal override void OnModelLoaded( ModelLoader loader )

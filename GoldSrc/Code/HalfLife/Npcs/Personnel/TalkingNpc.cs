@@ -21,7 +21,8 @@ public abstract class TalkingNpc : VoicedNpc
 
 	StudioController _head;
 	float _headAngle;
-	internal override bool UsesStudioControllers => true;
+	static readonly string[] Controls = [StudioAnimationGraphs.HeadParameter, null, null, null, StudioAnimationGraphs.MouthParameter];
+	internal override string[] ControllerParameters => Controls;
 
 	internal override void OnModelLoaded( ModelLoader loader )
 	{

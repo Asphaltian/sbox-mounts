@@ -2,6 +2,12 @@ namespace GoldSrc.HalfLife;
 
 public sealed partial class Gargantua
 {
+	static readonly string[] Controls = ["flame_yaw", "flame_pitch"];
+	internal override string[] ControllerParameters => Controls;
+	StudioController[] _controllers;
+	[Sync( SyncFlags.FromHost )] Angles FlameAim { get; set; }
+	internal override void OnModelLoaded( ModelLoader loader ) => _controllers = loader.Controllers;
+
 	[Sync( SyncFlags.FromHost )] bool Flaming { get; set; }
 	[Sync( SyncFlags.FromHost )] Vector3 LeftEnd { get; set; }
 	[Sync( SyncFlags.FromHost )] Vector3 RightEnd { get; set; }
@@ -13,6 +19,7 @@ public sealed partial class Gargantua
 
 	void StartFlames()
 	{
+		FlameAim = default;
 		Flaming = true;
 		_endFlame = 4.5f;
 		_nextFlame = 6;
@@ -30,9 +37,10 @@ public sealed partial class Gargantua
 			base.Think();
 			return;
 		}
-		if ( _endFlame <= 0 || !_enemy.IsValid() || _enemy.WorldPosition.Distance( WorldPosition ) > 400 )
+		if ( _endFlame <= 0 || !_enemy.IsValid() )
 		{
 			Flaming = false;
+			FlameAim = default;
 			EmitSound( "garg/gar_flameoff1.wav", WorldPosition );
 			return;
 		}
@@ -42,16 +50,24 @@ public sealed partial class Gargantua
 	void Burn()
 	{
 		_nextBurn = 0.1f;
-		var target = TargetBodyPosition( _enemy );
-		LeftEnd = BurnFrom( "attachment2", target );
-		RightEnd = BurnFrom( "attachment3", target );
+		var direction = WorldRotation * FlameAim.Forward;
+		LeftEnd = BurnFrom( "attachment2", direction );
+		RightEnd = BurnFrom( "attachment3", direction );
+
+		var offset = WorldRotation.Inverse * (TargetBodyPosition( _enemy ) - (WorldPosition + WorldRotation.Up * 64));
+		var desired = offset.EulerAngles.Normal;
+		if ( offset.Length > 400 || System.MathF.Abs( desired.yaw ) > 60 )
+		{
+			_endFlame -= 0.5f;
+			_nextFlame -= 0.5f;
+		}
+		FlameAim = new Angles( FlameAim.pitch.Approach( desired.pitch, 4 ), FlameAim.yaw.Approach( desired.yaw.Clamp( -45, 45 ), 8 ), 0 );
 		if ( _nextScorch <= 0 ) _nextScorch = 0.25f;
 	}
 
-	Vector3 BurnFrom( string hand, Vector3 aimPoint )
+	Vector3 BurnFrom( string hand, Vector3 aim )
 	{
 		var origin = Renderer.GetAttachment( hand )?.Position ?? WorldPosition + Vector3.Up * 64;
-		var aim = (aimPoint - origin).Normal;
 		var trace = Scene.Trace.Ray( origin, origin + aim * 330 ).IgnoreGameObjectHierarchy( GameObject ).UseHitboxes().Run();
 		if ( trace.Hit && _nextScorch <= 0 && trace.GameObject?.GetComponentInParent<IDamageable>() is null )
 			Scorch( trace.EndPosition, trace.Normal, Game.Random.Int( 1, 3 ) );
@@ -83,6 +99,11 @@ public sealed partial class Gargantua
 	{
 		base.OnUpdate();
 		UpdateEye();
+		if ( _controllers is not null && Renderer.IsValid() && Renderer.Animation.IsValid )
+		{
+			if ( _controllers[0] is { } yaw ) Renderer.Animation.Parameters.TrySet( Controls[0], yaw.Fraction( FlameAim.yaw ) );
+			if ( _controllers[1] is { } pitch ) Renderer.Animation.Parameters.TrySet( Controls[1], pitch.Fraction( FlameAim.pitch ) );
+		}
 		if ( !Flaming )
 		{
 			if ( _flames.Count > 0 ) StopFlameEffects();

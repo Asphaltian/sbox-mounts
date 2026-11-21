@@ -29,12 +29,12 @@ internal sealed class StudioAnimationGraphs( Skeleton skeleton, string modelPath
 	internal const string HeadParameter = "head_turn";
 	internal const string MouthParameter = "mouth_open";
 
-	internal Graph GetGraph( params StudioSequence[] sequences ) => GetGraph( sequences, null );
+	internal Graph GetGraph( params StudioSequence[] sequences ) => GetGraph( sequences, null, [] );
 
-	internal Graph GetGraph( StudioSequence[] sequences, StudioController[] controllers )
+	internal Graph GetGraph( StudioSequence[] sequences, StudioController[] controllers, string[] parameters )
 	{
 		var available = sequences.Where( x => x is not null ).DistinctBy( x => x.Name, StringComparer.OrdinalIgnoreCase ).ToArray();
-		var key = (controllers is null ? "" : "controls:") + string.Join( "|", available.Select( x => x.Name ) );
+		var key = (string.Join( ",", parameters ) + ":") + string.Join( "|", available.Select( x => x.Name ) );
 		if ( _graphs.TryGetValue( key, out var graph ) )
 			return graph;
 
@@ -42,18 +42,8 @@ internal sealed class StudioAnimationGraphs( Skeleton skeleton, string modelPath
 		var state = builder.IdParameter( StateParameter, available.Select( x => x.Name ).ToArray() );
 		var times = available.Select( x => builder.FloatParameter( x.TimeParameter, 0, 1 ) ).ToArray();
 		var pitch = available.Any( x => x.PitchFrames is not null ) ? builder.FloatParameter( "aim_pitch", 0, 1 ) : null;
-		var headControl = controllers?.ElementAtOrDefault( 0 );
-		var mouthControl = controllers?.ElementAtOrDefault( 4 );
-		var firstParameter = headControl is not null && headControl.TranslationAxis != Vector3.Zero ? ExtensionParameter : HeadParameter;
-		var headTime = headControl is null ? null : builder.FloatParameter( firstParameter, 0, 1 );
-		var mouthTime = mouthControl is null ? null : builder.FloatParameter( MouthParameter, 0, 1 );
-
-		GraphBuilder.Node ControllerLayer( StudioController controller, string parameter, GraphBuilder.Node time )
-		{
-			if ( controller is null || (controller.RotationAxis == Vector3.Zero && controller.TranslationAxis == Vector3.Zero) ||
-				skeleton.Bones.FirstOrDefault( x => x.Name == controller.Bone ) is not { } bone ) return null;
-			return builder.TimeControlledClip( GetControllerClip( parameter, controller, bone.Index ), time, new() { SampleRootMotion = false } );
-		}
+		var controlTimes = parameters.Select( (name, slot) => name is not null && controllers?.ElementAtOrDefault( slot ) is not null
+			? builder.FloatParameter( name, 0, 1 ) : null ).ToArray();
 		var machine = builder.StateMachine();
 		var states = available.Select( (sequence, index) =>
 		{
@@ -78,11 +68,18 @@ internal sealed class StudioAnimationGraphs( Skeleton skeleton, string modelPath
 		}
 
 		var output = machine.Build();
-		if ( controllers is not null )
+		if ( parameters.Length > 0 )
 		{
 			var layers = builder.Layers( output );
-			foreach ( var layer in new[] { ControllerLayer( headControl, firstParameter, headTime ), ControllerLayer( mouthControl, MouthParameter, mouthTime ) } )
-				if ( layer is not null ) layers.AddLayer( layer, new() { BlendMode = GraphBuilder.LayerBlendMode.Additive } );
+			for ( int slot = 0; slot < parameters.Length; slot++ )
+			{
+				if ( parameters[slot] is not { } name || controllers?.ElementAtOrDefault( slot ) is not { } controller ||
+					(controller.RotationAxis == Vector3.Zero && controller.TranslationAxis == Vector3.Zero) ||
+					skeleton.Bones.FirstOrDefault( x => x.Name == controller.Bone ) is not { } bone ) continue;
+
+				var layer = builder.TimeControlledClip( GetControllerClip( name, controller, bone.Index ), controlTimes[slot], new() { SampleRootMotion = false } );
+				layers.AddLayer( layer, new() { BlendMode = GraphBuilder.LayerBlendMode.Additive } );
+			}
 			output = layers;
 		}
 		graph = builder.Create( output, $"{modelPath}/npc_{_graphs.Count}.ag" );

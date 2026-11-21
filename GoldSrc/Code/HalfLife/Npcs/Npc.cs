@@ -101,7 +101,7 @@ public partial class Npc : BaseNpc
 			SetUpCaptureAnimations();
 			Renderer.UseAnimGraph = true;
 			_modelLoader = loader;
-			Renderer.Animation.Graph = _defaultGraph = loader.AnimationGraphs.GetGraph( [ _idle, _walk, _run, _attack, .. FlinchSequences, .. ExtraSequences, .. _captureAnimations ], UsesStudioControllers ? loader.Controllers : null );
+			Renderer.Animation.Graph = _defaultGraph = loader.AnimationGraphs.GetGraph( [ _idle, _walk, _run, _attack, .. FlinchSequences, .. ExtraSequences, .. _captureAnimations ], loader.Controllers, ControllerParameters );
 			_loaded = true;
 			if ( Networking.IsHost ) PlaceAtSpawn();
 			UpdateSequence();
@@ -130,7 +130,7 @@ public partial class Npc : BaseNpc
 			Renderer.MaterialGroup = $"Skin {skin}";
 	}
 
-	internal virtual bool UsesStudioControllers => false;
+	internal virtual string[] ControllerParameters => [];
 	internal virtual void OnModelLoaded( ModelLoader loader ) { }
 	internal virtual int EffectiveBody => Body;
 	internal virtual int EffectiveSkin => Skin;
@@ -319,7 +319,7 @@ public partial class Npc : BaseNpc
 			if ( Renderer.Animation.Graph != _defaultGraph )
 				Renderer.Animation.Graph = _defaultGraph;
 			if ( !Renderer.Animation.Parameters.TryGetFloat( sequence.TimeParameter, out _ ) )
-				Renderer.Animation.Graph = _modelLoader.AnimationGraphs.GetGraph( [sequence], UsesStudioControllers ? _modelLoader.Controllers : null );
+				Renderer.Animation.Graph = _modelLoader.AnimationGraphs.GetGraph( [sequence], _modelLoader.Controllers, ControllerParameters );
 		}
 
 		var parameters = Renderer.Animation.Parameters;
