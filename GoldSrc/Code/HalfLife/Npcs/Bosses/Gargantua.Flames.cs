@@ -42,7 +42,7 @@ public sealed partial class Gargantua
 	void Burn()
 	{
 		_nextBurn = 0.1f;
-		var target = _enemy.GetBounds().Center;
+		var target = TargetBodyPosition( _enemy );
 		LeftEnd = BurnFrom( "attachment2", target );
 		RightEnd = BurnFrom( "attachment3", target );
 		if ( _nextScorch <= 0 ) _nextScorch = 0.25f;
@@ -58,18 +58,18 @@ public sealed partial class Gargantua
 
 		var length = trace.EndPosition.Distance( origin );
 		var center = (origin + trace.EndPosition) * 0.5f;
-		var victims = Scene.FindInPhysics( new Sphere( center, length * 0.5f + 78 ) )
+		var victims = Scene.FindInPhysics( new Sphere( center, length * 0.5f ) )
 			.Select( obj => obj.GetComponentInParent<IDamageable>() ).OfType<Component>().Distinct().ToArray();
 		foreach ( var victim in victims )
 		{
-			if ( !victim.IsValid() || victim.GameObject == GameObject || victim is Npc npc && npc.Classification == MonsterClass.AlienMonster ) continue;
-			var target = victim.GameObject.GetBounds().Center;
+			if ( !victim.IsValid() || victim.GameObject == GameObject || ClassOf( victim.GameObject ) == MonsterClass.AlienMonster ) continue;
+			var target = TargetBodyPosition( victim.GameObject );
 			var near = origin + aim * System.Math.Clamp( Vector3.Dot( target - origin, aim ), 0, length );
-			var damage = 5 - System.MathF.Max( target.Distance( near ) - 64, 0 ) * 0.4f;
+			var obstruction = Scene.Trace.Ray( near, target ).IgnoreGameObjectHierarchy( GameObject ).UseHitboxes().Run();
+			if ( obstruction.Hit && obstruction.GameObject?.GetComponentInParent<IDamageable>() != (IDamageable)victim ) continue;
+			var damage = 5 - System.MathF.Max( near.Distance( obstruction.EndPosition ) - 64, 0 ) * 0.4f;
 			if ( damage <= 0 ) continue;
-			var obstruction = Scene.Trace.Ray( near, target ).IgnoreGameObjectHierarchy( GameObject ).Run();
-			if ( obstruction.Hit && obstruction.GameObject?.Root != victim.GameObject.Root ) continue;
-			var info = new DamageInfo { Damage = damage, Origin = origin, Position = target, Attacker = GameObject, Weapon = GameObject };
+			var info = new DamageInfo { Damage = damage, Origin = near, Position = obstruction.EndPosition, Hitbox = obstruction.Hitbox, Attacker = GameObject, Weapon = GameObject };
 			info.Tags.Add( "burn" );
 			((IDamageable)victim).OnDamage( info );
 		}
@@ -93,7 +93,7 @@ public sealed partial class Gargantua
 		{
 			var effect = _flames[i];
 			var end = i % 2 == 0 ? LeftEnd : RightEnd;
-			effect.TargetPosition = i < 2 ? end : Vector3.Lerp( effect.WorldPosition, end, 0.6f );
+			effect.TargetPosition = i < 2 ? end : Vector3.Lerp( effect.WorldPosition, end, 0.4f );
 		}
 		if ( _flameSound.IsValid() ) _flameSound.Position = WorldPosition;
 	}
@@ -117,6 +117,13 @@ public sealed partial class Gargantua
 			effect.TextureScrollSpeed = 20;
 			effect.Additive = true;
 			if ( sprite is not null ) effect.Texture = sprite.Animations[0].Frames[0].Texture;
+			if ( i < 2 )
+			{
+				var light = go.AddComponent<PointLight>();
+				light.Radius = Game.Random.Float( 32, 48 );
+				light.LightColor = Color.White;
+				light.Shadows = false;
+			}
 			go.Enabled = true;
 			_flames.Add( effect );
 		}
