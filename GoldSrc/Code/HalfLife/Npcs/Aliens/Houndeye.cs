@@ -47,7 +47,7 @@ public sealed partial class Houndeye : Npc
 		if ( id == 7 && !Sleeping ) EyeFrame = 3;
 		var sound = id switch
 		{
-			1 => "houndeye/he_hunt",
+			1 => HuntSample(),
 			2 => Game.Random.Int( 0, 1 ) == 0 ? "houndeye/he_attack1.wav" : "houndeye/he_attack3.wav",
 			4 => "houndeye/he_pain3.wav",
 			5 => "houndeye/he_pain1.wav",
@@ -55,6 +55,8 @@ public sealed partial class Houndeye : Npc
 		};
 		if ( sound is not null ) EmitSound( sound, WorldPosition, volume: id == 2 ? 0.7f : 1 );
 	}
+
+	static string HuntSample() => $"houndeye/he_hunt{Game.Random.Int( 1, 3 )}.wav";
 
 	void SonicAttack()
 	{
