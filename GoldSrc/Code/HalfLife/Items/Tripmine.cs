@@ -4,12 +4,19 @@ namespace GoldSrc.HalfLife;
 [WeaponPickup( "tripmine", "tripmines", 5, PickupModel = "v_tripmine" )]
 public sealed class Tripmine : ProjectileWeapon
 {
-	internal override string ShotSequence => "place";
+	internal override string ShotSequence => "draw";
+	internal override string IdleSequence => Game.Random.Float( 0, 1 ) switch
+	{
+		<= 0.25f => "idle1",
+		<= 0.75f => "idle2",
+		_ => "fidget"
+	};
+	public override Ray AimRay => Owner.IsValid() ? Owner.EyeTransform.ForwardRay : base.AimRay;
 
 	internal override void Configure()
 	{
 		HoldType = WeaponHolds.Throwable;
-		PrimaryDelay = 0.4f;
+		PrimaryDelay = 0.3f;
 		UsesClips = false;
 		StartingAmmo = 1;
 	}
@@ -22,5 +29,11 @@ public sealed class Tripmine : ProjectileWeapon
 		if ( !hit.Hit || hit.StartedSolid ) return false;
 		PlacedCharge.Attach( Owner, hit );
 		return true;
+	}
+
+	protected override void OnUpdate()
+	{
+		base.OnUpdate();
+		if ( Networking.IsHost && IsActive && IsHeld && !HasPrimaryAmmo() ) Inventory.Remove( this );
 	}
 }
