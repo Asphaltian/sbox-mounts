@@ -5,10 +5,16 @@ namespace GoldSrc.HalfLife;
 public sealed class Shotgun : StudioWeapon
 {
 	bool _double;
+	bool _reloadWhenReady;
 	TimeUntil _pump, _insert;
 	bool _pumpPending, _insertPending;
 
-	internal override string IdleSequence => "sm_idle";
+	internal override string IdleSequence => Game.Random.Float( 0, 1 ) switch
+	{
+		<= 0.8f => "deepidle",
+		<= 0.95f => "sm_idle",
+		_ => "idle4"
+	};
 	internal override string ShotSequence => _double ? "shoot_big" : "shoot";
 	internal override string ReloadSequence => "start_reload";
 
@@ -45,7 +51,18 @@ public sealed class Shotgun : StudioWeapon
 
 	public override bool HasSecondaryAmmo() => !IsHeld || Clip1 >= 2;
 	public override bool CanReload() => NextPrimaryFire <= 0 && base.CanReload();
-	public override Vector2 CurrentSpread => Connection.All.Count > 1 ? new Vector2( _double ? 10 : 5, 2.5f ) : new Vector2( 5, 5 );
+	static bool Deathmatch => Networking.MaxPlayers > 1;
+	public override Vector2 CurrentSpread => Deathmatch ? new Vector2( _double ? 10 : 5, 2.5f ) : new Vector2( 5, 5 );
+	internal override void DrawShotTrail( Vector3 start, Vector3 end ) { }
+
+	protected override void Think()
+	{
+		base.Think();
+		if ( !_reloadWhenReady || NextPrimaryFire > 0 ) return;
+		_reloadWhenReady = false;
+		if ( Clip1 == 0 && AutoReload && CanReload() ) Reload();
+	}
+
 	public override void DryFire()
 	{
 		if ( CanReload() ) Reload();
@@ -66,15 +83,18 @@ public sealed class Shotgun : StudioWeapon
 		}
 		if ( both && IsHeld && (Clip1 < 2 || !TakePrimaryAmmo()) ) return;
 		_double = both;
-		Ballistics = Ballistics with { Pellets = (Connection.All.Count > 1 ? 4 : 6) * (both ? 2 : 1) };
+		Ballistics = Ballistics with { Damage = Deathmatch ? 20 : 5, Pellets = (Deathmatch ? 4 : 6) * (both ? 2 : 1) };
 		base.PrimaryAttack();
 		SetNextFire( both ? SecondaryDelay : PrimaryDelay );
+		_reloadWhenReady = Clip1 == 0;
 		ReportShot( both );
 	}
 
 	[Rpc.Broadcast( NetFlags.OwnerOnly )]
 	void ReportShot( bool both )
 	{
+		if ( !IsProxy && Owner is { ThirdPerson: false } )
+			MeleeViewPunch.Apply( Scene.Camera, new Angles( both ? -10 : -5, 0, 0 ) );
 		EjectShells( both ? 2 : 1, true );
 		PlaySample( both ? "weapons/dbarrel1.wav" : "weapons/sbarrel1.wav", Game.Random.Float( both ? 0.98f : 0.95f, 1 ),
 			((both ? 85 : 93) + Game.Random.Int( 0, 31 )) / 100f );
