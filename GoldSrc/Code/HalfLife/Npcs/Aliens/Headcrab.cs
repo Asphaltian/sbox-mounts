@@ -15,7 +15,8 @@ public class Headcrab : Npc
 	int _pounceAction = -1;
 	GameObject _prey, _turnTarget;
 	internal virtual float LeapTurnSpeed => 120;
-	TimeUntil _nextJump, _nextCooCheck;
+	internal virtual float LeapRecovery => Game.Random.Float( 0.1f, 0.5f );
+	TimeUntil _leapRecovery, _nextCooCheck;
 	bool _biting;
 
 	internal override void OnModelLoaded( ModelLoader loader )
@@ -62,7 +63,7 @@ public class Headcrab : Npc
 
 	internal void PrepareLeap( GameObject target )
 	{
-		if ( _nextJump > 0 || !IsOnGround ) return;
+		if ( _leapRecovery > 0 || !IsOnGround ) return;
 		Movement?.Stop();
 		_turnTarget = target;
 		FaceForLeap();
@@ -107,10 +108,17 @@ public class Headcrab : Npc
 			if ( velocity.Length > 650 ) velocity = velocity.Normal * 650;
 		}
 		_biting = _pounceAction == ActionSerial;
-		_nextJump = 2;
+
 		var call = Game.Random.Int( 0, 2 );
 		if ( call != 0 ) EmitSound( $"headcrab/hc_attack{call + 1}.wav", WorldPosition, VoiceVolume, VoicePitch );
 		Launch( velocity );
+	}
+
+	internal override void FinishAction( string name )
+	{
+		if ( ActionSerial != _pounceAction ) return;
+		_biting = false;
+		_leapRecovery = LeapRecovery;
 	}
 
 	internal void Touch( Collision collision )
