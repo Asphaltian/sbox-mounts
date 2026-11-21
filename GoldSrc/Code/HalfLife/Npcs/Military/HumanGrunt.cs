@@ -12,7 +12,7 @@ public sealed partial class HumanGrunt : Npc
 
 	internal override NpcSounds Sounds { get; } = new( Pain: "hgrunt/gr_pain", Death: "hgrunt/gr_die", Attack: "hgrunt/gr_mgun" );
 
-	static readonly string[] WeaponActions = ["standing_mp5", "crouching_mp5", "standing_shotgun", "crouching_shotgun", "reload_mp5", "reload_shotgun", "repel_repel", "repel_shoot", "repel_land", "throwgrenade", "launchgrenade", "drop_grenade", "frontkick"];
+	static readonly string[] WeaponActions = ["standing_mp5", "crouching_mp5", "standing_shotgun", "crouching_shotgun", "reload_mp5", "reload_shotgun", "repel_repel", "repel_shoot", "repel_land", "throwgrenade", "launchgrenade", "drop_grenade", "frontkick", "advance_signal"];
 	internal override string[] ExtraActions => WeaponActions;
 
 	internal override Vector3 AimAt( GameObject target ) => TargetBodyPosition( target );
@@ -33,6 +33,7 @@ public sealed partial class HumanGrunt : Npc
 		}
 		if ( Renderer.GetBodyGroup( "weapons" ) == 2 ) return;
 		if ( HasLauncher && TryThrowGrenade( target ) ) return;
+		if ( Ammo > 0 && SignalFoundEnemy( target ) ) return;
 		if ( SquadBusyFiring( target ) )
 		{
 			TryThrowGrenade( target );

@@ -10,6 +10,7 @@ public sealed partial class HumanGrunt
 
 	protected override void Think()
 	{
+		UpdateSquadSight();
 		if ( !RopeAnchor.HasValue && Senses?.Disturbance is { Kind: TimedGrenade.DangerStimulus } warning
 			&& warning.Source.IsValid() && warning.Source != _danger )
 		{
