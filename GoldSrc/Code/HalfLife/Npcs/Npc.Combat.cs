@@ -152,6 +152,16 @@ public partial class Npc
 		return CalculateEyePosition( target );
 	}
 
+	internal static Vector3 TargetHullCenter( GameObject target )
+	{
+		if ( target.GetComponent<Npc>() is { } npc ) return npc.HullCenter;
+		if ( target.GetComponent<PlayerController>() is { } player )
+			return target.WorldTransform.PointToWorld( Vector3.Up * (player.CurrentHeight * 0.5f) );
+		if ( target.GetComponent<Rigidbody>() is { } body ) return body.GetWorldBounds().Center;
+		if ( target.GetComponent<Collider>() is { } collider ) return collider.GetWorldBounds().Center;
+		return target.GetBounds().Center;
+	}
+
 	internal virtual Vector3 HullCenter => _collisionHull.IsValid() ? _collisionHull.WorldTransform.PointToWorld( _collisionHull.Center ) : WorldPosition;
 	internal virtual Vector3 BodyTarget => Vector3.Lerp( HullCenter, EyePosition, 0.25f );
 

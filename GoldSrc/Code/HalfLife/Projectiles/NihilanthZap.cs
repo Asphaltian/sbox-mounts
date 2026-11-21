@@ -36,8 +36,7 @@ public sealed class NihilanthZap : EnergyBall
 			return;
 		}
 		if ( Velocity.Length < 2000 ) Velocity *= 1.2f;
-		var destination = Target.GetComponent<Npc>()?.HullCenter ?? (Target.GetComponent<PlayerController>() is { } player
-			? Target.WorldTransform.PointToWorld( Vector3.Up * (player.CurrentHeight * 0.5f) ) : Target.GetBounds().Center);
+		var destination = Npc.TargetHullCenter( Target );
 		if ( WorldPosition.Distance( destination ) >= 256 ) return;
 		var trace = Scene.Trace.Ray( WorldPosition, destination ).IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "playercontroller" ).UseHitboxes().Run();
 		DamageVictim( trace.GameObject?.GetComponentInParent<Component.IDamageable>(), trace.EndPosition, trace.Hitbox );

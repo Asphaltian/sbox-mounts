@@ -69,7 +69,7 @@ public sealed partial class Houndeye : Npc
 		foreach ( var victim in victims )
 		{
 			if ( !victim.IsValid() || victim is Houndeye ) continue;
-			var center = victim.GameObject.GetBounds().Center;
+			var center = TargetHullCenter( victim.GameObject );
 			var damage = Definition.Damage * (1 + 1.1f * (pack - 1)) * (1 - origin.Distance( center ) / BlastRadius);
 			if ( damage <= 0 ) continue;
 			if ( !CanSeeBlastTarget( victim.GameObject, submerged ) )
