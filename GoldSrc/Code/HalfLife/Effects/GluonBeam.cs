@@ -8,7 +8,7 @@ public sealed class GluonBeam : Component
 	SpriteRenderer _flare;
 	Vector2 _flareSize;
 	Vector3 _end;
-	TimeSince _fadeAge;
+	TimeSince _fadeAge, _pulseAge;
 	bool _stopping;
 
 	internal static GluonBeam Start( GluonGun gun, Vector3 end )
@@ -20,7 +20,8 @@ public sealed class GluonBeam : Component
 		var mount = (HalfLifeMount)Sandbox.Mounting.Directory.Get( "hl1" );
 		var material = mount.GetTrailMaterial( "xbeam1" );
 		beam._core = beam.CreateLine( material, 3.5f );
-		beam._noise = beam.CreateLine( material, 5 );
+		beam._noise = beam.CreateLine( material, gun.IsProxy ? 5.5f : 5 );
+		if ( gun.IsProxy ) beam._noise.Color = new Color( 50f / 255, 50f / 255, 1, 100f / 255 );
 		if ( mount.GetIndexedSprite( "xspark1" ) is { } sprite )
 		{
 			var flare = new GameObject( go, true, "Gluon impact" ).AddComponent<SpriteRenderer>();
@@ -53,6 +54,7 @@ public sealed class GluonBeam : Component
 	internal void Aim( Vector3 end, bool showFlare )
 	{
 		_end = end;
+		_pulseAge = 0;
 		if ( !_flare.IsValid() ) return;
 		_flare.WorldPosition = end;
 		_flare.Enabled = showFlare;
@@ -81,7 +83,15 @@ public sealed class GluonBeam : Component
 
 		var start = _gun.GetMuzzleTransform().Position;
 		var basis = Rotation.LookAt( _end - start );
-		UpdateLine( _core, start, basis, 0.2f, 55 );
+		// Half-Life predicts fixed beams for the firing player and pulses the replicated core for observers.
+		if ( _gun.IsProxy )
+		{
+			var pulse = System.Math.Clamp( (float)_pulseAge * 10, 0, 1 );
+			_core.Width = 4 - 2 * pulse;
+			_core.Color = new Color( (30 + 25 * pulse) / 255, (30 + 30 * pulse) / 255,
+				(64 + 80 * System.MathF.Abs( System.MathF.Sin( Time.Now * 10 ) )) / 255, 1 - 180 * pulse / 255 );
+		}
+		UpdateLine( _core, start, basis, 0.2f, _gun.IsProxy ? 50 : 55 );
 		UpdateLine( _noise, start, basis, 0.08f, 25 );
 	}
 
