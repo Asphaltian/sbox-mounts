@@ -17,6 +17,7 @@ public sealed class Cockroach : Npc, Component.ICollisionListener
 
 	internal override void OnModelLoaded( ModelLoader loader )
 	{
+		EyeHeight = 1;
 		// Let the lights in the spawn area settle before recording the idle light level.
 		_nextLook = 1;
 	}
@@ -97,7 +98,7 @@ public sealed class Cockroach : Npc, Component.ICollisionListener
 	// Sample direct lighting on the host so a flashlight can startle the roach on a dedicated server.
 	float LightLevel()
 	{
-		var eye = WorldPosition + Vector3.Up;
+		var eye = EyePosition;
 		float level = Scene.GetAllComponents<AmbientLight>().Sum( light => light.Color.Luminance );
 		foreach ( var light in Scene.GetAllComponents<Light>() )
 		{
@@ -133,7 +134,8 @@ public sealed class Cockroach : Npc, Component.ICollisionListener
 		var player = collision.Other.GameObject.GetComponentInParent<PlayerController>();
 		if ( !player.IsValid() || player.Velocity.IsNearlyZero() ) return;
 		var floor = Scene.Trace.Ray( WorldPosition + Vector3.Up * 8, WorldPosition + Vector3.Down * 16 )
-			.IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "npc", "player", "playercontroller", "trigger" ).Run();
+			.IgnoreGameObjectHierarchy( GameObject ).IgnoreGameObjectHierarchy( player.GameObject )
+			.WithoutTags( "npc", "player", "playercontroller", "trigger" ).Run();
 		if ( floor.Hit ) BloodEffects.Decal( BloodColor.Yellow, floor.EndPosition, floor.Normal, Game.Random.Int( 1, 6 ) );
 		var damage = new DamageInfo { Damage = Health, Attacker = player.GameObject, Position = WorldPosition, Origin = player.WorldPosition };
 		damage.Tags.Add( "crush" );
