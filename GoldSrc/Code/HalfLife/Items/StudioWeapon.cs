@@ -90,6 +90,27 @@ public abstract class StudioWeapon : BaseCombatWeapon
 		}
 	}
 
+	protected override bool OnDrop()
+	{
+		var player = Owner;
+		if ( !player.IsValid() ) return base.OnDrop();
+
+		var eye = player.EyeTransform;
+		var velocity = player.Velocity + eye.Forward * 200f + Vector3.Up * 100f;
+		Network.DropOwnership();
+		GameObject.SetParent( null, true );
+		GameObject.Enabled = true;
+		WorldPosition = eye.Position + eye.Forward * 48f;
+		Slot = -1;
+
+		if ( GetComponent<Rigidbody>( true ) is { } body )
+		{
+			body.Velocity = velocity;
+			body.AngularVelocity = Vector3.Random * 8f;
+		}
+		return true;
+	}
+
 	internal void SetupPickup()
 	{
 		DisplayName = Game.TypeLibrary.GetType( GetType() ).Title;
