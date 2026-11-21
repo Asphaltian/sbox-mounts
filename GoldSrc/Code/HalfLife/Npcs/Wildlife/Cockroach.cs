@@ -133,15 +133,12 @@ public sealed class Cockroach : Npc, Component.ICollisionListener
 		var player = collision.Other.GameObject.GetComponentInParent<PlayerController>();
 		if ( !player.IsValid() || player.Velocity.IsNearlyZero() ) return;
 		var floor = Scene.Trace.Ray( WorldPosition + Vector3.Up * 8, WorldPosition + Vector3.Down * 16 )
-			.IgnoreGameObjectHierarchy( GameObject ).IgnoreGameObjectHierarchy( player.GameObject ).Run();
-		if ( floor.Hit ) SquashMark( floor.EndPosition, floor.Normal, Game.Random.Int( 1, 6 ) );
+			.IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "npc", "player", "playercontroller", "trigger" ).Run();
+		if ( floor.Hit ) BloodEffects.Decal( BloodColor.Yellow, floor.EndPosition, floor.Normal, Game.Random.Int( 1, 6 ) );
 		var damage = new DamageInfo { Damage = Health, Attacker = player.GameObject, Position = WorldPosition, Origin = player.WorldPosition };
 		damage.Tags.Add( "crush" );
 		((IDamageable)this).OnDamage( damage );
 	}
-
-	[Rpc.Broadcast( NetFlags.HostOnly )]
-	static void SquashMark( Vector3 point, Vector3 normal, int variant ) => ImpactDecal.Place( point, normal, $"yblood{variant}", 12 );
 
 	protected override void OnDeath( IDamageable.DeathEvent death )
 	{
