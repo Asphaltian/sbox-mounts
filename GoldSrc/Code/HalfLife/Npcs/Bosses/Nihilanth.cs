@@ -120,7 +120,7 @@ public sealed partial class Nihilanth : Npc
 		if ( !HitStudioModel( info ) || hit.Instigator == GameObject || Health <= 0 ) return;
 		if ( ActiveSpheres < SphereCount / 2 && HitGroups( info ).Has( "hitgroup_2" ) && info.Damage > 2 ) return;
 		BloodEffects.Stream( Definition.Blood, info.Position, (info.Position - WorldPosition).Normal,
-			info.Damage + 100 * (1 - Health / Definition.Health) );
+			info.Damage + 100 * (1 - (Health + hit.AcceptedDamage) / Definition.Health) );
 	}
 
 	internal override NpcCorpse AddCorpseComponent( GameObject go ) => go.AddComponent<DyingNihilanth>();

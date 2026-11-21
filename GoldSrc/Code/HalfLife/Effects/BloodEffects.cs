@@ -30,34 +30,4 @@ internal static partial class BloodEffects
 		ImpactDecal.Place( point, normal, $"{prefix}{variant}", 0 );
 	}
 
-	[Rpc.Broadcast( NetFlags.HostOnly )]
-	internal static void Stream( Npc.BloodColor color, Vector3 point, Vector3 direction, float damage )
-	{
-		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount )
-			Droplets( mount, point, direction, mount.PaletteColor( (int)color ), System.Math.Clamp( (int)damage, 1, 100 ), 3 );
-	}
-
-	static void Droplets( HalfLifeMount mount, Vector3 point, Vector3 direction, Color tint, int count, float size )
-	{
-		if ( mount.GetIndexedSprite( "blood" ) is not { } drops ) return;
-		var go = new GameObject( false, "Blood droplets" );
-		go.NetworkMode = NetworkMode.Never;
-		go.WorldPosition = point;
-		var particles = go.AddComponent<ParticleEffect>();
-		particles.Lifetime = 0.7f;
-		particles.InitialScale = size;
-		particles.ApplyColor = true;
-		particles.Tint = tint;
-		particles.Force = true;
-		particles.ForceDirection = Vector3.Down;
-		particles.ForceScale = 300;
-		go.AddComponent<ParticleSpriteRenderer>().Sprite = drops;
-		go.AddComponent<TemporaryEffect>().DestroyAfterSeconds = 0.8f;
-		go.Enabled = true;
-		for ( int i = 0; i < count; ++i )
-		{
-			var drop = particles.Emit( point, 0 );
-			if ( drop is not null ) drop.Velocity = direction * Game.Random.Float( 40, 110 ) + Vector3.Random * 48;
-		}
-	}
 }
