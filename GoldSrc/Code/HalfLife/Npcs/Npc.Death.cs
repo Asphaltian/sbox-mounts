@@ -17,9 +17,10 @@ public partial class Npc
 	{
 		var info = death.DamageInfo;
 		var remaining = info == _lastHit ? _remainingHealth : Health;
-		var direction = (info.Position - info.Origin).Normal;
-		if ( direction == Vector3.Zero && death.Instigator.IsValid() )
-			direction = (GameObject.GetBounds().Center - death.Instigator.GetBounds().Center + Vector3.Up * 10).Normal;
+		var inflictor = info.Weapon.IsValid() ? info.Weapon : death.Instigator;
+		var direction = inflictor.IsValid()
+			? (HullCenter - inflictor.GetBounds().Center + Vector3.Up * 10).Normal
+			: (info.Position - info.Origin).Normal;
 
 		_gibbed = Definition?.Gibs is GibSet.Human or GibSet.Alien
 			&& (info.Tags.Has( "alwaysgib" ) || (remaining < -30 && !info.Tags.Has( "nevergib" )));
@@ -52,7 +53,7 @@ public partial class Npc
 		var directional = dot > 0.3f ? WeightedActivity( DieForward ) : dot <= -0.3f ? WeightedActivity( DieBackward ) : null;
 		if ( directional is not null )
 		{
-			var center = WorldPosition + Vector3.Up * Definition.Height * 0.5f;
+			var center = HullCenter;
 			var half = new Vector3( 16, 16, 18 );
 			var trace = Scene.Trace.Box( new BBox( -half, half ), center, center + forward * (dot > 0 ? 64 : -64) )
 				.IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "trigger", "debris" ).Run();
