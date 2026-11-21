@@ -54,7 +54,8 @@ public sealed partial class GaussGun
 			damage -= System.MathF.Max( 1, exit.EndPosition.Distance( hit.EndPosition ) );
 			if ( damage <= 0 ) break;
 			ShowImpact( exit.EndPosition, exit.Normal, true, (int)(damage * 0.3f) );
-			Blast.DamageInRadius( GameObject, Owner.GameObject, exit.EndPosition + direction * 8, damage, damage * 1.75f, "blast" );
+			var radius = damage * (Networking.MaxPlayers > 1 ? 1.75f : 2.5f);
+			Blast.DamageInRadius( GameObject, Owner.GameObject, exit.EndPosition + direction * 8, damage, radius, "blast" );
 			origin = exit.EndPosition + direction;
 		}
 	}
