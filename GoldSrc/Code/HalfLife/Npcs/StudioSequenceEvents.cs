@@ -98,8 +98,10 @@ internal sealed class StudioSequenceEvents
 		var go = new GameObject( false, "Muzzle flash" );
 		go.NetworkMode = NetworkMode.Never;
 		go.WorldPosition = muzzle.Position;
+		go.WorldRotation = Rotation.FromRoll( Game.Random.Int( 0, index == 0 ? 20 : 359 ) );
 		var flash = go.AddComponent<SpriteRenderer>();
 		flash.Sprite = sprite;
+		flash.CurrentFrameIndex = Game.Random.Int( 0, sprite.Animations[0].Frames.Count - 1 );
 		flash.Additive = true;
 		flash.Size = new Vector2( texture.Width, texture.Height ) * scale;
 		flash.RenderOptions.Game = model.RenderOptions.Game;
