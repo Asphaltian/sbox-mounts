@@ -60,10 +60,12 @@ public partial class HalfLifeMount
 			if ( width is < 1 or > 1024 || height is < 1 or > 1024 ) return null;
 			var indices = reader.ReadBytes( width * height );
 			if ( indices.Length != width * height ) return null;
+			// Linear filtering and mipmaps sample RGB on both sides of a masked edge.
+			var colors = format == 3 ? BleedMaskedEdges( indices, width ) : indices;
 			var pixels = new byte[indices.Length * 4];
 			for ( var j = 0; j < indices.Length; ++j )
 			{
-				var color = format == 2 ? 765 : indices[j] * 3;
+				var color = format == 2 ? 765 : colors[j] * 3;
 				pixels[j * 4] = palette[color];
 				pixels[j * 4 + 1] = palette[color + 1];
 				pixels[j * 4 + 2] = palette[color + 2];
@@ -72,5 +74,33 @@ public partial class HalfLifeMount
 			frames.Add( (width, height, pixels) );
 		}
 		return frames;
+	}
+
+	static byte[] BleedMaskedEdges( byte[] indices, int width )
+	{
+		if ( System.Array.IndexOf( indices, (byte)255 ) < 0 ) return indices;
+		var colors = indices.ToArray();
+		var edges = new Queue<int>();
+
+		void Fill( int pixel, byte color )
+		{
+			if ( colors[pixel] != 255 ) return;
+			colors[pixel] = color;
+			edges.Enqueue( pixel );
+		}
+
+		void Spread( int pixel )
+		{
+			var color = colors[pixel];
+			if ( pixel % width > 0 ) Fill( pixel - 1, color );
+			if ( pixel % width < width - 1 ) Fill( pixel + 1, color );
+			if ( pixel >= width ) Fill( pixel - width, color );
+			if ( pixel + width < colors.Length ) Fill( pixel + width, color );
+		}
+
+		for ( int i = 0; i < indices.Length; ++i )
+			if ( indices[i] != 255 ) Spread( i );
+		while ( edges.TryDequeue( out var pixel ) ) Spread( pixel );
+		return colors;
 	}
 }
