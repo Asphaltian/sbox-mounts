@@ -5,8 +5,56 @@ namespace GoldSrc.HalfLife;
 public sealed class GluonGun : StudioWeapon
 {
 	internal override string ShotSequence => "fire1";
-	internal override string ShotSound => "weapons/egon_run3.wav";
+	SoundHandle _beamSound;
+	bool _firing, _running;
+	TimeUntil _nextPulseDeadline, _windupEnds;
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => new( 25, 2, 4 );
+
+	protected override void OnShootEffects( ShotEffect shot )
+	{
+		base.OnShootEffects( shot );
+		if ( shot.NoEvents || Application.IsDedicatedServer ) return;
+		_nextPulseDeadline = PrimaryDelay + 0.15f;
+		if ( _firing ) return;
+		_firing = true;
+		_windupEnds = 2;
+		_beamSound = PlaySample( "weapons/egon_windup2.wav", 0.98f, 1.25f );
+	}
+
+	protected override void OnUpdate()
+	{
+		base.OnUpdate();
+		if ( !_firing ) return;
+		if ( _nextPulseDeadline <= 0 ) { StopBeam(); return; }
+		if ( !_running && _windupEnds <= 0 )
+		{
+			_beamSound?.Stop();
+			_running = true;
+			_beamSound = PlaySample( "weapons/egon_run3.wav", 0.98f, 1.25f );
+		}
+		if ( _beamSound.IsValid() ) _beamSound.Position = GetMuzzleTransform().Position;
+	}
+
+	protected override void OnHolstered()
+	{
+		StopBeam();
+		base.OnHolstered();
+	}
+
+	protected override void OnDisabled()
+	{
+		StopBeam();
+		base.OnDisabled();
+	}
+
+	void StopBeam()
+	{
+		if ( !_firing ) return;
+		_firing = _running = false;
+		_beamSound?.Stop();
+		_beamSound = null;
+		PlaySample( "weapons/egon_off1.wav" );
+	}
 
 	internal override void DrawShotTrail( Vector3 start, Vector3 end ) =>
 		EnergyBeam.Show( start, end, new Color( 0.4f, 0.55f, 1 ), "xbeam1", "Gluon beam", 3, PrimaryDelay );
@@ -17,7 +65,7 @@ public sealed class GluonGun : StudioWeapon
 		PrimaryDelay = 0.1f;
 		UsesClips = false;
 		StartingAmmo = 20;
-		Ballistics = new() { Damage = 14, Range = 8192 };
+		Ballistics = new() { Damage = 14, Range = 2048 };
 		AttackDamageTags = ["energybeam"];
 	}
 }

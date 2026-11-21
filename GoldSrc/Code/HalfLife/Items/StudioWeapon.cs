@@ -95,10 +95,11 @@ public abstract class StudioWeapon : BaseCombatWeapon
 		for ( int i = 0; i < count; i++ ) ShellCasing.Eject( origin, pose.Rotation, shotgun, Owner.Velocity );
 	}
 
-	protected void PlaySample( string sample, float volume = 1, float pitch = 1 )
+	protected SoundHandle PlaySample( string sample, float volume = 1, float pitch = 1 )
 	{
 		if ( !Application.IsDedicatedServer && Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount )
-			NpcAudio.Play( mount.NpcAudio.Find( sample ), WorldPosition, volume, pitch );
+			return NpcAudio.Play( mount.NpcAudio.Find( sample ), WorldPosition, volume, pitch );
+		return null;
 	}
 
 	protected override void OnUpdate()
