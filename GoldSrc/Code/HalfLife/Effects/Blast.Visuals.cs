@@ -19,6 +19,11 @@ internal static partial class Blast
 	{
 		var scene = Game.ActiveScene;
 		bool underwater = WaterBody.Find( scene, origin ).IsValid();
+		if ( !underwater )
+		{
+			var count = Game.Random.Int( 0, 3 );
+			for ( int i = 0; i < count; ++i ) SparkShower.Spawn( origin, hit ? normal : Vector3.Zero );
+		}
 		if ( hit ) ImpactDecal.Place( contact, normal, $"scorch{Game.Random.Int( 1, 2 )}", 48 );
 		var flash = SpriteEffect( "Grenade explosion", underwater ? "wxplo1" : "zerogxplode", origin, (damage - 50) * 0.06f, 15 );
 		if ( flash.IsValid() )

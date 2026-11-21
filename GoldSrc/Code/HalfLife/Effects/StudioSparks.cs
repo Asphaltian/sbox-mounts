@@ -4,12 +4,21 @@ internal static class StudioSparks
 {
 	internal static void Emit( Vector3 position, int count )
 	{
-		if ( count <= 0 || Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount ||
-			mount.GetIndexedSprite( "glow01" ) is not { } sprite ) return;
-
+		if ( count <= 0 ) return;
 		var go = new GameObject( false, "Studio sparks" );
 		go.NetworkMode = NetworkMode.Never;
 		go.WorldPosition = position;
+		var sparks = CreateEmitter( go );
+		if ( sparks is null ) { go.Destroy(); return; }
+		go.AddComponent<TemporaryEffect>().DestroyAfterSeconds = 0.35f;
+		go.Enabled = true;
+		Emit( sparks, position, count );
+	}
+
+	internal static ParticleEffect CreateEmitter( GameObject go )
+	{
+		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount ||
+			mount.GetIndexedSprite( "glow01" ) is not { } sprite ) return null;
 		var sparks = go.AddComponent<ParticleEffect>();
 		sparks.Lifetime = 0.3f;
 		sparks.InitialScale = 1;
@@ -23,8 +32,11 @@ internal static class StudioSparks
 		renderer.VelocityStretch = true;
 		renderer.StretchTime = 0.035f;
 		renderer.Additive = true;
-		go.AddComponent<TemporaryEffect>().DestroyAfterSeconds = 0.35f;
-		go.Enabled = true;
+		return sparks;
+	}
+
+	internal static void Emit( ParticleEffect sparks, Vector3 position, int count )
+	{
 		count = System.Math.Min( count, sparks.MaxParticles );
 		for ( int i = 0; i < count; i++ )
 		{
