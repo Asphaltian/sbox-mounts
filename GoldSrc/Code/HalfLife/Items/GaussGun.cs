@@ -4,7 +4,7 @@ namespace GoldSrc.HalfLife;
 [WeaponPickup( "gauss", "uranium", 100 )]
 public sealed partial class GaussGun : StudioWeapon
 {
-	const float FullChargeTime = 1.5f; // Half-Life multiplayer
+	static float FullChargeTime => Networking.MaxPlayers > 1 ? 1.5f : 4;
 	bool _charging, _released, _triggerHeld, _spinning;
 	TimeSince _chargeAge, _soundAge;
 	TimeUntil _ready;
@@ -121,7 +121,7 @@ public sealed partial class GaussGun : StudioWeapon
 		if ( !_released && _nextBurn <= FullChargeTime + 0.001f && _chargeAge >= _nextBurn )
 		{
 			if ( _nextBurn == 0.5f ) Spin();
-			_nextBurn += 0.1f;
+			_nextBurn += Networking.MaxPlayers > 1 ? 0.1f : 0.3f;
 			TakePrimaryAmmo();
 		}
 		if ( !_released && Ammo1 > 0 ) return;

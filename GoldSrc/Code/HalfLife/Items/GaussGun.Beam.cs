@@ -11,7 +11,9 @@ public sealed partial class GaussGun
 		bool punched = false;
 		_aftershock = Game.Random.Float( 0.3f, 0.8f );
 		ShowFire( damage );
-		GoldSrc.HalfLife.Npc.PunchPlayer( Owner, charged ? -direction * damage * 5 : Vector3.Zero, new Angles( -2, 0, 0 ) );
+		var recoil = charged ? -direction * damage * 5 : Vector3.Zero;
+		if ( Networking.MaxPlayers <= 1 ) recoil.z = 0;
+		GoldSrc.HalfLife.Npc.PunchPlayer( Owner, recoil, new Angles( -2, 0, 0 ) );
 
 		for ( int i = 0; i < 10 && damage > 10; ++i )
 		{
