@@ -17,10 +17,7 @@ public partial class Npc
 	{
 		var info = death.DamageInfo;
 		var remaining = info == _lastHit ? _remainingHealth : Health;
-		var inflictor = info.Weapon.IsValid() ? info.Weapon : death.Instigator;
-		var direction = inflictor.IsValid()
-			? (HullCenter - inflictor.GetBounds().Center + Vector3.Up * 10).Normal
-			: (info.Position - info.Origin).Normal;
+		var direction = DamageDirection( info, death.Instigator, HullCenter );
 
 		_gibbed = Definition?.Gibs is GibSet.Human or GibSet.Alien
 			&& (info.Tags.Has( "alwaysgib" ) || (remaining < -30 && !info.Tags.Has( "nevergib" )));
@@ -38,6 +35,14 @@ public partial class Npc
 			if ( _loaded ) _death = ChooseDeathSequence( HitGroups( info ), direction );
 		}
 		base.OnDeath( death );
+	}
+
+	internal static Vector3 DamageDirection( DamageInfo info, GameObject instigator, Vector3 center )
+	{
+		var inflictor = info.Weapon.IsValid() ? info.Weapon : instigator;
+		return inflictor.IsValid()
+			? (center - inflictor.GetBounds().Center + Vector3.Up * 10).Normal
+			: (info.Position - info.Origin).Normal;
 	}
 
 	internal virtual void DeathSound() => EmitSound( VoiceSample( Sounds.Death ), WorldPosition, VoiceVolume, VoicePitch );

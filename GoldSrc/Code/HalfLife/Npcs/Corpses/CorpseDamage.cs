@@ -38,7 +38,7 @@ public sealed class CorpseDamage : Component, Component.IDamageable
 		Health = 0;
 		var hull = new BBox( WorldPosition - new Vector3( 16, 16, 0 ), WorldPosition + new Vector3( 16, 16, 8 ) );
 		var head = Renderer.GetAttachment( "eyes" )?.Position ?? hull.Center;
-		Gib.Scatter( hull, head, (hit.Position - hit.Origin).Normal, -50, Human, Blood, sourceModel: Renderer.Model?.Name );
+		Gib.Scatter( hull, head, Npc.DamageDirection( hit, hit.Attacker, hull.Center ), -50, Human, Blood, sourceModel: Renderer.Model?.Name );
 		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount ) mount.NpcAudio.Emit( "common/bodysplat.wav", WorldPosition );
 		GetComponent<DeadGrunt>()?.TossWeapon();
 		GameObject.Destroy();
