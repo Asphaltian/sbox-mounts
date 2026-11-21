@@ -13,9 +13,13 @@ public partial class Npc
 		return true;
 	}
 
+	internal virtual string HelmetHitGroup => null;
+
+	internal bool IsHeadHit( ITagSet groups ) => groups.Has( "hitgroup_1" ) || (HelmetHitGroup is { } helmet && groups.Has( helmet ));
+
 	internal virtual void ModifyDamage( Component.IDamageable.DamageEvent hit )
 	{
-		if ( HitGroups( hit.DamageInfo ).Has( "hitgroup_1" ) ) hit.AcceptedDamage *= 3;
+		if ( IsHeadHit( HitGroups( hit.DamageInfo ) ) ) hit.AcceptedDamage *= 3;
 	}
 
 	internal static void AbsorbHelmetHit( Component.IDamageable.DamageEvent hit )

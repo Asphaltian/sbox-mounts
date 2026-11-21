@@ -92,17 +92,18 @@ public sealed partial class HumanGrunt : Npc
 		EmitSound( "hgrunt/gr_reload1.wav", WorldPosition );
 	}
 
+	internal override string HelmetHitGroup => "hitgroup_11";
+
 	internal override void ModifyDamage( Component.IDamageable.DamageEvent damage )
 	{
 		var groups = HitGroups( damage.DamageInfo );
-		if ( groups.Has( "hitgroup_11" ) )
+		if ( groups.Has( HelmetHitGroup ) )
 		{
 			var tags = damage.DamageInfo.Tags;
 			if ( Renderer.GetBodyGroup( "heads" ) == 0 && (tags.Has( "bullet" ) || tags.Has( "slash" ) || tags.Has( "club" ) || tags.Has( "blast" ) || tags.Has( "explosion" )) )
 				AbsorbHelmetHit( damage );
 		}
-		else if ( !groups.Has( "hitgroup_1" ) ) return;
-		damage.AcceptedDamage *= 3;
+		base.ModifyDamage( damage );
 	}
 
 	internal override void FireBullet( GameObject target, Vector3 origin, Vector3 end )

@@ -6,20 +6,21 @@ public sealed partial class SecurityGuard
 {
 	bool _suspicious;
 
+	internal override string HelmetHitGroup => "hitgroup_10";
+
 	internal override void ModifyDamage( Component.IDamageable.DamageEvent damage )
 	{
 		var info = damage.DamageInfo;
 		var groups = HitGroups( info );
 		var tags = info.Tags;
-		if ( groups.Has( "hitgroup_10" ) )
+		if ( groups.Has( HelmetHitGroup ) )
 		{
 			if ( tags.Has( "bullet" ) || tags.Has( "slash" ) || tags.Has( "club" ) )
 				AbsorbHelmetHit( damage );
-			damage.AcceptedDamage *= 3;
 		}
-		else if ( groups.Has( "hitgroup_1" ) ) damage.AcceptedDamage *= 3;
 		else if ( (groups.Has( "hitgroup_2" ) || groups.Has( "hitgroup_3" ))
 			&& (tags.Has( "bullet" ) || tags.Has( "slash" ) || tags.Has( "blast" ) || tags.Has( "explosion" )) ) damage.AcceptedDamage *= 0.5f;
+		base.ModifyDamage( damage );
 	}
 
 	protected override void OnDamaged( Component.IDamageable.DamageEvent damage )

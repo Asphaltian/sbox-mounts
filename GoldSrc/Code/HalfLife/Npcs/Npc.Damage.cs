@@ -34,7 +34,7 @@ public partial class Npc
 		if ( HitStudioModel( info ) )
 		{
 			var tags = HitGroups( info );
-			var activity = tags.Has( "hitgroup_1" ) ? FlinchHead
+			var activity = IsHeadHit( tags ) ? FlinchHead
 				: tags.Has( "hitgroup_3" ) ? FlinchStomach
 				: tags.Has( "hitgroup_4" ) ? FlinchLeftArm
 				: tags.Has( "hitgroup_5" ) ? FlinchRightArm

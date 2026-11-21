@@ -49,7 +49,7 @@ public partial class Npc
 
 	StudioSequence ChooseDeathSequence( ITagSet groups, Vector3 direction )
 	{
-		var regional = groups.Has( "hitgroup_1" ) ? WeightedActivity( DieHeadshot )
+		var regional = IsHeadHit( groups ) ? WeightedActivity( DieHeadshot )
 			: groups.Has( "hitgroup_3" ) ? WeightedActivity( DieGutshot ) : null;
 		if ( regional is not null ) return regional;
 
