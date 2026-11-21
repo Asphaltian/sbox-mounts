@@ -32,6 +32,7 @@ internal sealed class NpcPrefabLoader( TypeDescription component, NpcDefinitionA
 				root.Tags.Add( "ragdoll", "removable" );
 				corpse.ModelPath = modelPath;
 				corpse.Renderer = root.AddComponent<SkinnedModelRenderer>();
+				corpse.Renderer.Model = Model.Load( modelPath );
 				corpse.Renderer.UseAnimGraph = true;
 				var hitboxes = root.AddComponent<ModelHitboxes>();
 				hitboxes.Renderer = corpse.Renderer;
@@ -47,6 +48,7 @@ internal sealed class NpcPrefabLoader( TypeDescription component, NpcDefinitionA
 	{
 		var visuals = new GameObject( root, true, "model" );
 		var renderer = visuals.AddComponent<SkinnedModelRenderer>();
+		renderer.Model = Model.Load( modelPath );
 		renderer.UseAnimGraph = true;
 		renderer.CreateAttachments = true;
 		var hitboxes = visuals.AddComponent<ModelHitboxes>();
