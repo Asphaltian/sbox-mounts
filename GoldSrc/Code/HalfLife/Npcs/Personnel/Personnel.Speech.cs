@@ -118,6 +118,7 @@ public abstract partial class Personnel
 		}
 		if ( !HasSpoken )
 		{
+			if ( !InViewCone( player.WorldPosition - WorldPosition ) ) return;
 			var greeting = PreDisaster ? PreDisasterGreeting : "HELLO";
 			if ( greeting is not null ) Say( greeting, player, Game.Random.Float( 3, 3.5f ) );
 			else HasSpoken = true;

@@ -37,7 +37,7 @@ public sealed class SittingScientist : ScientistBase
 		}
 
 		GameObject player = !HasSpoken && CanStartConversation ? Senses?.FindNearestVisible( "player" ) : null;
-		if ( player.IsValid() && player.WorldPosition.DistanceSquared( WorldPosition ) <= 500 * 500 )
+		if ( player.IsValid() && player.WorldPosition.DistanceSquared( WorldPosition ) <= 500 * 500 && InViewCone( player.WorldPosition - WorldPosition ) )
 		{
 			Say( "PHELLO", player, Game.Random.Float( 3, 3.5f ) );
 			LookAtFriend( player );

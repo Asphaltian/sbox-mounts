@@ -13,20 +13,21 @@ public partial class Npc
 
 	internal GameObject FindVisibleThreat() => BestInView( Senses?.VisibleThreats );
 
+	// GoldSrc checks the horizontal cone even when someone is within touching distance.
+	internal bool InViewCone( Vector3 offset ) => WorldRotation.Forward.WithZ( 0 ).Dot( offset.WithZ( 0 ).Normal ) > ViewDot;
+
 	GameObject BestInView( IReadOnlyList<GameObject> candidates )
 	{
 		if ( candidates is null ) return null;
 		GameObject best = null;
 		var bestPriority = int.MinValue;
 		var bestDistance = float.MaxValue;
-		var forward = WorldRotation.Forward.WithZ( 0 );
 		for ( int i = 0; i < candidates.Count; i++ )
 		{
 			var candidate = candidates[i];
 			if ( !IsLiveTarget( candidate ) ) continue;
 			var offset = candidate.WorldPosition - WorldPosition;
-			// Sandbox also reports nearby actors behind us as visible.
-			if ( forward.Dot( offset.WithZ( 0 ).Normal ) <= ViewDot ) continue;
+			if ( !InViewCone( offset ) ) continue;
 			var priority = GetRelationship( candidate ).Priority;
 			var distance = offset.LengthSquared;
 			if ( priority < bestPriority || (priority == bestPriority && distance >= bestDistance) ) continue;
