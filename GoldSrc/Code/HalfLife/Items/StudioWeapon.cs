@@ -149,7 +149,11 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 		if ( Networking.IsHost ) return;
 		// Load mounted resources for the complete replicated inventory, including holstered weapons.
 		await Sandbox.Mounting.Directory.Mount( "hl1" );
-		if ( IsValid ) BindAmmoTypes();
+		if ( !IsValid ) return;
+		BindAmmoTypes();
+		var mount = Sandbox.Mounting.Directory.Get( "hl1" );
+		if ( mount?.GetByPath( $"mount://hl1/{Definition.PrefabPath}" ) is WeaponPickupLoader pickup )
+			pickup.BindPresentation( this, GetComponent<SkinnedModelRenderer>( true ) );
 	}
 
 	protected void EjectShells( int count, bool shotgun )

@@ -3,11 +3,23 @@ namespace GoldSrc.HalfLife;
 internal sealed class WeaponPickupLoader( TypeDescription type, string modelPath, string iconPath ) : ResourceLoader<GameMount>
 {
 	PrefabFile _prefab;
+	string ModelPath => $"mount://{Host.Ident}/{modelPath}.vmdl";
+
+	internal void BindPresentation( StudioWeapon weapon, SkinnedModelRenderer renderer )
+	{
+		if ( weapon.DisplayIcon is not { IsError: false } && Texture.Load( iconPath ) is { IsError: false } icon )
+			weapon.DisplayIcon = icon;
+
+		if ( renderer.IsValid() && renderer.Model is not { IsError: false } )
+		{
+			renderer.Model = Model.Load( ModelPath );
+			weapon.PosePickup( renderer );
+		}
+	}
 
 	protected override object Load()
 	{
-		var path = $"mount://{Host.Ident}/{modelPath}.vmdl";
-		var builder = new PrefabBuilder().WithName( Path ).WithMetadata( "Title", type.Title ).WithMetadata( "PreviewModel", path );
+		var builder = new PrefabBuilder().WithName( Path ).WithMetadata( "Title", type.Title ).WithMetadata( "PreviewModel", ModelPath );
 		using ( builder.Scope() )
 		{
 			Game.ActiveScene.Enabled = false;
@@ -15,17 +27,14 @@ internal sealed class WeaponPickupLoader( TypeDescription type, string modelPath
 			root.NetworkMode = NetworkMode.Object;
 			root.Tags.Add( "removable" );
 			root.Tags.Add( "nocollide_props" );
-			var model = Model.Load( path );
 			var renderer = root.AddComponent<SkinnedModelRenderer>();
-			renderer.Model = model;
-			var hull = root.AddComponent<BoxCollider>();
-			hull.Scale = model.Bounds.Size;
-			hull.Center = model.Bounds.Center;
-			root.AddComponent<Rigidbody>();
 			var weapon = (StudioWeapon)root.Components.Create( type );
-			if ( Texture.Load( iconPath ) is { IsError: false } icon ) weapon.DisplayIcon = icon;
+			BindPresentation( weapon, renderer );
+			var hull = root.AddComponent<BoxCollider>();
+			hull.Scale = renderer.Model.Bounds.Size;
+			hull.Center = renderer.Model.Bounds.Center;
+			root.AddComponent<Rigidbody>();
 			weapon.SetupPickup();
-			weapon.PosePickup( renderer );
 		}
 		return _prefab = builder.Create();
 	}
