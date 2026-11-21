@@ -14,7 +14,8 @@ public sealed class Boid : Npc
 	TimeUntil _nextSteer, _nextCall, _alert, _turnUntil;
 	TimeSince _sinceBlocked;
 	float _speed = 125, _goalSpeed = 125;
-	int _turn;
+	[Sync( SyncFlags.FromHost )] int TurnDirection { get; set; }
+	const float TurnRate = 75;
 	float _averageSpeed;
 	[Sync( SyncFlags.FromHost )] float FlapRate { get; set; } = 1;
 	internal override float MovementPlaybackRate( StudioSequence sequence, float speed ) => FlapRate;
@@ -53,12 +54,12 @@ public sealed class Boid : Npc
 			if ( blocked )
 			{
 				_sinceBlocked = 0;
-				if ( _turn == 0 )
+				if ( TurnDirection == 0 )
 				{
 					var difference = Clearance( WorldRotation.Left ) - Clearance( WorldRotation.Right );
-					_turn = difference == 0 ? (Game.Random.Int( 0, 1 ) == 0 ? -1 : 1) : System.Math.Sign( difference );
+					TurnDirection = difference == 0 ? (Game.Random.Int( 0, 1 ) == 0 ? -1 : 1) : System.Math.Sign( difference );
 				}
-				heading = Rotation.FromYaw( _turn * 7.5f ) * heading;
+				heading = Rotation.FromYaw( TurnDirection * TurnRate * 0.1f ) * heading;
 				WorldRotation = Rotation.LookAt( heading );
 				if ( _nextCall <= 0 )
 				{
@@ -68,13 +69,14 @@ public sealed class Boid : Npc
 			}
 			else
 			{
-				_turn = 0;
+				TurnDirection = 0;
 				if ( _sinceBlocked > 6 ) _turnUntil = Game.Random.Int( 1, 3 );
 				if ( _speed <= Definition.Speed ) _speed += 5;
 			}
 		}
 		else
 		{
+			TurnDirection = leader.TurnDirection;
 			var toward = leader.WorldPosition - WorldPosition;
 			var distance = toward.Length;
 			if ( heading.Dot( toward.WithZ( 0 ).Normal ) <= 0.2f || distance < 100 ) _goalSpeed = leader._speed * 0.5f;
@@ -91,6 +93,14 @@ public sealed class Boid : Npc
 		FlapRate = System.Math.Clamp( System.MathF.Abs( _speed - _averageSpeed ) / 10, 0.25f, 1.9f );
 		_averageSpeed = _averageSpeed * 0.8f + _speed * 0.2f;
 		Movement.MoveTo( WorldPosition + heading.Normal * 192, 4, _speed );
+	}
+
+	protected override void OnUpdate()
+	{
+		base.OnUpdate();
+		if ( !Renderer.IsValid() || Health <= 0 ) return;
+		var target = Rotation.From( -FlapRate * 5, 0, -TurnDirection * TurnRate );
+		Renderer.LocalRotation = Rotation.Slerp( Renderer.LocalRotation, target, 1 - System.MathF.Exp( -Time.Delta ) );
 	}
 
 	float Clearance( Vector3 direction, Vector3 offset = default )
