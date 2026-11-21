@@ -5,6 +5,7 @@ public sealed partial class Scientist
 	const int Arm = 33, Disarm = 34;
 	StudioSequence _drawNeedle, _inject, _putAway;
 	GameObject _patient;
+	bool _turningToHeal;
 	TimeUntil _nextHeal;
 
 	void SetUpTreatment( ModelLoader loader )
@@ -27,13 +28,29 @@ public sealed partial class Scientist
 
 		_patient = Leader;
 		Movement?.Stop();
-		Say( "HEAL", _patient, 2 );
-		PlayAction( _drawNeedle );
+		_turningToHeal = true;
 		return true;
 	}
 
 	bool NeedsTreatment( GameObject target ) => _nextHeal <= 0 && target.IsValid() && target == Leader
 		&& target.GetComponent<Component.IDamageable>() is { Health: > 0, MaxHealth: > 0 } patient && patient.Health <= patient.MaxHealth * 0.5f;
+
+	bool TurnToPatient()
+	{
+		if ( !_turningToHeal ) return false;
+		if ( Action is not null || !NeedsTreatment( _patient ) || WorldPosition.DistanceSquared( _patient.WorldPosition ) > 50 * 50 )
+		{
+			EndTreatment();
+			return false;
+		}
+		if ( FacePatient( 120 ) )
+		{
+			_turningToHeal = false;
+			Say( "HEAL", _patient, 2 );
+			PlayAction( _drawNeedle );
+		}
+		return true;
+	}
 
 	void UpdateTreatment()
 	{
@@ -41,22 +58,28 @@ public sealed partial class Scientist
 		{
 			if ( Action != _drawNeedle.Name && Action != _inject.Name && Action != _putAway.Name )
 				EndTreatment();
-			else if ( Action != _putAway.Name && (!_patient.IsValid() || _patient != Leader ||
+			else if ( Action != _putAway.Name && (!IsLiveTarget( _patient ) || _patient != Leader ||
 				(Action == _inject.Name && WorldPosition.DistanceSquared( _patient.WorldPosition ) > 90 * 90)) )
 				PlayAction( _putAway );
 			else if ( _patient.IsValid() )
-				FacePatient();
+				FacePatient( 90 );
 		}
 	}
 
-	void FacePatient()
+	bool FacePatient( float turnSpeed )
 	{
 		var direction = (_patient.WorldPosition - WorldPosition).WithZ( 0 );
-		if ( direction.IsNearZeroLength ) return;
+		if ( direction.IsNearZeroLength ) return true;
 		var facing = Rotation.LookAt( direction, Vector3.Up );
 		var angle = WorldRotation.Distance( facing );
-		if ( angle > 0.1f )
-			WorldRotation = Rotation.Slerp( WorldRotation, facing, System.MathF.Min( 1, 90 * Time.Delta / angle ) );
+		var step = turnSpeed * Time.Delta;
+		if ( angle <= step )
+		{
+			WorldRotation = facing;
+			return true;
+		}
+		WorldRotation = Rotation.Slerp( WorldRotation, facing, step / angle );
+		return false;
 	}
 
 	internal override void HandleActionEvent( int id )
@@ -90,6 +113,7 @@ public sealed partial class Scientist
 	void EndTreatment()
 	{
 		EquipmentDrawn = false;
+		_turningToHeal = false;
 		_patient = null;
 	}
 }

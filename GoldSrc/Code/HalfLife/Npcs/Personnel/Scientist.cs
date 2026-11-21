@@ -12,6 +12,7 @@ public sealed partial class Scientist : ScientistBase
 
 	protected override void Think()
 	{
+		if ( TurnToPatient() ) return;
 		UpdateTreatment();
 		if ( RespondToDanger() ) CancelAnswer();
 		else base.Think();
