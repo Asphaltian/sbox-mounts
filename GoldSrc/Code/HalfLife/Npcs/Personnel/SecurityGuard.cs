@@ -3,7 +3,7 @@ namespace GoldSrc.HalfLife;
 [Title( "Security Guard" ), Category( "Half-Life" )]
 [Alias( "GoldSrc.HalfLifeSecurityGuard" )]
 [NpcDefinition( "monster_barney", "barney", MonsterClass.PlayerAlly, 35, 16, 72, 145, ArmorGroup = 10, Attack = NpcAttack.Bullet, Damage = 5, Range = 1024, StrikeEvents = new[] { 3 }, Gibs = GibSet.Human, Blood = BloodColor.Red )]
-public sealed partial class SecurityGuard : Personnel
+public sealed partial class SecurityGuard : Personnel, Component.IDamageable.IEvents
 {
 	protected override int PainVariants => 3;
 	internal override void DeathSound() => EmitSound( $"{Sounds.Death}{Game.Random.Int( 1, 3 )}.wav", WorldPosition, VoiceVolume, SpeechPitch, this );
@@ -17,6 +17,23 @@ public sealed partial class SecurityGuard : Personnel
 	GameObject _checkedTarget;
 	TimeUntil _nextSightCheck;
 	bool _clearShot;
+	bool _enemyDied;
+
+	void Component.IDamageable.IEvents.OnDied( Component.IDamageable.DeathEvent death )
+	{
+		if ( Networking.IsHost && death.Victim == LastHostile ) _enemyDied = true;
+	}
+
+	protected override void Think()
+	{
+		if ( _enemyDied && Action is null )
+		{
+			_enemyDied = false;
+			if ( Health > 0 && !IsBarnacleVictim && CanStartConversation && !FindVisibleEnemy().IsValid() )
+				Say( "KILL", duration: 4 );
+		}
+		base.Think();
+	}
 
 	internal override void OnModelLoaded( ModelLoader loader )
 	{

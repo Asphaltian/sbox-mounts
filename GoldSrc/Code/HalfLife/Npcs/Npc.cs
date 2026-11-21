@@ -47,8 +47,9 @@ public partial class Npc : BaseNpc
 	internal virtual float VoicePitch => 1;
 	internal virtual NpcSounds Sounds { get; } = new();
 	readonly StudioSequenceEvents _sequenceEvents = new();
-	GameObject _target, _leapTarget, _lastHostile;
-	protected bool InCombat => _lastHostile.IsValid();
+	GameObject _target, _leapTarget;
+	protected GameObject LastHostile { get; private set; }
+	protected bool InCombat => LastHostile.IsValid();
 	float[] _hitTimes = [];
 	StudioSequence _shownSequence;
 	float _clipTime;
@@ -206,13 +207,13 @@ public partial class Npc : BaseNpc
 		var hostile = Definition.Attack == NpcAttack.None ? null : FindVisibleEnemy();
 		if ( hostile.IsValid() )
 		{
-			if ( hostile != _lastHostile )
+			if ( hostile != LastHostile )
 				OnEnemySpotted( hostile );
-			_lastHostile = hostile;
+			LastHostile = hostile;
 			if ( Action is null ) Engage( hostile );
 			return;
 		}
-		_lastHostile = null;
+		LastHostile = null;
 
 		if ( _nextMove > 0 )
 			return;
