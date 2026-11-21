@@ -11,12 +11,14 @@ public sealed class ShellCasing : Component, Component.ICollisionListener
 		var shell = new GameObject( false, shotgun ? "Shotgun shell" : "Brass casing" );
 		shell.NetworkMode = NetworkMode.Never;
 		shell.Tags.Add( "debris" );
+		shell.Tags.Add( "nocollide_props" );
 		shell.WorldPosition = origin;
 		shell.WorldRotation = Rotation.FromYaw( facing.Angles().yaw );
 		var model = Model.Load( shotgun ? "mount://hl1/valve/models/shotgunshell.mdl.vmdl" : "mount://hl1/valve/models/shell.mdl.vmdl" );
 		shell.AddComponent<ModelRenderer>().Model = model;
 		var collider = shell.AddComponent<ModelCollider>();
 		collider.Model = model;
+		collider.ColliderFlags |= ColliderFlags.IgnoreTraces;
 		collider.Elasticity = 0.35f;
 		var body = shell.AddComponent<Rigidbody>();
 		body.RigidbodyFlags |= RigidbodyFlags.DisableCollisionSounds;

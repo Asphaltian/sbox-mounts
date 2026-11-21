@@ -58,6 +58,7 @@ public sealed class Gib : Component, Component.ICollisionListener
 		var go = new GameObject( false, "Gib" );
 		go.NetworkMode = NetworkMode.Never;
 		go.Tags.Add( "debris" );
+		go.Tags.Add( "nocollide_props" );
 		go.WorldPosition = point;
 		var gib = go.AddComponent<Gib>();
 		gib._blood = blood;
@@ -69,6 +70,7 @@ public sealed class Gib : Component, Component.ICollisionListener
 		collider.Type = HullCollider.PrimitiveType.Points;
 		collider.Points = ((ModelLoader)Sandbox.Mounting.Directory.Get( "hl1" ).GetByPath( model.Name )).GibHull( group, variant );
 		collider.Friction = 0.55f;
+		collider.ColliderFlags |= ColliderFlags.IgnoreTraces;
 		collider.Elasticity = 0.5f;
 		gib._body = go.AddComponent<Rigidbody>();
 		gib._body.RigidbodyFlags |= RigidbodyFlags.DisableCollisionSounds;
