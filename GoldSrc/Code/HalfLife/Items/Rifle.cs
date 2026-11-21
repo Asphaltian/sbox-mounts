@@ -109,7 +109,7 @@ public sealed class Rifle : BulletWeapon
 		ShowPlayerMuzzleFlash();
 		if ( !IsProxy && Owner is { ThirdPerson: false } )
 			MeleeViewPunch.Apply( Scene.Camera, new Angles( -10, 0, 0 ) );
-		ViewModel?.GetComponent<StudioWeaponView>()?.Play( "grenade" );
+		ViewModel?.GetComponent<StudioWeaponView>()?.Play( "grenade", idleAfter: 5 );
 		PlaySample( Game.Random.Int( 0, 1 ) == 0 ? "weapons/glauncher.wav" : "weapons/glauncher2.wav", 1, Game.Random.Float( 0.94f, 1.09f ) );
 		PostWeaponEvent( WeaponEvents.Attack );
 	}

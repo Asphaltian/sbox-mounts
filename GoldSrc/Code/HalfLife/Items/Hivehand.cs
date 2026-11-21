@@ -6,6 +6,7 @@ public sealed class Hivehand : ProjectileWeapon
 {
 	internal override string DeploySequence => "up";
 	internal override string ShotSequence => "Shoot";
+	internal override float? IdleAfterShot => Game.Random.Float( 10, 15 );
 	internal override string ShotSound => $"agrunt/ag_fire{Game.Random.Int( 1, 3 )}.wav";
 	internal override (string Name, float? Delay) IdleAnimation => Game.Random.Float( 0, 1 ) switch
 	{

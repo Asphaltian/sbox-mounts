@@ -6,7 +6,7 @@ public sealed partial class RocketLauncher : ProjectileWeapon
 {
 	internal override string DeploySequence => Clip1 > 0 ? "draw1" : "draw2";
 	internal override string ShotSequence => "fire";
-	internal override float? IdleAfterLaunch => 1.5f;
+	internal override float? IdleAfterShot => 1.5f;
 	internal override float IdleAfterReloadStart => Game.Random.Float( 10, 15 );
 	internal override bool CanIdle => Ammo1 > 0;
 	internal override void PlayIdle( StudioWeaponView view )

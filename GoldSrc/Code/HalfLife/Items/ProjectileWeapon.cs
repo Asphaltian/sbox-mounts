@@ -18,11 +18,10 @@ public abstract class ProjectileWeapon : StudioWeapon
 		TakePrimaryAmmo();
 		_nextLaunch = (secondary ? SecondaryDelay : PrimaryDelay) + extraDelay;
 		if ( secondary ) _nextSecondary = _nextLaunch;
-		ShowLaunch( ShotSequence, IdleAfterLaunch, keepIdleDeadline );
+		ShowLaunch( ShotSequence, IdleAfterShot, keepIdleDeadline );
 	}
 
 	internal abstract bool Release( Ray ray );
-	internal virtual float? IdleAfterLaunch => null;
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
 	void ShowLaunch( string sequence, float? idleAfter, bool keepIdleDeadline )

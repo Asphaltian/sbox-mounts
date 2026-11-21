@@ -42,7 +42,7 @@ public sealed class StudioWeaponView : BaseWeaponModel
 
 	public override void OnDeploy() => Play( _weapon.DeploySequence );
 	public override void OnAttack( Vector3? hitPoint = null, Vector3? origin = null ) =>
-		Play( _weapon.ShotSequence );
+		Play( _weapon.ShotSequence, idleAfter: _weapon.IdleAfterShot );
 	public override void OnReloadStart() =>
 		Play( _weapon.ReloadSequence, idleAfter: _weapon.IdleAfterReloadStart );
 

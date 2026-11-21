@@ -15,7 +15,7 @@ public sealed class Crossbow : ProjectileWeapon
 			view.Play( Clip1 > 0 ? "fidget1" : "fidget2", idleAfter: Clip1 > 0 ? 3 : 80f / 30 );
 	}
 	internal override string ShotSequence => Clip1 > 0 ? "fire1" : Ammo1 > 0 ? "fire3" : null;
-	internal override float? IdleAfterLaunch => Clip1 > 0 ? 5 : 0.75f;
+	internal override float? IdleAfterShot => Clip1 > 0 ? 5 : 0.75f;
 
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => hd ? new( 22.4f, 1.5f, 2.9f ) : new( 19.3f, 0.8f, 2.6f );
 

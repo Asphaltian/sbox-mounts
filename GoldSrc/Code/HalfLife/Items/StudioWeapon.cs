@@ -35,6 +35,7 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 		view.Play( name, idleAfter: delay );
 	}
 	internal virtual string ShotSequence => "shoot";
+	internal virtual float? IdleAfterShot => null;
 	internal virtual string ReloadSequence => "reload";
 	internal virtual float IdleAfterReloadStart => 3;
 

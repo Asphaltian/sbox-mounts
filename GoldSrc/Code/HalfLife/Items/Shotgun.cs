@@ -17,6 +17,7 @@ public sealed class Shotgun : BulletWeapon
 		_ => ("idle4", 20f / 9)
 	};
 	internal override string ShotSequence => _double ? "shoot_big" : "shoot";
+	internal override float? IdleAfterShot => Clip1 > 0 ? (_double ? 6 : 5) : (_double ? SecondaryDelay : PrimaryDelay);
 	internal override string ReloadSequence => "start_reload";
 
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => hd ? new( 28.55f, 2.55f, 4.75f ) : new( 24.5f, 2.5f, 4.55f );

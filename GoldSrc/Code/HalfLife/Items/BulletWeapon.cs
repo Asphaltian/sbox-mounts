@@ -4,6 +4,7 @@ namespace GoldSrc.HalfLife;
 public abstract class BulletWeapon : StudioWeapon
 {
 	internal abstract Vector2 PelletSpread { get; }
+	internal override float? IdleAfterShot => Game.Random.Float( 10, 15 );
 	// Muzzle event option from the matching player.mdl shoot sequence.
 	internal abstract int PlayerMuzzleFlash { get; }
 	internal static bool Deathmatch => Networking.MaxPlayers > 1;
