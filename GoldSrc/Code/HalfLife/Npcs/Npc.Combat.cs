@@ -152,6 +152,13 @@ public partial class Npc
 		return CalculateEyePosition( target );
 	}
 
+	internal static bool SharesWaterLevel( GameObject target, bool sourceSubmerged )
+	{
+		// A wading target can be reached from either side of the surface.
+		var point = sourceSubmerged ? target.WorldPosition + Vector3.Up : TargetEyePosition( target );
+		return WaterBody.Find( target.Scene, point ).IsValid() == sourceSubmerged;
+	}
+
 	internal static Vector3 TargetHullCenter( GameObject target )
 	{
 		if ( target.GetComponent<Npc>() is { } npc ) return npc.HullCenter;

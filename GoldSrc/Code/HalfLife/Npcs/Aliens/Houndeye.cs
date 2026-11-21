@@ -86,12 +86,8 @@ public sealed partial class Houndeye : Npc
 
 	bool CanSeeBlastTarget( GameObject target, bool submerged )
 	{
-		var eye = TargetEyePosition( target );
-		// FVisible permits a submerged attacker to see a wading target.
-		if ( submerged ? !WaterBody.Find( Scene, target.WorldPosition + Vector3.Up ).IsValid() : WaterBody.Find( Scene, eye ).IsValid() )
-			return false;
-
-		var trace = Scene.Trace.Ray( EyePosition, eye ).IgnoreGameObjectHierarchy( GameObject )
+		if ( !SharesWaterLevel( target, submerged ) ) return false;
+		var trace = Scene.Trace.Ray( EyePosition, TargetEyePosition( target ) ).IgnoreGameObjectHierarchy( GameObject )
 			.WithoutTags( "npc", "player", "playercontroller", "trigger" ).Run();
 		return !trace.Hit || trace.GameObject?.Root == target.Root;
 	}

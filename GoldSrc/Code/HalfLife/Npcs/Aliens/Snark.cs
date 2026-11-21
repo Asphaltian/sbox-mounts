@@ -121,7 +121,7 @@ public sealed class Snark : Npc, Component.ICollisionListener
 	{
 		BloodEffects.Spray( Definition.Blood, WorldPosition, 80 );
 		EmitSound( "common/bodysplat.wav", WorldPosition, 0.75f, 2 );
-		Blast.DamageInRadius( GameObject, DamageAttacker, WorldPosition + Vector3.Up, BlastDamage, BlastDamage * 2.5f, "blast" );
+		Blast.DamageInRadius( GameObject, DamageAttacker, WorldPosition, BlastDamage, BlastDamage * 2.5f, "blast" );
 		base.OnDeath( death );
 	}
 
