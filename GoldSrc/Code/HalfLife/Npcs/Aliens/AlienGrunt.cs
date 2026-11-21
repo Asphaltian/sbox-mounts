@@ -3,7 +3,7 @@ namespace GoldSrc.HalfLife;
 [Title( "Alien Grunt" ), Category( "Half-Life" )]
 [Alias( "GoldSrc.HalfLifeAlienGrunt" )]
 [NpcDefinition( "monster_alien_grunt", "agrunt", MonsterClass.AlienMilitary, 90, 32, 64, 125, ArmorGroup = 10, Attack = NpcAttack.Projectile, Damage = 5, Range = 1024, ProjectileModel = "hornet", Gibs = GibSet.Alien, Blood = BloodColor.Yellow )]
-public sealed partial class AlienGrunt : VoicedNpc
+public sealed partial class AlienGrunt : VoicedNpc, Component.IDamageable.IEvents
 {
 	internal override float ViewDot => 0.2f;
 
@@ -12,7 +12,7 @@ public sealed partial class AlienGrunt : VoicedNpc
 
 	internal override NpcSounds Sounds { get; } = new( "agrunt/ag_idle", "agrunt/ag_alert", "agrunt/ag_pain", "agrunt/ag_die", "agrunt/ag_fire" );
 
-	internal override IEnumerable<StudioSequence> ExtraSequences => Activities( Melee ).Concat( Activities( Ranged ) );
+	internal override IEnumerable<StudioSequence> ExtraSequences => [.. Activities( Melee ), .. Activities( Ranged ), .. VictoryActivities.Distinct().SelectMany( Activities )];
 	GameObject _hornetTarget;
 	int _volley = -1;
 

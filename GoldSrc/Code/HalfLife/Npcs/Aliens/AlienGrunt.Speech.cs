@@ -13,7 +13,7 @@ public sealed partial class AlienGrunt
 
 	protected override void Think()
 	{
-		base.Think();
+		if ( !UpdateVictory() ) base.Think();
 		if ( _nextWord > 0 || !Renderer.IsValid() || !Renderer.Animation.IsValid ) return;
 		if ( Gagged && !InCombat )
 		{
