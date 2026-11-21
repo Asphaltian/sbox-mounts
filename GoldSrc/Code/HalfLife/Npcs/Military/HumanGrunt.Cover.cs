@@ -30,11 +30,12 @@ public sealed partial class HumanGrunt
 				return;
 			}
 		}
-		base.Think();
+		if ( !UpdateVictory() ) base.Think();
 	}
 
 	protected override void OnDamaged( Component.IDamageable.DamageEvent damage )
 	{
+		if ( damage.AcceptedDamage > 0 ) StopVictory();
 		base.OnDamaged( damage );
 		if ( Health <= 0 || _movingToCover || RopeAnchor.HasValue || damage.AcceptedDamage <= 0 ) return;
 		if ( FindVisibleEnemy() is not { } enemy || Game.Random.Int( 0, 99 ) > 90 ) return;
@@ -46,6 +47,7 @@ public sealed partial class HumanGrunt
 	bool TakeCover( Vector3 danger, GameObject source, bool allowOpenGround = false, bool reload = false )
 	{
 		if ( !Movement.IsValid() || FindCover( danger, source, allowOpenGround ) is not { } destination ) return false;
+		StopVictory();
 		InterruptAction();
 		_grenadeTarget = null;
 		Animation.ClearLookTarget();

@@ -68,13 +68,6 @@ public sealed partial class AlienGrunt
 		return false;
 	}
 
-	void FaceCorpse( Vector3 corpse )
-	{
-		Movement?.Stop();
-		var facing = (corpse - WorldPosition).WithZ( 0 );
-		if ( facing.LengthSquared > 0 ) WorldRotation = Rotation.LookAt( facing );
-	}
-
 	bool DisplayThreat( Vector3 corpse )
 	{
 		FaceCorpse( corpse );

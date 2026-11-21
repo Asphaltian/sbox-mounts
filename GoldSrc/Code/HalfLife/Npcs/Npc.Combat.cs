@@ -69,6 +69,13 @@ public partial class Npc
 
 	internal virtual void BeginAttack( GameObject target ) => AttackWith( target, _attack );
 
+	protected void FaceCorpse( Vector3 corpse )
+	{
+		Movement?.Stop();
+		var facing = (corpse - WorldPosition).WithZ( 0 );
+		if ( facing.LengthSquared > 0 ) WorldRotation = Rotation.LookAt( facing );
+	}
+
 	internal void AttackWith( GameObject target, StudioSequence attack, float? playbackRate = null )
 	{
 		_target = target;

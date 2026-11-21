@@ -3,7 +3,7 @@ namespace GoldSrc.HalfLife;
 [Title( "Human Grunt" ), Category( "Half-Life" )]
 [Alias( "GoldSrc.HalfLifeHumanGrunt" )]
 [NpcDefinition( "monster_human_grunt", "hgrunt", MonsterClass.HumanMilitary, 50, 16, 72, 160, ArmorGroup = 11, Attack = NpcAttack.Bullet, Damage = 5, Range = 2048, ProjectileModel = "grenade", StrikeEvents = new[] { 4, 5, 6 }, Gibs = GibSet.Human, Blood = BloodColor.Red )]
-public sealed partial class HumanGrunt : Npc
+public sealed partial class HumanGrunt : Npc, Component.IDamageable.IEvents
 {
 	internal override float ViewDot => 0.2f;
 
@@ -12,7 +12,7 @@ public sealed partial class HumanGrunt : Npc
 
 	internal override NpcSounds Sounds { get; } = new( Pain: "hgrunt/gr_pain", Death: "hgrunt/gr_die", Attack: "hgrunt/gr_mgun" );
 
-	static readonly string[] WeaponActions = ["standing_mp5", "crouching_mp5", "standing_shotgun", "crouching_shotgun", "reload_mp5", "reload_shotgun", "repel_repel", "repel_shoot", "repel_land", "throwgrenade", "launchgrenade", "drop_grenade", "frontkick", "advance_signal", "flank_signal"];
+	static readonly string[] WeaponActions = ["standing_mp5", "crouching_mp5", "standing_shotgun", "crouching_shotgun", "reload_mp5", "reload_shotgun", "repel_repel", "repel_shoot", "repel_land", "throwgrenade", "launchgrenade", "drop_grenade", "frontkick", "advance_signal", "flank_signal", "victorydance"];
 	internal override string[] ExtraActions => WeaponActions;
 
 	internal override Vector3 AimAt( GameObject target ) => TargetBodyPosition( target );
