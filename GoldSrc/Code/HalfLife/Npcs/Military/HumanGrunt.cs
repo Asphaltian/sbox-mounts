@@ -17,6 +17,11 @@ public sealed partial class HumanGrunt : Npc
 
 	internal override Vector3 AimAt( GameObject target ) => TargetBodyPosition( target );
 
+	bool _standing;
+	int _burstsRemaining;
+	GameObject _burstTarget;
+	internal override Vector3 AimOrigin => WorldPosition + Vector3.Up * (_standing ? 60 : 48);
+
 	internal override void BeginAttack( GameObject target )
 	{
 		var offset = target.WorldPosition - WorldPosition;
@@ -39,7 +44,14 @@ public sealed partial class HumanGrunt : Npc
 			if ( !TakeCover( TargetEyePosition( target ), target, reload: true ) ) ReloadWeapon();
 			return;
 		}
-		var stance = Game.Random.Int( 0, 1 ) == 0 ? "standing" : "crouching";
+		if ( _burstsRemaining == 0 || _burstTarget != target )
+		{
+			_burstTarget = target;
+			_burstsRemaining = 4;
+			if ( Game.Random.Int( 0, 9 ) == 0 ) _standing = Game.Random.Int( 0, 1 ) == 1;
+		}
+		_burstsRemaining--;
+		var stance = _standing ? "standing" : "crouching";
 		AttackWith( target, Find( $"{stance}_{(HasShotgun ? "shotgun" : "mp5")}" ) );
 	}
 

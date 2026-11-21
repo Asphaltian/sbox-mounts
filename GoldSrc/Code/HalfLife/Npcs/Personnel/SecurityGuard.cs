@@ -13,6 +13,7 @@ public sealed partial class SecurityGuard : Personnel, Component.IDamageable.IEv
 				"barney/ba_attack2.wav", Follow: "!BA_OK", Wait: "!BA_WAIT" );
 
 	internal override IEnumerable<StudioSequence> ExtraSequences => Activities( Ranged ).Append( Find( "draw" ) );
+	internal override Vector3 AimOrigin => WorldPosition + Vector3.Up * 55;
 	internal override Vector3 AimAt( GameObject target ) => TargetBodyPosition( target );
 	GameObject _checkedTarget;
 	TimeUntil _nextSightCheck;

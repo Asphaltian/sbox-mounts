@@ -6,6 +6,7 @@ namespace GoldSrc.HalfLife;
 public sealed class HumanAssassin : Npc
 {
 	internal override float ViewDot => -0.7f;
+	internal override Vector3 AimOrigin => WorldPosition + WorldRotation.Forward * 24 + WorldRotation.Up * 48;
 	internal override Vector3 AimAt( GameObject target ) => TargetBodyPosition( target );
 
 	static readonly string[] Attacks = ["grenadethrow", "jump", "fly_up", "fly_down", "fly_attack", "landfromjump"];

@@ -68,7 +68,7 @@ public partial class Npc
 		_target = target;
 		var duration = attack?.Duration ?? 0.65f;
 		var rate = playbackRate ?? PlaybackRate;
-		_nextAttack = duration / rate + 0.3f;
+		_nextAttack = duration / rate + (Definition.Attack == NpcAttack.Bullet && attack?.PitchFrames is not null ? 0 : 0.3f);
 		if ( attack is null )
 		{
 			_nextHit = 0;
@@ -76,7 +76,7 @@ public partial class Npc
 			return;
 		}
 
-		SetAimBlend( attack, AimAt( target ) - AttackOrigin );
+		SetAimBlend( attack, AimAt( target ) - AimOrigin );
 		PlaySequence( attack, false, rate );
 		_hitTimes = attack.Events.Where( x => Definition.StrikeEvents?.Contains( x.Index ) == true )
 			.Select( x => Math.Clamp( x.Frame / attack.Description.Fps, 0, duration ) )
@@ -136,6 +136,8 @@ public partial class Npc
 		FinishAction( finished );
 		return _action is not null;
 	}
+
+	internal virtual Vector3 AimOrigin => AttackOrigin;
 
 	internal virtual Vector3 AttackOrigin => (Definition.Attack is NpcAttack.Bullet or NpcAttack.Projectile
 		? Renderer.GetAttachment( "attachment1" )?.Position : null) ?? WorldPosition + Vector3.Up * (EyeHeight * 0.8f);
@@ -213,7 +215,7 @@ public partial class Npc
 		var end = AimAt( _target );
 		var origin = AttackOrigin;
 		var direction = (end - origin).Normal;
-		SetAimBlend( _action, direction );
+		SetAimBlend( _action, end - AimOrigin );
 		if ( origin.Distance( end ) > Definition.Range + 24 || !CanHit( _target, end ) )
 		{
 			return;
