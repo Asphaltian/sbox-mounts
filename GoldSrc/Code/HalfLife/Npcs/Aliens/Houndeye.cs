@@ -63,6 +63,7 @@ public sealed partial class Houndeye : Npc
 		EmitSound( Sounds.Attack, origin );
 		ShowBlast( origin + Vector3.Up * 16, pack );
 
+		var submerged = WaterBody.Find( Scene, EyePosition ).IsValid();
 		var victims = Scene.FindInPhysics( new Sphere( origin, BlastRadius ) )
 			.Select( obj => obj.GetComponentInParent<IDamageable>() ).OfType<Component>().Distinct().ToArray();
 		foreach ( var victim in victims )
@@ -71,8 +72,7 @@ public sealed partial class Houndeye : Npc
 			var center = victim.GameObject.GetBounds().Center;
 			var damage = Definition.Damage * (1 + 1.1f * (pack - 1)) * (1 - origin.Distance( center ) / BlastRadius);
 			if ( damage <= 0 ) continue;
-			var trace = Scene.Trace.Ray( EyePosition, TargetEyePosition( victim.GameObject ) ).IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "npc", "player", "playercontroller", "trigger" ).Run();
-			if ( trace.Hit && trace.GameObject?.Root != victim.GameObject.Root )
+			if ( !CanSeeBlastTarget( victim.GameObject, submerged ) )
 			{
 				if ( victim.GameObject.GetComponent<PlayerController>().IsValid() ) damage *= 0.5f;
 				else if ( victim is not Prop ) continue;
@@ -82,6 +82,18 @@ public sealed partial class Houndeye : Npc
 			info.Tags.Add( "alwaysgib" );
 			((IDamageable)victim).OnDamage( info );
 		}
+	}
+
+	bool CanSeeBlastTarget( GameObject target, bool submerged )
+	{
+		var eye = TargetEyePosition( target );
+		// FVisible permits a submerged attacker to see a wading target.
+		if ( submerged ? !WaterBody.Find( Scene, target.WorldPosition + Vector3.Up ).IsValid() : WaterBody.Find( Scene, eye ).IsValid() )
+			return false;
+
+		var trace = Scene.Trace.Ray( EyePosition, eye ).IgnoreGameObjectHierarchy( GameObject )
+			.WithoutTags( "npc", "player", "playercontroller", "trigger" ).Run();
+		return !trace.Hit || trace.GameObject?.Root == target.Root;
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]

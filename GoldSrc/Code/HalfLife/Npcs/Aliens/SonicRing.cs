@@ -4,8 +4,6 @@ namespace GoldSrc.HalfLife;
 public sealed class SonicRing : Component
 {
 	static readonly Vector3[] Circle = Enumerable.Range( 0, 49 ).Select( i => Rotation.FromYaw( i * 7.5f ).Forward ).ToArray();
-	static Material _material;
-	static Texture _texture;
 	LineRenderer _line;
 	Vector3 _origin;
 	float _radius;
@@ -24,17 +22,8 @@ public sealed class SonicRing : Component
 		line.Additive = true;
 		line.Opaque = false;
 		line.CastShadows = false;
-		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount && mount.GetIndexedSprite( "shockwave" ) is { } sprite )
-		{
-			var texture = sprite.Animations[0].Frames[0].Texture;
-			if ( !_material.IsValid() || _texture != texture )
-			{
-				_material = Material.Load( "materials/default/default_line.vmat" ).CreateCopy();
-				_material.Set( "g_tColor", texture );
-				_texture = texture;
-			}
-			line.Texturing = TrailTextureConfig.Default with { Material = _material, WorldSpace = false };
-		}
+		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount )
+			line.Texturing = TrailTextureConfig.Default with { Material = mount.GetTrailMaterial( "shockwave" ), WorldSpace = false };
 		var ring = go.AddComponent<SonicRing>();
 		ring._line = line;
 		ring._origin = origin;
