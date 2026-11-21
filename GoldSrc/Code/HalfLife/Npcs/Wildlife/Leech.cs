@@ -64,6 +64,36 @@ public sealed class Leech : SwimmingNpc
 		return enemy;
 	}
 
+	WaterBody _swimVolume;
+	TimeUntil _nextDepthCheck, _nextIdleHeight;
+	float _lowerHeight, _upperHeight, _idleHeight;
+
+	internal override float SwimHeight( float requested, float depth, bool wandering )
+	{
+		if ( Water != _swimVolume || _nextDepthCheck <= 0 )
+		{
+			_swimVolume = Water;
+			_nextDepthCheck = Game.Random.Float( 5, 7 );
+			var height = Water.ToSurface( WorldPosition ).z;
+			var floor = Scene.Trace.Ray( WorldPosition, WorldPosition - Water.WorldRotation.Up * 400 )
+				.IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "trigger" ).Run();
+			var bottom = System.MathF.Max( -depth, floor.Hit ? Water.ToSurface( floor.EndPosition ).z + 1 : height - 400 );
+			var top = System.MathF.Max( bottom, System.MathF.Min( 0, height + 400 ) - 1 );
+			var margin = (top - bottom) * 0.2f;
+			_lowerHeight = bottom + margin;
+			_upperHeight = top - margin;
+			_idleHeight = Game.Random.Float( _lowerHeight, _upperHeight );
+		}
+
+		if ( !wandering ) return requested.Clamp( _lowerHeight, _upperHeight );
+		if ( _nextIdleHeight <= 0 )
+		{
+			_nextIdleHeight = Game.Random.Float( 1, 4 );
+			_idleHeight = (_idleHeight + Game.Random.Float( _lowerHeight, _upperHeight )) * 0.5f;
+		}
+		return _idleHeight;
+	}
+
 	internal override bool Hunt( GameObject target )
 	{
 		var eye = TargetEyePosition( target );

@@ -82,9 +82,14 @@ public abstract class SwimmingNpc : Npc
 	{
 		var local = Water.ToSurface( point );
 		var depth = Water.Depth * System.MathF.Abs( Water.WorldScale.z );
-		var margin = System.MathF.Min( Definition.Height * 0.5f, depth * 0.25f );
-		point = Water.FromSurface( local.WithZ( local.z.Clamp( margin - depth, -margin ) ) );
+		point = Water.FromSurface( local.WithZ( SwimHeight( local.z, depth, face is null ) ) );
 		Movement.MoveTo( point, 2, speed, face );
+	}
+
+	internal virtual float SwimHeight( float requested, float depth, bool wandering )
+	{
+		var margin = System.MathF.Min( Definition.Height * 0.5f, depth * 0.25f );
+		return requested.Clamp( margin - depth, -margin );
 	}
 
 	internal virtual Vector3 StrandedJump() => Vector3.Zero;
