@@ -36,10 +36,11 @@ public sealed class NihilanthZap : EnergyBall
 			return;
 		}
 		if ( Velocity.Length < 2000 ) Velocity *= 1.2f;
-		var destination = Target.GetBounds().Center;
+		var destination = Target.GetComponent<Npc>()?.HullCenter ?? (Target.GetComponent<PlayerController>() is { } player
+			? Target.WorldTransform.PointToWorld( Vector3.Up * (player.CurrentHeight * 0.5f) ) : Target.GetBounds().Center);
 		if ( WorldPosition.Distance( destination ) >= 256 ) return;
-		var trace = Scene.Trace.Ray( WorldPosition, destination ).IgnoreGameObjectHierarchy( Shooter ).UseHitboxes().Run();
-		DamageVictim( trace.GameObject?.GetComponentInParent<Component.IDamageable>(), trace.EndPosition );
+		var trace = Scene.Trace.Ray( WorldPosition, destination ).IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "playercontroller" ).UseHitboxes().Run();
+		DamageVictim( trace.GameObject?.GetComponentInParent<Component.IDamageable>(), trace.EndPosition, trace.Hitbox );
 		EnergyBeam.Flash( WorldPosition, trace.EndPosition, new Color32( 64, 196, 255 ), "laserbeam", "Nihilanth zap" );
 		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount )
 			mount.NpcAudio.Emit( "weapons/electro4.wav", trace.EndPosition, volume: 0.5f, pitch: Game.Random.Float( 1.4f, 1.6f ) );

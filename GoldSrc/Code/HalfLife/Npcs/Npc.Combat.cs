@@ -150,7 +150,8 @@ public partial class Npc
 		return CalculateEyePosition( target );
 	}
 
-	internal virtual Vector3 BodyTarget => Vector3.Lerp( _collisionHull.IsValid() ? _collisionHull.WorldTransform.PointToWorld( _collisionHull.Center ) : WorldPosition, EyePosition, 0.25f );
+	internal virtual Vector3 HullCenter => _collisionHull.IsValid() ? _collisionHull.WorldTransform.PointToWorld( _collisionHull.Center ) : WorldPosition;
+	internal virtual Vector3 BodyTarget => Vector3.Lerp( HullCenter, EyePosition, 0.25f );
 
 	internal virtual Vector3 AimAt( GameObject target ) => target.GetComponent<Npc>()?.BodyTarget
 		?? Vector3.Lerp( target.WorldPosition, TargetEyePosition( target ), 0.65f );

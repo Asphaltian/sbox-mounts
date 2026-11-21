@@ -44,8 +44,9 @@ public sealed partial class Nihilanth : Npc
 		return RestSequence;
 	}
 	GameObject _enemy;
-	int _pairs;
-	TimeUntil _nextPair, _nextHeal, _nextPain;
+	int _pairsRemaining;
+	TimeSince _volleyAge;
+	TimeUntil _nextHeal, _nextPain;
 
 	internal override void OnModelLoaded( ModelLoader loader )
 	{
@@ -70,7 +71,7 @@ public sealed partial class Nihilanth : Npc
 		if ( !IsLiveTarget( _enemy ) ) return;
 		if ( id == 6 )
 		{
-			FireFromHand( 3 );
+			FireFromHand( 3, Vector3.Zero );
 			return;
 		}
 		if ( id == 3 && CanTeleport )
@@ -83,8 +84,8 @@ public sealed partial class Nihilanth : Npc
 		EmitSound( "x/x_ballattack1.wav", WorldPosition );
 		HandLight( 3 );
 		HandLight( 4 );
-		_pairs = 5;
-		_nextPair = 0;
+		_pairsRemaining = 5;
+		_volleyAge = 0;
 	}
 
 	protected override void OnUpdate()
@@ -99,24 +100,39 @@ public sealed partial class Nihilanth : Npc
 				Health = System.MathF.Min( Definition.Health, Health + Definition.Health / SphereCount );
 				_nextHeal = 0.1f;
 			}
-			if ( _pairs > 0 && _nextPair <= 0 )
-			{
-				_pairs--;
-				_nextPair = 0.2f;
-				if ( IsLiveTarget( _enemy ) )
-				{
-					FireFromHand( 3 );
-					FireFromHand( 4 );
-				}
-			}
+			UpdateVolley();
 		}
 		UpdateSpheres();
 	}
 
-	void FireFromHand( int index )
+	void UpdateVolley()
 	{
-		var hand = Renderer.GetAttachment( $"attachment{index}" )?.Position ?? WorldPosition;
-		NpcProjectile.Fire<NihilanthZap>( this, _enemy, hand, (_enemy.WorldPosition - hand).Normal );
+		if ( _pairsRemaining == 0 ) return;
+		float age = _volleyAge;
+		if ( age >= 1 || !IsLiveTarget( _enemy ) )
+		{
+			_pairsRemaining = 0;
+			return;
+		}
+
+		while ( _pairsRemaining > 0 )
+		{
+			float late = age - (5 - _pairsRemaining) * 0.2f;
+			if ( late < 0 ) break;
+			var aim = (_enemy.WorldPosition - WorldPosition).Normal;
+			var offset = (aim - GetVelocity( GameObject )) * late;
+			FireFromHand( 3, offset );
+			FireFromHand( 4, offset );
+			_pairsRemaining--;
+		}
+	}
+
+	void FireFromHand( int index, Vector3 offset )
+	{
+		if ( Renderer.GetAttachment( $"attachment{index}" ) is not { } hand ) return;
+		var origin = hand.Position + offset;
+		var direction = (_enemy.WorldPosition - origin).Normal;
+		NpcProjectile.Fire<NihilanthZap>( GameObject, ProjectilePath, Definition.Damage, _enemy, origin, direction, null );
 	}
 
 	internal override void ModifyDamage( Component.IDamageable.DamageEvent damage )

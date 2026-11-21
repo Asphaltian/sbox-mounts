@@ -8,7 +8,8 @@ public class Headcrab : Npc
 	internal override NpcSounds Sounds { get; } = new( "headcrab/hc_idle", "headcrab/hc_alert1.wav", "headcrab/hc_pain", "headcrab/hc_die",
 				"headcrab/hc_attack", "headcrab/hc_headbite" );
 
-	internal override Vector3 BodyTarget => WorldPosition + Vector3.Up * 6;
+	internal override Vector3 HullCenter => WorldPosition + Vector3.Up * 6;
+	internal override Vector3 BodyTarget => HullCenter;
 	internal virtual float FacingThreshold => 0.65f;
 	internal virtual bool PerchedOnActor => false;
 	int _pounceAction = -1;
