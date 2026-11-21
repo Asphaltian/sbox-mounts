@@ -162,6 +162,17 @@ public partial class Npc
 		return target.GetBounds().Center;
 	}
 
+	internal static Vector3 TargetBodyPosition( GameObject target )
+	{
+		if ( target.GetComponent<Npc>() is { } npc ) return npc.BodyTarget;
+		var center = TargetHullCenter( target );
+		if ( target.GetComponent<PlayerController>().IsValid() )
+			return center + (TargetEyePosition( target ) - center) * Game.Random.Float( 0.5f, 1.1f );
+		if ( target.GetComponent<Sandbox.Npcs.BaseNpc>() is { } actor )
+			return Vector3.Lerp( center, actor.EyePosition, 0.25f );
+		return center;
+	}
+
 	internal virtual Vector3 HullCenter => _collisionHull.IsValid() ? _collisionHull.WorldTransform.PointToWorld( _collisionHull.Center ) : WorldPosition;
 	internal virtual Vector3 BodyTarget => Vector3.Lerp( HullCenter, EyePosition, 0.25f );
 

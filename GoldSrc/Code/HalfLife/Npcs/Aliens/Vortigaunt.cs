@@ -154,7 +154,7 @@ public sealed partial class Vortigaunt : VoicedNpc
 	{
 		var start = WorldPosition + Vector3.Up * 36;
 		var target = _attackAction == ActionSerial ? _enemy : FindVisibleEnemy();
-		var aim = target.IsValid() ? (target.GetBounds().Center - start).Normal : WorldRotation.Forward;
+		var aim = target.IsValid() ? (TargetBodyPosition( target ) - start).Normal : WorldRotation.Forward;
 		aim += WorldRotation.Right * side * Game.Random.Float( 0, 0.01f ) + Vector3.Up * Game.Random.Float( -0.01f, 0.01f );
 		var hit = Scene.Trace.Ray( start, start + aim * 1024 ).IgnoreGameObjectHierarchy( GameObject ).UseHitboxes().Run();
 		ShowBeam( side, hit.EndPosition, true );

@@ -50,7 +50,7 @@ public sealed class Hornet : NpcProjectile, Component.IDamageable
 		if ( !Sandbox.Npcs.BaseNpc.IsLiveTarget( Target ) )
 			Target = FindPrey();
 
-		if ( Target.IsValid() && Visible( Target ) ) _lastKnown = Target.GetComponent<Npc>()?.BodyTarget ?? Target.GetBounds().Center;
+		if ( Target.IsValid() && Visible( Target ) ) _lastKnown = Npc.TargetBodyPosition( Target );
 		else _lastKnown += Velocity * (FlySpeed * 0.1f);
 		var aim = (_lastKnown - WorldPosition).Normal;
 		var current = Velocity.Length < 0.1f ? aim : Velocity.Normal;
@@ -98,7 +98,7 @@ public sealed class Hornet : NpcProjectile, Component.IDamageable
 
 	bool Visible( GameObject candidate )
 	{
-		var trace = Scene.Trace.Ray( WorldPosition, candidate.GetBounds().Center ).IgnoreGameObjectHierarchy( GameObject )
+		var trace = Scene.Trace.Ray( WorldPosition, Npc.TargetEyePosition( candidate ) ).IgnoreGameObjectHierarchy( GameObject )
 			.WithoutTags( "hornet", "npc", "player", "playercontroller", "trigger" ).Run();
 		return !trace.Hit || trace.GameObject?.Root == candidate.Root;
 	}
