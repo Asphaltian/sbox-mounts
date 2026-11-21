@@ -4,7 +4,7 @@ namespace GoldSrc.HalfLife;
 [WeaponPickup( "crossbow", "bolts", 50 )]
 public sealed class Crossbow : ProjectileWeapon
 {
-	bool _zoomed;
+	internal override float ZoomFieldOfView => 20;
 
 	internal override string DeploySequence => Clip1 == 0 ? "draw2" : "draw1";
 	internal override string IdleSequence => Clip1 == 0 ? "idle2" : "idle1";
@@ -21,23 +21,8 @@ public sealed class Crossbow : ProjectileWeapon
 		ReloadTime = 4.5f;
 	}
 
-	public override void SecondaryAttack() => _zoomed = !_zoomed;
-
-	protected override void ModifyCamera( CameraComponent camera, ref CameraView view )
-	{
-		base.ModifyCamera( camera, ref view );
-		if ( _zoomed ) view.FieldOfView = 20;
-	}
-
-	protected override void OnHolstered()
-	{
-		_zoomed = false;
-		base.OnHolstered();
-	}
-
 	protected override void OnReloadStarted()
 	{
-		_zoomed = false;
 		base.OnReloadStarted();
 		PlayBoltSound();
 	}

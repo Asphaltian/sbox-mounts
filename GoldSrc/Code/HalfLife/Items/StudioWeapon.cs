@@ -155,6 +155,33 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 		if ( GetComponent<ModelRenderer>( true ) is { } loose ) loose.Enabled = !IsHeld;
 	}
 
+	protected bool Zoomed { get; private set; }
+	internal virtual float ZoomFieldOfView => 0;
+
+	public override void SecondaryAttack()
+	{
+		if ( ZoomFieldOfView > 0 ) Zoomed = !Zoomed;
+		else base.SecondaryAttack();
+	}
+
+	protected override void ModifyCamera( CameraComponent camera, ref CameraView view )
+	{
+		base.ModifyCamera( camera, ref view );
+		if ( Zoomed ) view.FieldOfView = ZoomFieldOfView;
+	}
+
+	protected override void OnReloadStarted()
+	{
+		Zoomed = false;
+		base.OnReloadStarted();
+	}
+
+	protected override void OnHolstered()
+	{
+		Zoomed = false;
+		base.OnHolstered();
+	}
+
 	protected override void CreateViewModel()
 	{
 		if ( ViewModel.IsValid() || IsProxy || Holder is not PlayerController ) return;
