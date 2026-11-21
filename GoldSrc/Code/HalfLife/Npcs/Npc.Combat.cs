@@ -202,7 +202,7 @@ public partial class Npc
 
 	internal virtual bool CanHit( GameObject target, Vector3 position )
 	{
-		var hit = Scene.Trace.Ray( AttackOrigin, position ).IgnoreGameObjectHierarchy( GameObject ).UseHitboxes().Run();
+		var hit = Scene.Trace.Ray( AimOrigin, position ).IgnoreGameObjectHierarchy( GameObject ).UseHitboxes().Run();
 		return !hit.Hit || hit.GameObject?.Root == target.Root;
 	}
 
