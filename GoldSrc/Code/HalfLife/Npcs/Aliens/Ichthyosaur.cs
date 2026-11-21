@@ -66,17 +66,20 @@ public sealed class Ichthyosaur : SwimmingNpc
 			_lastContact = target;
 			_contactExpires = 0.2f;
 		}
-		if ( Aggressive || (delta.Length <= 192 && _distance <= 192) )
+		var facing = WorldRotation.Forward.Dot( (target.WorldPosition - WorldPosition).WithZ( 0 ).Normal );
+		if ( facing >= 0.7f && _lastContact == target && _contactExpires > 0 )
+		{
+			_chasing = false;
+			Movement.Stop();
+			PlayAction( Find( Clips[Game.Random.Int( 2, 4 )] ) );
+			return true;
+		}
+
+		if ( facing > -0.7f && (Aggressive || (delta.Length <= 192 && _distance <= 192)) )
 		{
 			_speed = System.MathF.Min( 400, _speed + 40 );
 			SwimTo( center, _speed, target );
-			if ( contact && Vector3.Dot( WorldRotation.Forward, toward ) >= 0.7f )
-			{
-				_chasing = false;
-				Movement.Stop();
-				PlayAction( Find( Clips[Game.Random.Int( 2, 4 )] ) );
-			}
-			else if ( !_chasing )
+			if ( !_chasing )
 			{
 				_chasing = true;
 				Call( "ichy/ichy_attack" );
@@ -84,6 +87,7 @@ public sealed class Ichthyosaur : SwimmingNpc
 			return true;
 		}
 
+		if ( Health < MaxHealth - 20 ) Aggressive = true;
 		_chasing = false;
 		var watched = Vector3.Dot( target.WorldRotation.Forward, -toward ) > 0.5f;
 		_distance = (_distance + (watched ? 4 : -4)).Clamp( 128, 384 );
@@ -137,7 +141,10 @@ public sealed class Ichthyosaur : SwimmingNpc
 
 	protected override void OnDamaged( Component.IDamageable.DamageEvent damage )
 	{
-		Aggressive = true;
+		var attacker = damage.Instigator;
+		if ( damage.AcceptedDamage >= 20 && attacker.IsValid() &&
+			(attacker.GetComponentInParent<PlayerController>().IsValid() || attacker.GetComponentInParent<Sandbox.Npcs.BaseNpc>().IsValid()) )
+			Aggressive = true;
 		base.OnDamaged( damage );
 	}
 
