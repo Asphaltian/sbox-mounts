@@ -365,9 +365,9 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 			}
 		}
 
-		// Ejected casings are already low-poly and their flat faces let them settle naturally.
-		var casing = System.IO.Path.GetFileName( fullPath ).ToLowerInvariant() is "shell.mdl" or "shotgunshell.mdl";
-		if ( casing ) builder.AddCollisionHull( collisionVertices );
+		// These loose objects tumble and settle on the faces of their original low-poly mesh.
+		var useMeshHull = System.IO.Path.GetFileName( fullPath ).ToLowerInvariant() is "shell.mdl" or "shotgunshell.mdl" or "w_grenade.mdl";
+		if ( useMeshHull ) builder.AddCollisionHull( collisionVertices );
 
 		var hitboxSet = mdlFile.Header.NumHitBoxes > 0 ? builder.AddHitboxSet() : null;
 		var flesh = npc is null ? null : Host.GetSurfaceBindingName( 'F' );
@@ -389,7 +389,7 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 			// NPCs apply their own GoldSrc hitgroup multiplier. Sandbox doubles hits tagged "head".
 			if ( npc is null && hb.Group == 1 )
 				hitbox.AddTag( "head" );
-			if ( casing ) continue;
+			if ( useMeshHull ) continue;
 			var localCenter = (hb.Min + hb.Max) * 0.5f;
 			var halfExtents = (hb.Max - hb.Min) * 0.5f;
 			var worldCenter = boneTransforms[b].PointToWorld( localCenter );

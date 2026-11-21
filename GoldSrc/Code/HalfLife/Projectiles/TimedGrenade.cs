@@ -36,15 +36,14 @@ public sealed class TimedGrenade : Component, Component.ICollisionListener
 		var go = new GameObject( false, "Hand grenade" );
 		go.WorldPosition = origin;
 		if ( !velocity.IsNearlyZero() ) go.WorldRotation = Rotation.LookAt( velocity );
-		var renderer = go.AddComponent<SkinnedModelRenderer>();
-		renderer.Model = Model.Load( "mount://hl1/valve/models/w_grenade.mdl.vmdl" );
-		renderer.UseAnimGraph = false;
-		renderer.Sequence.Name = renderer.Model.GetAnimationName( Game.Random.Int( 3, 6 ) );
-		var collider = go.AddComponent<SphereCollider>();
-		collider.Radius = 2;
+		var model = Model.Load( "mount://hl1/valve/models/w_grenade.mdl.vmdl" );
+		go.AddComponent<ModelRenderer>().Model = model;
+		var collider = go.AddComponent<ModelCollider>();
+		collider.Model = model;
 		collider.Elasticity = 0.45f;
 		collider.Friction = 0.8f;
 		var body = go.AddComponent<Rigidbody>();
+		body.EnhancedCcd = true;
 		body.GravityScale = 0.5f;
 		body.EnableImpactDamage = false;
 		var grenade = go.AddComponent<TimedGrenade>();
@@ -54,6 +53,7 @@ public sealed class TimedGrenade : Component, Component.ICollisionListener
 		body.RigidbodyFlags |= RigidbodyFlags.DisableCollisionSounds;
 		go.Enabled = true;
 		body.Velocity = fuse < 0.1f ? Vector3.Zero : velocity;
+		if ( fuse >= 0.1f ) body.AngularVelocity = go.WorldRotation.Right * Game.Random.Float( 8, 14 );
 		go.NetworkSpawn( true, null );
 	}
 
@@ -82,21 +82,10 @@ public sealed class TimedGrenade : Component, Component.ICollisionListener
 		}
 		var rolling = System.MathF.Abs( collision.Contact.Normal.z ) > 0.7f && System.MathF.Abs( velocity.z ) < 30;
 		if ( rolling ) body.Velocity *= 0.8f;
-		var rate = System.MathF.Min( 1, body.Velocity.Length / 200 );
-		SetTumble( rolling, rate < 0.5f ? 0 : rate );
 		if ( rolling || _nextBounce > 0 || System.MathF.Abs( collision.Contact.NormalSpeed ) < 10 ) return;
 		_nextBounce = 0.12f;
 		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount )
 			mount.NpcAudio.Emit( "weapons/grenade_hit", WorldPosition, volume: 0.25f );
-	}
-
-	[Rpc.Broadcast( NetFlags.HostOnly )]
-	void SetTumble( bool rolling, float rate )
-	{
-		var renderer = GetComponent<SkinnedModelRenderer>();
-		if ( !renderer.IsValid() ) return;
-		if ( rolling && renderer.Sequence.Name != "roll1" ) renderer.Sequence.Name = "roll1";
-		renderer.PlaybackRate = rate;
 	}
 
 	protected override void OnFixedUpdate()
@@ -115,7 +104,7 @@ public sealed class TimedGrenade : Component, Component.ICollisionListener
 			if ( WaterBody.Find( Scene, WorldPosition ).IsValid() )
 			{
 				body.Velocity *= 0.5f;
-				if ( GetComponent<SkinnedModelRenderer>().PlaybackRate != 0.2f ) SetTumble( false, 0.2f );
+				body.AngularVelocity *= 0.5f;
 			}
 			return;
 		}
