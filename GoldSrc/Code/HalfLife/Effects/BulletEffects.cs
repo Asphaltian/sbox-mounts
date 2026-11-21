@@ -35,8 +35,12 @@ internal static class BulletEffects
 	[Rpc.Broadcast( NetFlags.HostOnly )]
 	static void Impact( Vector3 position, Vector3 normal, string soundPath, int decal )
 	{
-		if ( soundPath is not null && GameResource.Load<SoundEvent>( soundPath ) is { } sound )
-			Sound.Play( sound, position );
+		ShowImpact( position, normal, soundPath is null ? null : GameResource.Load<SoundEvent>( soundPath ), decal );
+	}
+
+	internal static void ShowImpact( Vector3 position, Vector3 normal, SoundEvent sound, int decal )
+	{
+		if ( sound is not null ) Sound.Play( sound, position );
 		if ( decal == 0 ) return;
 		ImpactDecal.Place( position, normal, $"shot{decal}", 10 );
 		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount ) return;

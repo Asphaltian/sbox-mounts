@@ -59,6 +59,12 @@ public sealed class GluonGun : StudioWeapon
 	internal override void DrawShotTrail( Vector3 start, Vector3 end ) =>
 		EnergyBeam.Show( start, end, new Color( 0.4f, 0.55f, 1 ), "xbeam1", "Gluon beam", 3, PrimaryDelay );
 
+	protected override void OnShootImpact( in ShotEffect shot )
+	{
+		if ( shot.Hit && shot.HitObject.IsValid() && shot.HitObject.GetComponentInParent<Component.IDamageable>() is not null )
+			Blast.SpriteEffect( "Gluon impact", "xspark1", shot.HitPosition, 1, 16 );
+	}
+
 	internal override void Configure()
 	{
 		HoldType = WeaponHolds.Rifle;

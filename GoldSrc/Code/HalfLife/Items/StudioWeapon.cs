@@ -44,6 +44,17 @@ public abstract class StudioWeapon : BaseCombatWeapon
 
 	internal virtual void DrawShotTrail( Vector3 start, Vector3 end ) => BulletEffects.ShowTracer( start, end );
 
+	protected override void OnShootImpact( in ShotEffect shot )
+	{
+		if ( !shot.Hit || Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount ) return;
+		var flesh = HitFlesh( shot );
+		var sound = mount.GetBulletImpactSound( shot.Surface, flesh );
+		BulletEffects.ShowImpact( shot.HitPosition, shot.Normal, sound, flesh ? 0 : Game.Random.Int( 1, 5 ) );
+	}
+
+	protected static bool HitFlesh( in ShotEffect shot ) => shot.HitObject.IsValid() &&
+		GoldSrc.HalfLife.Npc.ClassOf( shot.HitObject ) is not (MonsterClass.None or MonsterClass.Machine);
+
 	protected override SceneTrace BulletTrace( Ray ray, float distance, float radius ) =>
 		base.BulletTrace( ray, distance, radius ).WithCollisionRules( "bullet" ).WithoutTags( "playercontroller" );
 

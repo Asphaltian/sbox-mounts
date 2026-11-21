@@ -12,6 +12,13 @@ public sealed class GaussGun : StudioWeapon
 	internal override void DrawShotTrail( Vector3 start, Vector3 end ) =>
 		EnergyBeam.Show( start, end, new Color( 1, 0.5f, 0 ), "smoke", "Gauss beam", 2, 0.1f );
 
+	protected override void OnShootImpact( in ShotEffect shot )
+	{
+		if ( !shot.Hit || HitFlesh( shot ) ) return;
+		ImpactDecal.Place( shot.HitPosition, shot.Normal, $"shot{Game.Random.Int( 1, 5 )}", 10 );
+		Blast.SpriteEffect( "Gauss impact", "hotglow", shot.HitPosition + shot.Normal, 0.2f, 10 );
+	}
+
 	internal override void Configure()
 	{
 		HoldType = WeaponHolds.Rifle;
