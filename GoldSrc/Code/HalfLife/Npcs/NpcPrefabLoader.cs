@@ -22,8 +22,8 @@ internal sealed class NpcPrefabLoader( TypeDescription component, NpcDefinitionA
 			root.NetworkMode = NetworkMode.Object;
 
 			var entry = root.Components.Create( component );
-			var pose = (entry as PosedCorpse)?.PoseName ?? definition.IdleSequence ?? "default";
-			builder.WithMetadata( "PreviewGraph", $"{modelPath}/preview/{pose}.ag" );
+			var pose = (entry as PosedCorpse)?.PoseName ?? definition.IdleSequence;
+			if ( pose is not null ) builder.WithMetadata( "PreviewSequence", pose );
 			if ( entry is Npc npc ) ConfigureNpc( root, npc, modelPath );
 			else if ( entry is GruntRepel rappel && edition == "SD" )
 				rappel.GruntPrefab = "mount://hl1/entities/npcs/sd/monster_human_grunt.prefab";

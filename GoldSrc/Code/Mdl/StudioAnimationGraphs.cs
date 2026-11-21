@@ -29,12 +29,8 @@ internal sealed class StudioAnimationGraphs( Skeleton skeleton, string modelPath
 	internal const string HeadParameter = "head_turn";
 	internal const string MouthParameter = "mouth_open";
 
-	internal Graph CreatePreview( StudioSequence sequence, string path )
-	{
-		var builder = new GraphBuilder().WithSkeleton( skeleton );
-		var clip = GetClip( sequence.Name, sequence.Frames, sequence.Description.Fps );
-		return builder.Create( builder.Pose( clip, new GraphBuilder.PoseSettings() ), path );
-	}
+	internal Skeleton Skeleton => skeleton;
+	internal Clip GetClip( StudioSequence sequence ) => GetClip( sequence.Name, sequence.Frames, sequence.Description.Fps );
 
 	internal Graph GetGraph( params StudioSequence[] sequences ) => GetGraph( sequences, null, [] );
 
@@ -54,7 +50,7 @@ internal sealed class StudioAnimationGraphs( Skeleton skeleton, string modelPath
 		var machine = builder.StateMachine();
 		var states = available.Select( (sequence, index) =>
 		{
-			var pose = builder.TimeControlledClip( GetClip( sequence.Name, sequence.Frames, sequence.Description.Fps ), times[index], new() { SampleRootMotion = false } );
+			var pose = builder.TimeControlledClip( GetClip( sequence ), times[index], new() { SampleRootMotion = false } );
 			if ( sequence.PitchFrames is not null )
 			{
 				var high = GetClip( $"{sequence.Name}_blend1", sequence.PitchFrames, sequence.Description.Fps );

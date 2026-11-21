@@ -9,23 +9,26 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 	protected override ResourceLoader ResolveChild( string name, out ResourceType type )
 	{
 		type = default;
-		if ( !npcAnimations || !name.StartsWith( "preview/", StringComparison.OrdinalIgnoreCase ) ||
-			!name.EndsWith( ".ag", StringComparison.OrdinalIgnoreCase ) ) return null;
-		type = ResourceType.AnimationGraph;
-		return new PreviewPoseLoader( name[8..^3] );
+		if ( !npcAnimations ) return null;
+		if ( name.Equals( "npc.skel", StringComparison.OrdinalIgnoreCase ) )
+		{
+			type = ResourceType.AnimationSkeleton;
+			return new StudioAnimationLoader();
+		}
+		if ( !name.EndsWith( ".anim", StringComparison.OrdinalIgnoreCase ) ) return null;
+		type = ResourceType.AnimationClip;
+		return new StudioAnimationLoader( name[..^5] );
 	}
 
-	sealed class PreviewPoseLoader( string pose ) : ResourceLoader<GameMount>
+	sealed class StudioAnimationLoader( string sequenceName = null ) : ResourceLoader<GameMount>
 	{
 		protected override object Load()
 		{
 			var studio = (ModelLoader)Parent;
 			if ( Model.Load( studio.Path ) is not { IsError: false } ) return null;
-			var sequences = studio.Sequences;
-			var chosen = sequences.FirstOrDefault( x => x.Name.Equals( pose, StringComparison.OrdinalIgnoreCase ) )
-				?? sequences.Where( x => x.Description.Activity == 1 ).MaxBy( x => x.Description.ActWeight )
-				?? sequences.FirstOrDefault();
-			return chosen is null ? null : studio.AnimationGraphs.CreatePreview( chosen, Path );
+			if ( sequenceName is null ) return studio.AnimationGraphs.Skeleton;
+			var sequence = studio.Sequences.FirstOrDefault( x => x.Name.Equals( sequenceName, StringComparison.OrdinalIgnoreCase ) );
+			return sequence is null ? null : studio.AnimationGraphs.GetClip( sequence );
 		}
 	}
 
@@ -181,6 +184,7 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 			boneIndex++;
 		}
 
+		BBox? rigidBounds = null;
 		var collisionVertices = new List<Vector3>();
 		var collisionIndices = new List<int>();
 		var materialCache = new Dictionary<int, Material>();
@@ -209,6 +213,7 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 					var boneVertex = boneVertices[i];
 					var position = boneTransforms[boneVertex].PointToWorld( vertices[i] );
 					collisionVertices.Add( position );
+					if ( bones.Count == 1 ) rigidBounds = (rigidBounds ?? new BBox( vertices[i], vertices[i] )).AddPoint( vertices[i] );
 				}
 
 				if ( bodyPartModel.NumMesh == 0 )
@@ -293,6 +298,7 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 			}
 		}
 
+		if ( rigidBounds.HasValue ) bones[0] = bones[0] with { Bounds = rigidBounds };
 		if ( bones.Count > 0 ) builder.AddBones( [.. bones] );
 
 		var sequences = new List<StudioSequence>();
@@ -315,6 +321,20 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 
 			sequences.Add( new StudioSequence( animation.Name, sequence, GoldSrc.Mdl.File.ReadEvents( main, sequence ).OrderBy( x => x.Frame ).ToArray(),
 				npcAnimations ? source.Transforms : null, source.PitchFrames ) );
+		}
+
+		if ( npcAnimations && sequences.Count > 0 )
+		{
+			builder.WithData( new StudioAnimationData
+			{
+				Skeleton = $"{Path}/npc.skel",
+				ClipFolder = Path,
+				Clips = sequences.Select( x => x.Name ).Distinct( StringComparer.OrdinalIgnoreCase ).ToArray()
+			} );
+			// Studio models without activities use their first sequence as the resting pose.
+			var idleSequences = sequences.Where( x => x.Description.Activity == 1 ).DefaultIfEmpty( sequences[0] );
+			builder.WithData( idleSequences
+				.Select( x => new StudioSequenceData { Name = x.Name, Activity = "ACT_IDLE", ActivityWeight = x.Description.ActWeight } ).ToArray() );
 		}
 
 		var numSkinFamilies = textureMdl.Header.NumSkinFamilies;
