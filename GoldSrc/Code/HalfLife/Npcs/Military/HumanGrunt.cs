@@ -12,7 +12,7 @@ public sealed partial class HumanGrunt : Npc
 
 	internal override NpcSounds Sounds { get; } = new( Pain: "hgrunt/gr_pain", Death: "hgrunt/gr_die", Attack: "hgrunt/gr_mgun" );
 
-	static readonly string[] WeaponActions = ["standing_mp5", "crouching_mp5", "standing_shotgun", "crouching_shotgun", "reload_mp5", "reload_shotgun", "repel_repel", "repel_shoot", "repel_land", "throwgrenade", "launchgrenade", "drop_grenade", "frontkick", "advance_signal"];
+	static readonly string[] WeaponActions = ["standing_mp5", "crouching_mp5", "standing_shotgun", "crouching_shotgun", "reload_mp5", "reload_shotgun", "repel_repel", "repel_shoot", "repel_land", "throwgrenade", "launchgrenade", "drop_grenade", "frontkick", "advance_signal", "flank_signal"];
 	internal override string[] ExtraActions => WeaponActions;
 
 	internal override Vector3 AimAt( GameObject target ) => TargetBodyPosition( target );
@@ -32,6 +32,12 @@ public sealed partial class HumanGrunt : Npc
 			return;
 		}
 		if ( Renderer.GetBodyGroup( "weapons" ) == 2 ) return;
+		if ( _suppressionBursts > 0 && _encounterEnemy == target && Ammo > 0 && !FriendlyInLine( target ) )
+		{
+			_suppressionBursts--;
+			FireBurst( target );
+			return;
+		}
 		if ( HasLauncher && TryThrowGrenade( target ) ) return;
 		if ( Ammo > 0 && SignalFoundEnemy( target ) ) return;
 		if ( SquadBusyFiring( target ) )
@@ -52,6 +58,11 @@ public sealed partial class HumanGrunt : Npc
 			if ( Game.Random.Int( 0, 9 ) == 0 ) _standing = Game.Random.Int( 0, 1 ) == 1;
 		}
 		_burstsRemaining--;
+		FireBurst( target );
+	}
+
+	void FireBurst( GameObject target )
+	{
 		var stance = _standing ? "standing" : "crouching";
 		AttackWith( target, Find( $"{stance}_{(HasShotgun ? "shotgun" : "mp5")}" ) );
 	}

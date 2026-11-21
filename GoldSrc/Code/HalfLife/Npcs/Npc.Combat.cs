@@ -37,7 +37,7 @@ public partial class Npc
 
 	internal virtual bool InAttackRange( GameObject target, Vector3 aim ) => AttackOrigin.Distance( aim ) <= AttackRange;
 
-	void Engage( GameObject target )
+	internal virtual void Engage( GameObject target )
 	{
 		Animation.SetLookTarget( target );
 		var targetPoint = AimAt( target );

@@ -27,6 +27,7 @@ public sealed partial class HumanGrunt
 
 	internal override void OnEnemySpotted( GameObject target )
 	{
+		if ( SquadLeader.IsValid() ) return;
 		if ( target.GetComponentInParent<PlayerController>().IsValid() ) Radio( "!HG_ALERT" );
 		else if ( target.GetComponentInParent<Npc>() is { Faction: Sandbox.Npcs.Factions.Monster } ) Radio( "!HG_MONST" );
 	}
