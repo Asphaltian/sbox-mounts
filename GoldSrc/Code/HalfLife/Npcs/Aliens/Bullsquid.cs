@@ -14,6 +14,7 @@ public sealed partial class Bullsquid : Npc
 	static readonly string[] MeleeActions = ["bite", "whip", "seecrab", "suprisedhop", "sniff", "eat", "inspectdown"];
 	internal override string[] ExtraActions => MeleeActions;
 	TimeUntil _nextSpit, _ignoreCrabs;
+	float _spitDelay;
 	bool _displayedThreat;
 	[Sync( SyncFlags.FromHost )] bool EyeClosed { get; set; }
 	TimeUntil _nextBlinkTick;
@@ -81,13 +82,6 @@ public sealed partial class Bullsquid : Npc
 		}
 	}
 
-	bool CanSpit( Vector3 offset )
-	{
-		var distance = offset.Length;
-		return _nextSpit <= 0 && distance > 64 && distance <= Definition.Range
-			&& (distance < 512 || Movement?.IsMoving != true) && System.MathF.Abs( offset.z ) <= 256;
-	}
-
 	internal override bool Pursue( Vector3 goal )
 	{
 		var speed = Find( "run" )?.GroundSpeed ?? Definition.Speed;
@@ -98,20 +92,27 @@ public sealed partial class Bullsquid : Npc
 	internal override bool InAttackRange( GameObject target, Vector3 aim )
 	{
 		var offset = target.WorldPosition - WorldPosition;
-		return offset.Length <= 85 || CanSpit( offset );
+		var distance = offset.Length;
+		var facing = WorldRotation.Forward.Dot( offset.WithZ( 0 ).Normal );
+		var moving = Movement?.IsMoving == true;
+		// Engage stops navigation before starting the attack. Use the pace at selection time.
+		_spitDelay = 0;
+		if ( _nextSpit <= 0 && distance > 64 && distance <= Definition.Range && facing >= 0.5f &&
+			(!moving || distance < 512) && System.MathF.Abs( offset.z ) <= 256 )
+			_spitDelay = moving ? 5 : 0.5f;
+		return _spitDelay > 0 || distance <= 85;
 	}
 
 	internal override void BeginAttack( GameObject target )
 	{
-		var delta = target.WorldPosition - WorldPosition;
-		var facing = Vector3.Dot( WorldRotation.Forward, delta.Normal );
-		if ( CanSpit( delta ) && facing >= 0.5f )
+		if ( _spitDelay > 0 )
 		{
-			_nextSpit = Movement?.IsMoving == true ? 5 : 0.5f;
+			_nextSpit = _spitDelay;
 			base.BeginAttack( target );
 			return;
 		}
-		if ( delta.Length > 85 || facing < 0.7f ) return;
+		var offset = target.WorldPosition - WorldPosition;
+		if ( offset.Length > 85 || WorldRotation.Forward.Dot( offset.WithZ( 0 ).Normal ) < 0.7f ) return;
 		var weak = target.GetComponent<Component.IDamageable>() is { Health: <= 35 };
 		if ( Find( weak ? "whip" : "bite" ) is not { } melee ) return;
 		if ( !weak ) EmitSound( "bullchicken/bc_attackgrowl", WorldPosition );
