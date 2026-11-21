@@ -15,10 +15,17 @@ public sealed class Cockroach : Npc, Component.ICollisionListener
 	float? _restingLight;
 	Vector3? _food;
 
+	internal override void OnModelLoaded( ModelLoader loader )
+	{
+		// Let the lights in the spawn area settle before recording the idle light level.
+		_nextLook = 1;
+	}
+
 	protected override void Think()
 	{
 		if ( !Movement.IsValid() || _nextLook > 0 ) return;
 		_nextLook = 0.1f;
+		_restingLight ??= LightLevel();
 
 		if ( _destination is { } goal )
 		{
@@ -29,7 +36,7 @@ public sealed class Cockroach : Npc, Component.ICollisionListener
 				return;
 			}
 			_escapingLight = false;
-			_restingLight = null;
+			_restingLight = LightLevel();
 			_feeding = _food is { } food && WorldPosition.Distance( food ) <= 8;
 			_destination = null;
 			Movement.Stop();
@@ -37,8 +44,7 @@ public sealed class Cockroach : Npc, Component.ICollisionListener
 
 		if ( Game.Random.Int( 0, 3 ) == 0 )
 		{
-			var frightened = Scene.GetAllComponents<PlayerController>().Any( p => Nearby( p.WorldPosition, 150 ) && GetDisposition( p.GameObject ) == Disposition.Fearful )
-				|| Scene.GetAllComponents<BaseNpc>().Any( n => n.Health > 0 && Nearby( n.WorldPosition, 150 ) && GetDisposition( n.GameObject ) == Disposition.Fearful );
+			var frightened = HasNearbyThreat();
 			if ( frightened || Game.Random.Int( 0, 149 ) == 0 )
 			{
 				if ( frightened || _feeding ) _ignoreFood = Game.Random.Float( 30, 45 );
@@ -51,7 +57,7 @@ public sealed class Cockroach : Npc, Component.ICollisionListener
 
 		if ( _feeding ) return;
 		var currentLight = LightLevel();
-		_restingLight ??= currentLight;
+
 		if ( currentLight > _restingLight + 0.01f )
 		{
 			_food = null;
@@ -66,12 +72,26 @@ public sealed class Cockroach : Npc, Component.ICollisionListener
 		Scurry( scent.Position + new Vector3( Game.Random.Int( -2, 3 ), Game.Random.Int( -2, 3 ), 0 ) );
 	}
 
-	bool Nearby( Vector3 point, float range ) => WorldPosition.DistanceSquared( point ) <= range * range;
+	bool HasNearbyThreat()
+	{
+		foreach ( var obj in Scene.FindInPhysics( new Sphere( WorldPosition, SightRange ) ) )
+		{
+			var actor = obj.GetComponentInParent<BaseNpc>()?.GameObject ?? obj.GetComponentInParent<PlayerController>()?.GameObject;
+			if ( actor.IsValid() && actor.GetComponent<IDamageable>() is { Health: > 0 } && GetDisposition( actor ) == Disposition.Fearful )
+				return true;
+		}
+		return false;
+	}
 
 	void ScurryAtRandom()
 	{
-		var heading = Rotation.FromYaw( Game.Random.Float( 0, 360 ) ).Forward;
-		Scurry( WorldPosition + heading * Game.Random.Float( 256, 511 ) );
+		Vector3 offset;
+		do
+		{
+			var direction = new Vector3( Game.Random.Float( -1, 1 ), Game.Random.Float( -1, 1 ), 0 );
+			offset = direction * Game.Random.Int( 256, 511 );
+		} while ( offset.LengthSquared < 128 * 128 );
+		Scurry( WorldPosition + offset );
 	}
 
 	// Sample direct lighting on the host so a flashlight can startle the roach on a dedicated server.
