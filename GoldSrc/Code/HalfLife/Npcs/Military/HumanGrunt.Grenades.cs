@@ -15,14 +15,14 @@ public sealed partial class HumanGrunt
 		if ( _nextGrenade > 0 || (HasLauncher ? GunDropped : !HandGrenades) ) return false;
 		_nextGrenade = 1;
 		if ( Squadmates().Count( other => other._grenadeTarget == target ) >= 2 ) return false;
-		var end = HasLauncher ? target.GetBounds().Center : target.WorldPosition + Vector3.Up * 4;
+		var end = HasLauncher ? TargetBodyPosition( target ) : target.WorldPosition + Vector3.Up * 4;
 		if ( HasLauncher )
 		{
 			var velocity = target.GetComponent<Rigidbody>()?.Velocity ?? Vector3.Zero;
 			end += velocity * (ThrowOrigin.Distance( end ) / 600);
 		}
-		if ( WorldPosition.Distance( end ) <= 256 || Find( HasLauncher ? "launchgrenade" : "throwgrenade" ) is not { } clip ) return false;
-		if ( Scene.GetAllComponents<Npc>().Any( npc => npc.Faction == Faction && npc.Health > 0 && npc.WorldPosition.Distance( end ) <= 256 ) )
+		if ( (WorldPosition - end).WithZ( 0 ).LengthSquared <= 256 * 256 || Find( HasLauncher ? "launchgrenade" : "throwgrenade" ) is not { } clip ) return false;
+		if ( Squadmates().Any( grunt => (grunt.WorldPosition - end).WithZ( 0 ).LengthSquared <= 256 * 256 ) )
 			return false;
 		if ( !TimedGrenade.TryAim( this, ThrowOrigin, target, end, out _toss, HasLauncher ? ThrowOrigin.Distance( end ) / 600 : 1, !HasLauncher ) ) return false;
 		if ( !HasLauncher ) Radio( "!HG_THROW" );

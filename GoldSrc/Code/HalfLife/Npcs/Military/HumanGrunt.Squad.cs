@@ -9,11 +9,11 @@ public sealed partial class HumanGrunt
 
 	bool FriendlyInLine( GameObject target )
 	{
-		var aim = Rotation.LookAt( target.GetBounds().Center - WorldPosition );
+		var aim = Rotation.LookAt( TargetHullCenter( target ) - WorldPosition );
 		foreach ( var ally in Squadmates() )
 		{
 			var offset = ally.WorldPosition - WorldPosition;
-			if ( aim.Forward.Dot( offset ) > 0 && System.MathF.Abs( aim.Right.Dot( offset ) ) < Definition.Radius * 3 ) return true;
+			if ( aim.Forward.Dot( offset ) >= 0 && System.MathF.Abs( aim.Right.Dot( offset ) ) <= Definition.Radius * 3 * System.MathF.Abs( WorldTransform.UniformScale ) ) return true;
 		}
 		return false;
 	}

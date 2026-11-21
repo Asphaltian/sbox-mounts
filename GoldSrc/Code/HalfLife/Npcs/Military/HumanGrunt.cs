@@ -15,6 +15,8 @@ public sealed partial class HumanGrunt : Npc
 	static readonly string[] WeaponActions = ["standing_mp5", "crouching_mp5", "standing_shotgun", "crouching_shotgun", "reload_mp5", "reload_shotgun", "repel_repel", "repel_shoot", "repel_land", "throwgrenade", "launchgrenade", "drop_grenade", "frontkick"];
 	internal override string[] ExtraActions => WeaponActions;
 
+	internal override Vector3 AimAt( GameObject target ) => TargetBodyPosition( target );
+
 	internal override void BeginAttack( GameObject target )
 	{
 		var offset = target.WorldPosition - WorldPosition;
