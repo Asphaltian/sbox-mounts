@@ -27,9 +27,7 @@ public abstract partial class AutomatedTurret
 		if ( SpinRate >= 1 && !_hum.IsValid() && Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount hl
 			&& hl.NpcAudio.Find( "turret/tu_active2.wav" ) is { } sample && SoundFile.Load( sample ) is { } sound )
 		{
-			_hum = Sound.PlayFile( sound );
-			_hum.Position = WorldPosition;
-			_hum.Volume = 0.5f;
+			_hum = GoldSrcSoundEvents.Play( sound, WorldPosition, volume: 0.5f );
 		}
 		if ( SpinRate < 1 && _hum.IsValid() ) _hum.Stop();
 	}

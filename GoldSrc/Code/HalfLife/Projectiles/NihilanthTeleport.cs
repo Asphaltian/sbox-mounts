@@ -26,8 +26,7 @@ public sealed class NihilanthTeleport : EnergyBall
 		light.Shadows = false;
 		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount && mount.NpcAudio.Find( "x/x_teleattack1.wav" ) is { } path )
 		{
-			_sound = Sound.PlayFile( SoundFile.Load( path ) );
-			if ( _sound.IsValid() ) _sound.Position = WorldPosition;
+			_sound = NpcAudio.Play( path, WorldPosition, attenuation: 0.2f );
 		}
 	}
 

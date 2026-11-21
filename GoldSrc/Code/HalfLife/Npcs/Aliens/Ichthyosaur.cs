@@ -17,6 +17,13 @@ public sealed class Ichthyosaur : SwimmingNpc
 	GameObject _lastContact;
 	int _eye = -1;
 
+	void Call( string sample ) => EmitSound( VoiceSample( sample ), WorldPosition, pitch: VoicePitch, attenuation: 0.6f );
+	internal override void SwimAlert() => Call( Sounds.Alert );
+	internal override float VoicePitch => Game.Random.Int( 95, 105 ) / 100f;
+	internal override void PainSound() => Speak( Sounds.Pain, attenuation: 0.6f );
+	internal override void DeathSound() => Call( Sounds.Death );
+	internal override void IdleSound() => Speak( Sounds.Idle, attenuation: 0.6f );
+
 	internal override string VoiceSample( string sample ) => sample switch
 	{
 		"ichy/ichy_alert" => $"ichy/ichy_alert{Game.Random.Int( 2, 3 )}.wav",
@@ -74,7 +81,7 @@ public sealed class Ichthyosaur : SwimmingNpc
 		SwimTo( center - toward * _distance + lateral * 32, _speed, target );
 		if ( _nextAlert <= 0 )
 		{
-			EmitSound( VoiceSample( Sounds.Alert ), WorldPosition );
+			SwimAlert();
 			_nextAlert = Game.Random.Float( 3, 5 );
 		}
 		return true;
@@ -99,7 +106,7 @@ public sealed class Ichthyosaur : SwimmingNpc
 				DealDamage( Prey, WorldPosition, end, "slash" );
 			}
 		}
-		EmitSound( Sounds.Attack, WorldPosition );
+		Call( Sounds.Attack );
 		Bubbles( WorldPosition + WorldRotation.Forward * 32 );
 	}
 

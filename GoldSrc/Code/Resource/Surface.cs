@@ -75,7 +75,6 @@ internal sealed class GoldSrcSurfaceSoundLoader( GoldSrcSurfaceSound definition 
 		var sound = GoldSrcSoundEvents.Create( Host.LoadSurfaceWaves( definition ), definition.VolumeMax, definition.Attenuation );
 		sound.Volume = new RangedFloat( definition.VolumeMin, definition.VolumeMax );
 		sound.Pitch = new RangedFloat( definition.PitchMin, definition.PitchMax );
-		sound.AirAbsorption = false;
 		return sound;
 	}
 }

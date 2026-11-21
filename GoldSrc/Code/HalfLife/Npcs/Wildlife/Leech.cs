@@ -8,6 +8,8 @@ public sealed class Leech : SwimmingNpc
 	internal override float ViewDot => -0.5f;
 	internal override float SightRange => 750;
 
+	internal override void SwimAlert() => EmitSound( Sounds.Alert, WorldPosition, attenuation: 0.4f );
+
 	internal override NpcSounds Sounds { get; } = new( Alert: "leech/leech_alert", Attack: "leech/leech_bite" );
 	static readonly string[] Clips = ["swim", "swim2", "attack", "hover", "leftturn", "rightturn"];
 	internal override string[] ExtraActions => Clips;

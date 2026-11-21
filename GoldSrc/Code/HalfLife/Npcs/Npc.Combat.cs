@@ -248,7 +248,7 @@ public partial class Npc
 
 	internal virtual void FireProjectile( GameObject target, Vector3 origin, Vector3 direction ) => NpcProjectile.Fire<NpcProjectile>( this, target, origin, direction );
 
-	internal void EmitSound( string sample, Vector3 position, float volume = 1, float pitch = 1, VoicedNpc speaker = null ) => _audio?.Emit( sample, position, volume, pitch, speaker );
+	internal void EmitSound( string sample, Vector3 position, float volume = 1, float pitch = 1, VoicedNpc speaker = null, float attenuation = GoldSrcSoundEvents.Normal ) => _audio?.Emit( sample, position, volume, pitch, speaker, attenuation );
 
 	internal Component TraceClaw( float reach, float amount, string tag, float pitch = 1 )
 	{

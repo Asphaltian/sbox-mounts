@@ -64,7 +64,7 @@ public sealed class GargantuaDeathEffect : Component
 			point = hit.EndPosition + hit.Normal * ((magnitude - 24) * 0.6f);
 		}
 		Blast.SpriteEffect( "Gargantua explosion", "zerogxplode", point, scale, 15 );
-		NpcAudio.Play( _mount.NpcAudio.Find( $"weapons/explode{Game.Random.Int( 3, 5 )}.wav" ), point );
+		NpcAudio.Play( _mount.NpcAudio.Find( $"weapons/explode{Game.Random.Int( 3, 5 )}.wav" ), point, attenuation: 0.3f );
 		Streaks( point, Game.Random.Int( 0, 3 ) );
 		await GameTask.DelaySeconds( 0.3f );
 		if ( IsValid ) Blast.SpriteEffect( "Gargantua explosion smoke", "steam1", point, scale, 12 );

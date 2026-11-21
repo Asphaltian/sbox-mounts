@@ -31,7 +31,7 @@ public sealed partial class SecurityGuard
 
 		if ( FindVisibleEnemy() is { } enemy )
 		{
-			if ( ClassOf( enemy ) != MonsterClass.Player ) Say( "SHOT", attacker, 4 );
+			if ( ClassOf( enemy ) != MonsterClass.Player ) Say( "SHOT", attacker, 4, attenuation: GoldSrcSoundEvents.Normal );
 			return;
 		}
 
@@ -40,12 +40,12 @@ public sealed partial class SecurityGuard
 		if ( !_suspicious && facing.Dot( direction ) <= 0.96f )
 		{
 			_suspicious = true;
-			Say( "SHOT", attacker, 4 );
+			Say( "SHOT", attacker, 4, attenuation: GoldSrcSoundEvents.Normal );
 			return;
 		}
 
 		SetRelationship( attacker, Disposition.Hostile );
 		if ( Leader.IsValid() ) StopFollowing( false );
-		Say( "MAD", attacker, 4 );
+		Say( "MAD", attacker, 4, attenuation: GoldSrcSoundEvents.Normal );
 	}
 }

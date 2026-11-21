@@ -22,6 +22,7 @@ public abstract partial class AutomatedTurret : Npc
 	internal virtual float RetractedDamageScale => 0.1f;
 	internal virtual bool CanBerserk => true;
 	internal virtual float MinimumElevation => -15;
+	internal virtual float ShotAttenuation => GoldSrcSoundEvents.Normal;
 	internal virtual string ShotSound => $"weapons/hks{Game.Random.Int( 1, 3 )}.wav";
 	internal override NpcCorpse AddCorpseComponent( GameObject go )
 	{
@@ -120,7 +121,7 @@ public abstract partial class AutomatedTurret : Npc
 			}
 			State = Mode.Firing;
 			TraceBullets( origin, origin + WorldRotation * Aim.Forward * Definition.Range, 1, Definition.Damage, 0, Definition.Range, tracerFrequency: 1 );
-			PlayGunshot( ShotSound, origin );
+			PlayGunshot( ShotSound, origin, attenuation: ShotAttenuation );
 			return;
 		}
 

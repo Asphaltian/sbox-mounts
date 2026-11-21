@@ -6,7 +6,7 @@ public sealed class GaussGun : StudioWeapon
 {
 	internal override string ShotSequence => "fire";
 	internal override string IdleSequence => "idle";
-	internal override string ShotSound => "weapons/gauss2.wav";
+	internal override void PlayShotSound() => PlaySample( "weapons/gauss2.wav", 0.5f + Ballistics.Damage / 400f, Game.Random.Int( 85, 116 ) / 100f );
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => new( 28.4f, 2.8f, hd ? 4.6f : 4.1f );
 
 	internal override void DrawShotTrail( Vector3 start, Vector3 end ) =>

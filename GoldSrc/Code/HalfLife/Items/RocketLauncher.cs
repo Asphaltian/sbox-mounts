@@ -7,7 +7,11 @@ public sealed class RocketLauncher : ProjectileWeapon
 	internal override string DeploySequence => "draw1";
 	internal override string ShotSequence => "fire";
 	internal override string IdleSequence => "idle";
-	internal override string ShotSound => "weapons/rocketfire1.wav";
+	internal override void PlayLaunchSound()
+	{
+		PlaySample( "weapons/rocketfire1.wav", 0.9f );
+		PlaySample( "weapons/glauncher.wav", 0.7f );
+	}
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => hd ? new( 23.4f, 0.3f, 5.4f ) : new( 22.5f, 1.4f, 4.5f );
 
 	internal override void Configure()

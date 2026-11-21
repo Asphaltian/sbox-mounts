@@ -66,7 +66,7 @@ public abstract partial class Personnel : TalkingNpc, Component.IPressable
 		base.OnDamaged( damage );
 		_speaker = null;
 		if ( IsBarnacleVictim || damage.Instigator?.GetComponentInParent<PlayerController>() is null ) return;
-		NearestColleague()?.Say( "SCARED" );
+		NearestColleague()?.Say( "SCARED", attenuation: GoldSrcSoundEvents.Normal );
 	}
 
 	protected override void OnDeath( Component.IDamageable.DeathEvent death )
@@ -111,7 +111,7 @@ public abstract partial class Personnel : TalkingNpc, Component.IPressable
 			return;
 		if ( PreDisaster )
 		{
-			Say( "POK", player.GameObject, 2 );
+			Say( "POK", player.GameObject, 2, attenuation: GoldSrcSoundEvents.Normal );
 			return;
 		}
 		if ( Leader == player.GameObject )

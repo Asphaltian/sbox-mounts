@@ -39,9 +39,7 @@ public sealed class StompWave : Component
 		}
 		if ( mount.NpcAudio.Find( "weapons/mine_charge.wav" ) is { } path && SoundFile.Load( path ) is { } sound )
 		{
-			_buzz = Sound.PlayFile( sound );
-			_buzz.Position = WorldPosition;
-			_buzz.Pitch = 0.55f;
+			_buzz = GoldSrcSoundEvents.Play( sound, WorldPosition, pitch: 0.55f );
 		}
 	}
 

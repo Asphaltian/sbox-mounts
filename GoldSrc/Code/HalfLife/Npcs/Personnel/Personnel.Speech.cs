@@ -34,17 +34,17 @@ public abstract partial class Personnel
 		EmitSound( $"{Sounds.Pain}{Game.Random.Int( 1, PainVariants )}.wav", WorldPosition, VoiceVolume, SpeechPitch, this );
 	}
 
-	protected void EmitSentence( string line )
+	protected void EmitSentence( string line, float attenuation = GoldSrcSoundEvents.Idle )
 	{
-		EmitSound( $"!{SentencePrefix}_{line}", WorldPosition, VoiceVolume, SpeechPitch, this );
+		EmitSound( $"!{SentencePrefix}_{line}", WorldPosition, VoiceVolume, SpeechPitch, this, attenuation );
 	}
 
 	protected void PauseConversation( float seconds ) => Dialogue.NextLine = seconds;
 
-	internal void Say( string line, GameObject listener = null, float duration = 3 )
+	internal void Say( string line, GameObject listener = null, float duration = 3, float attenuation = GoldSrcSoundEvents.Idle )
 	{
 		_speaker = null;
-		EmitSentence( line );
+		EmitSentence( line, attenuation );
 		HasSpoken = true;
 		_listener = listener;
 		_talkUntil = duration;

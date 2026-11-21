@@ -47,38 +47,24 @@ internal sealed partial class NpcAudio
 		return sounds[Game.Random.Int( 0, sounds.Count - 1 )];
 	}
 
-	internal bool Emit( string sample, Vector3 position, float volume = 1, float pitch = 1, VoicedNpc speaker = null )
+	internal bool Emit( string sample, Vector3 position, float volume = 1, float pitch = 1, VoicedNpc speaker = null, float attenuation = GoldSrcSoundEvents.Normal )
 	{
-		if ( sample?.StartsWith( '!' ) == true ) return EmitSentence( sample[1..], position, volume, pitch, speaker );
+		if ( sample?.StartsWith( '!' ) == true ) return EmitSentence( sample[1..], position, volume, pitch, speaker, attenuation );
 		var path = Find( sample );
 		if ( path is null )
 			return false;
-		Broadcast( path, position, volume, pitch, speaker );
+		Broadcast( path, position, volume, pitch, speaker, attenuation );
 		return true;
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
-	static void Broadcast( string path, Vector3 position, float volume, float pitch, VoicedNpc speaker )
+	static void Broadcast( string path, Vector3 position, float volume, float pitch, VoicedNpc speaker, float attenuation )
 	{
 		if ( speaker.IsValid() ) speaker.BeginVoice();
-		var handle = Play( path, position, volume, pitch );
+		var handle = Play( path, position, volume, pitch, attenuation );
 		if ( speaker.IsValid() ) speaker.TrackVoice( handle );
 	}
 
-	internal static SoundHandle Play( string path, Vector3 position, float volume = 1, float pitch = 1 )
-	{
-		if ( path is not null && SoundFile.Load( path ) is { } sound )
-		{
-			var handle = Sound.PlayFile( sound );
-			if ( handle.IsValid() )
-			{
-				handle.Position = position;
-				handle.Distance = 1000;
-				handle.Volume = volume;
-				handle.Pitch = pitch;
-				return handle;
-			}
-		}
-		return null;
-	}
+	internal static SoundHandle Play( string path, Vector3 position, float volume = 1, float pitch = 1, float attenuation = GoldSrcSoundEvents.Normal ) =>
+		path is null ? null : GoldSrcSoundEvents.Play( SoundFile.Load( path ), position, volume, pitch, attenuation );
 }

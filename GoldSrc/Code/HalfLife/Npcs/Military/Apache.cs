@@ -10,6 +10,7 @@ public sealed class Apache : Aircraft
 	internal override float ViewDot => -0.707f;
 	internal override float SightRange => 4092;
 
+	internal override float RotorAttenuation => 0.3f;
 	internal override string RotorSample => "apache/ap_rotor2.wav";
 	internal override string DebrisModel => "metalplategibs_green";
 	internal override float HoverClearance => 240;
@@ -76,7 +77,7 @@ public sealed class Apache : Aircraft
 		if ( _tracking > 2 && aim.Dot( direction ) > 0.98f )
 		{
 			TraceBullets( barrel, barrel + aim * 8192, 1, Definition.Damage, 0.0349f, 8192, tracerFrequency: 1 );
-			PlayGunshot( "turret/tu_fire1.wav", barrel );
+			PlayGunshot( "turret/tu_fire1.wav", barrel, attenuation: 0.3f );
 		}
 
 		if ( _nextRocket > 0 || _rockets % 2 != 0 ) return;

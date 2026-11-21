@@ -30,7 +30,7 @@ public class Headcrab : VoicedNpc
 		if ( Movement?.MoveTarget.HasValue == true ) Movement.Stop();
 	}
 
-	void Call( string sample ) => EmitSound( sample, WorldPosition, VoiceVolume, VoicePitch, this );
+	void Call( string sample ) => EmitSound( sample, WorldPosition, VoiceVolume, VoicePitch, this, GoldSrcSoundEvents.Idle );
 
 	internal override void IdleSound() => Call( $"{Sounds.Idle}{Game.Random.Int( 1, 3 )}.wav" );
 	internal override void OnEnemySpotted( GameObject target ) => Call( Sounds.Alert );
@@ -91,7 +91,7 @@ public class Headcrab : VoicedNpc
 		_prey = _turnTarget;
 		_turnTarget = null;
 		if ( WeightedActivity( Ranged ) is not { } jump ) return;
-		EmitSound( "headcrab/hc_attack1.wav", WorldPosition, VoiceVolume, VoicePitch );
+		EmitSound( "headcrab/hc_attack1.wav", WorldPosition, VoiceVolume, VoicePitch, attenuation: GoldSrcSoundEvents.Idle );
 		PlayAction( jump );
 		_pounceAction = ActionSerial;
 	}
@@ -137,7 +137,7 @@ public class Headcrab : VoicedNpc
 		_biting = false;
 		var damage = new DamageInfo { Attacker = GameObject, Weapon = GameObject, Origin = WorldPosition, Position = collision.Contact.Point, Damage = Definition.Damage };
 		damage.Tags.Add( "slash" );
-		EmitSound( Sounds.Hit, WorldPosition, VoiceVolume, VoicePitch );
+		EmitSound( Sounds.Hit, WorldPosition, VoiceVolume, VoicePitch, attenuation: GoldSrcSoundEvents.Idle );
 		((IDamageable)victim).OnDamage( damage );
 	}
 

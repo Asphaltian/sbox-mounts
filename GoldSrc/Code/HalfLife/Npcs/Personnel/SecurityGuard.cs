@@ -31,7 +31,7 @@ public sealed partial class SecurityGuard : Personnel, Component.IDamageable.IEv
 		{
 			_enemyDied = false;
 			if ( Health > 0 && !IsBarnacleVictim && CanStartConversation && !FindVisibleEnemy().IsValid() )
-				Say( "KILL", duration: 4 );
+				Say( "KILL", duration: 4, attenuation: GoldSrcSoundEvents.Normal );
 		}
 		base.Think();
 	}

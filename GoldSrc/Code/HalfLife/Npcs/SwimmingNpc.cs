@@ -6,6 +6,8 @@ namespace GoldSrc.HalfLife;
 [Hide]
 public abstract class SwimmingNpc : Npc
 {
+	internal abstract void SwimAlert();
+
 	internal WaterBody Water { get; private set; }
 	internal GameObject Prey { get; private set; }
 	TimeUntil _nextDecision, _nextWander;
@@ -57,7 +59,7 @@ public abstract class SwimmingNpc : Npc
 		}
 		if ( busy ) return;
 		var enemy = SelectPrey();
-		if ( enemy != Prey && enemy.IsValid() ) EmitSound( VoiceSample( Sounds.Alert ), WorldPosition );
+		if ( enemy != Prey && enemy.IsValid() ) SwimAlert();
 		Prey = enemy;
 		if ( Prey.IsValid() && Hunt( Prey ) ) return;
 		if ( _nextWander > 0 ) return;

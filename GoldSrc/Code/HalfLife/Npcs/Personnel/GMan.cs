@@ -15,10 +15,10 @@ public sealed class GMan : TalkingNpc
 		Animation.TurnsBody = false;
 	}
 
-	public void PlayScriptedSentence( string sentence, float duration, GameObject listener = null, float volume = 1 )
+	public void PlayScriptedSentence( string sentence, float duration, GameObject listener = null, float volume = 1, float attenuation = GoldSrcSoundEvents.Normal )
 	{
 		if ( !Networking.IsHost || string.IsNullOrWhiteSpace( sentence ) ) return;
-		EmitSound( $"!{sentence.TrimStart( '!' )}", WorldPosition, volume, speaker: this );
+		EmitSound( $"!{sentence.TrimStart( '!' )}", WorldPosition, volume, speaker: this, attenuation: attenuation );
 		_listener = listener;
 		_talkUntil = duration;
 	}

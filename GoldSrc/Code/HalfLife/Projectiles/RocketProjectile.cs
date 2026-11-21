@@ -28,7 +28,7 @@ public abstract class RocketProjectile : NpcProjectile
 			_lamp.Shadows = false;
 			exhaust.Enabled = true;
 			if ( mount.NpcAudio.Find( "weapons/rocket1.wav" ) is { } path && SoundFile.Load( path ) is { } sound )
-				_motor = Sound.PlayFile( sound );
+				_motor = GoldSrcSoundEvents.Play( sound, WorldPosition, attenuation: 0.5f );
 		}
 		if ( Age >= IgnitionDelay + BurnTime )
 		{

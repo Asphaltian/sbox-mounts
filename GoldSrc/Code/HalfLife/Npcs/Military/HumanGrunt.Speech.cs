@@ -31,6 +31,8 @@ public sealed partial class HumanGrunt
 		else if ( target.GetComponentInParent<Npc>() is { Faction: Sandbox.Npcs.Factions.Monster } ) Radio( "!HG_MONST" );
 	}
 
+	internal override void DeathSound() => EmitSound( Sounds.Death, WorldPosition, attenuation: GoldSrcSoundEvents.Idle );
+
 	internal override void IdleSound()
 	{
 		var channel = Channel;

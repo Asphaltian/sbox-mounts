@@ -51,7 +51,7 @@ public sealed class AircraftWreck : Component
 	{
 		var origin = WorldPosition + Vector3.Up * 8;
 		Fireball( origin, 192 );
-		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount ) mount.NpcAudio.Emit( "weapons/mortarhit.wav", origin );
+		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount ) mount.NpcAudio.Emit( "weapons/mortarhit.wav", origin, attenuation: 0.3f );
 		Blast.DamageInRadius( GameObject, GameObject, origin, 300, 750, "blast" );
 		ScatterDebris( origin, DebrisModel );
 		GameObject.Destroy();

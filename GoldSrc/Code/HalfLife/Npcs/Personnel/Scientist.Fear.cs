@@ -60,7 +60,7 @@ public sealed partial class Scientist
 			{
 				_fearedEnemy = enemy;
 				Animation.SetLookTarget( enemy );
-				if ( CanStartConversation ) Say( ClassOf( enemy ) == MonsterClass.Player ? "PLFEAR" : "FEAR", enemy, 5 );
+				if ( CanStartConversation ) Say( ClassOf( enemy ) == MonsterClass.Player ? "PLFEAR" : "FEAR", enemy, 5, attenuation: GoldSrcSoundEvents.Normal );
 			}
 			if ( IsLiveTarget( Leader ) )
 			{
@@ -115,6 +115,6 @@ public sealed partial class Scientist
 
 	void Scream()
 	{
-		if ( CanStartConversation ) Say( "SCREAM", _fearedEnemy, Game.Random.Float( 3, 6 ) );
+		if ( CanStartConversation ) Say( "SCREAM", _fearedEnemy, Game.Random.Float( 3, 6 ), attenuation: GoldSrcSoundEvents.Normal );
 	}
 }

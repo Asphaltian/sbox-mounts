@@ -98,7 +98,7 @@ public sealed class GluonGun : StudioWeapon
 		if ( !_firing ) return;
 		_firing = _running = false;
 		_beamSound?.Stop();
-		_beamSound = PlaySample( "weapons/egon_off1.wav" );
+		_beamSound = PlaySample( "weapons/egon_off1.wav", 0.98f );
 		// The shutdown WAV lasts 3.284 seconds. Retire the channel even if audio playback stalls.
 		_shutdownEnds = 3.3f;
 	}

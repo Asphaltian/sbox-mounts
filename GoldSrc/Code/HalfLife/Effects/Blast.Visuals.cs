@@ -8,7 +8,10 @@ internal static partial class Blast
 		DamageInRadius( inflictor, owner, origin, damage, damage * 2.5f, "blast" );
 		ShowExplosion( origin, contact, normal, damage, hit );
 		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount )
+		{
+			mount.NpcAudio.Emit( $"weapons/explode{Game.Random.Int( 3, 5 )}.wav", origin, attenuation: 0.3f );
 			mount.NpcAudio.Emit( "weapons/debris", origin, volume: 0.55f );
+		}
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]

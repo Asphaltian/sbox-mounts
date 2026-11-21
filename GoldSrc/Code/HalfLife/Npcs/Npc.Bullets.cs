@@ -5,9 +5,9 @@ public partial class Npc
 	// GoldSrc shares tracer cadence across NPCs firing in the same game.
 	static uint _tracerCount;
 
-	internal void PlayGunshot( string sample, Vector3 origin, float volume = 1, float pitch = 1 )
+	internal void PlayGunshot( string sample, Vector3 origin, float volume = 1, float pitch = 1, float attenuation = GoldSrcSoundEvents.Normal )
 	{
-		EmitSound( sample, origin, volume, pitch );
+		EmitSound( sample, origin, volume, pitch, attenuation: attenuation );
 		EmitStimulus( Sandbox.Npcs.StimulusKinds.Gunshot, radius: 384, lifetime: 0.3f );
 	}
 

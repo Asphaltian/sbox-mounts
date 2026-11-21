@@ -6,5 +6,6 @@ namespace GoldSrc.HalfLife;
 public sealed class Turret : AutomatedTurret
 {
 	internal override bool HasRotaryBarrel => true;
+	internal override float ShotAttenuation => 0.6f;
 	internal override string ShotSound => "turret/tu_fire1.wav";
 }

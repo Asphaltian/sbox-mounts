@@ -117,8 +117,7 @@ public sealed partial class Tentacle : Npc
 	{
 		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount || mount.NpcAudio.Find( sample ) is not { } path
 			|| SoundFile.Load( path ) is not { } sound ) return;
-		_ambience = Sound.PlayFile( sound );
-		if ( _ambience.IsValid() ) _ambience.Position = WorldPosition;
+		_ambience = GoldSrcSoundEvents.Play( sound, WorldPosition );
 	}
 
 	protected override void OnDisabled()

@@ -163,7 +163,7 @@ public sealed partial class Gargantua
 			_flames.Add( effect );
 		}
 		if ( mount.NpcAudio.Find( "garg/gar_flamerun1.wav" ) is { } path && SoundFile.Load( path ) is { } sound )
-			_flameSound = Sound.PlayFile( sound );
+			_flameSound = GoldSrcSoundEvents.Play( sound, WorldPosition );
 	}
 
 	void StopFlameEffects()

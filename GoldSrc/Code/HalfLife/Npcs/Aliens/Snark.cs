@@ -10,6 +10,8 @@ public sealed class Snark : Npc, Component.ICollisionListener
 	internal override float SightRange => 512;
 
 	const float Fuse = 15, PopDamage = 5;
+	internal override void DeathSound() => EmitSound( Sounds.Death, WorldPosition, attenuation: 0.5f );
+
 	internal override NpcSounds Sounds { get; } = new( Death: "squeek/sqk_blast1.wav" );
 
 	[Sync( SyncFlags.FromHost )] TimeUntil Detonation { get; set; }

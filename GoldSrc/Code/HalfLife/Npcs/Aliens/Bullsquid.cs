@@ -49,6 +49,8 @@ public sealed partial class Bullsquid : Npc
 		PlayAction( display );
 	}
 
+	internal override void IdleSound() => Speak( Sounds.Idle, attenuation: 1.5f );
+
 	internal override void PainSound() =>
 		EmitSound( Sounds.Pain, WorldPosition, pitch: Game.Random.Int( 85, 120 ) / 100f );
 

@@ -77,18 +77,18 @@ internal sealed partial class NpcAudio
 		return words.ToArray();
 	}
 
-	bool EmitSentence( string name, Vector3 position, float volume, float pitch, VoicedNpc speaker )
+	bool EmitSentence( string name, Vector3 position, float volume, float pitch, VoicedNpc speaker, float attenuation )
 	{
 		if ( _speechGroups.TryGetValue( name, out var group ) ) name = group.Pick();
 		if ( !_sentences.TryGetValue( name, out var words ) ) return false;
 		if ( words is [{ Settings: { Start: 0, End: 100, Compression: 0 } } word] )
-			Broadcast( word.Path, position, volume * word.Settings.Volume / 100, pitch * word.Settings.Pitch / 100, speaker );
-		else PlaySentence( name, position, volume, pitch, speaker );
+			Broadcast( word.Path, position, volume * word.Settings.Volume / 100, pitch * word.Settings.Pitch / 100, speaker, attenuation );
+		else PlaySentence( name, position, volume, pitch, speaker, attenuation );
 		return true;
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
-	static async void PlaySentence( string name, Vector3 position, float volume, float pitch, VoicedNpc speaker )
+	static async void PlaySentence( string name, Vector3 position, float volume, float pitch, VoicedNpc speaker, float attenuation )
 	{
 		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount ||
 			!mount.NpcAudio._sentences.TryGetValue( name, out var words ) ) return;
@@ -105,12 +105,9 @@ internal sealed partial class NpcAudio
 				if ( sound is null || !await sound.LoadAsync() ) return;
 			}
 			if ( !scene.IsValid() || voice.HasValue && (!speaker.IsValid() || speaker.VoiceSerial != voice) ) return;
-			var handle = Sound.PlayFile( sound );
+			var handle = GoldSrcSoundEvents.Play( sound, speaker.IsValid() ? speaker.WorldPosition : position,
+				volume * settings.Volume / 100, pitch * settings.Pitch / 100, attenuation );
 			if ( !handle.IsValid() ) return;
-			handle.Position = speaker.IsValid() ? speaker.WorldPosition : position;
-			handle.Distance = 1000;
-			handle.Volume = volume * settings.Volume / 100;
-			handle.Pitch = pitch * settings.Pitch / 100;
 			if ( speaker.IsValid() ) speaker.TrackVoice( handle );
 			if ( settings.Start > 0 ) handle.Time = sound.Duration * settings.Start / 100;
 			await GameTask.DelaySeconds( sound.Duration * (settings.End - settings.Start) / (100 * handle.Pitch) );

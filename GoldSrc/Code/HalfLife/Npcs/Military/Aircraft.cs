@@ -3,6 +3,7 @@ namespace GoldSrc.HalfLife;
 [Hide]
 public abstract class Aircraft : Npc
 {
+	internal abstract float RotorAttenuation { get; }
 	internal abstract string RotorSample { get; }
 	internal abstract string DebrisModel { get; }
 	SoundHandle _rotor;
@@ -14,10 +15,9 @@ public abstract class Aircraft : Npc
 		if ( _rotorSample is null && Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount && mount.NpcAudio.Find( RotorSample ) is { } path )
 			_rotorSample = SoundFile.Load( path );
 		if ( _rotorSample is null ) return;
-		if ( !_rotor.IsValid() || !_rotor.IsPlaying ) _rotor = Sound.PlayFile( _rotorSample );
+		if ( !_rotor.IsValid() || !_rotor.IsPlaying ) _rotor = GoldSrcSoundEvents.Play( _rotorSample, WorldPosition, attenuation: RotorAttenuation );
 		if ( !_rotor.IsValid() ) return;
 		_rotor.Position = WorldPosition;
-		_rotor.Distance = 2048;
 	}
 
 	protected override GameObject CreateCorpse() => AircraftWreck.Spawn( this );

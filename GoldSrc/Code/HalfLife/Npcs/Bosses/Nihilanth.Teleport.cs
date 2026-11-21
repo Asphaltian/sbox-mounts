@@ -13,7 +13,7 @@ public sealed partial class Nihilanth
 		var hand = Renderer.GetAttachment( "attachment3" )?.Position ?? WorldPosition;
 		var velocity = WorldPosition - hand;
 		velocity = velocity.WithZ( velocity.z * 0.2f );
-		EmitSound( "x/x_attack", WorldPosition );
+		EmitSound( "x/x_attack", WorldPosition, attenuation: 0.2f );
 		NpcProjectile.Fire<NihilanthTeleport>( GameObject, null, 0, enemy, hand, velocity.Normal, velocity.Length );
 	}
 

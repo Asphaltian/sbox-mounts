@@ -80,8 +80,8 @@ public sealed partial class Nihilanth : Npc
 			return;
 		}
 		if ( id != 2 && id != 3 ) return;
-		if ( Game.Random.Int( 0, 4 ) == 0 ) EmitSound( "x/x_attack", WorldPosition );
-		EmitSound( "x/x_ballattack1.wav", WorldPosition );
+		if ( Game.Random.Int( 0, 4 ) == 0 ) EmitSound( "x/x_attack", WorldPosition, attenuation: 0.2f );
+		EmitSound( "x/x_ballattack1.wav", WorldPosition, attenuation: 0.2f );
 		HandLight( 3 );
 		HandLight( 4 );
 		_pairsRemaining = 5;
@@ -161,11 +161,13 @@ public sealed partial class Nihilanth : Npc
 		base.OnDamaged( damage );
 		if ( Health <= 0 || _nextPain > 0 ) return;
 		if ( Health > Definition.Health / 2 )
-			EmitSound( "x/x_laugh", WorldPosition );
+			EmitSound( "x/x_laugh", WorldPosition, attenuation: 0.2f );
 		else if ( BrainExposed )
-			EmitSound( $"x/x_pain{Game.Random.Int( 1, 2 )}.wav", WorldPosition );
+			EmitSound( $"x/x_pain{Game.Random.Int( 1, 2 )}.wav", WorldPosition, attenuation: 0.2f );
 		_nextPain = Game.Random.Float( 2, 5 );
 	}
+
+	internal override void DeathSound() => EmitSound( Sounds.Death, WorldPosition, attenuation: 0.1f );
 
 	protected override GameObject CreateCorpse() => Find( "die1" ) is { } death ? NpcCorpse.Spawn( this, death, true ) : base.CreateCorpse();
 }

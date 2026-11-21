@@ -341,9 +341,9 @@ public partial class Npc : BaseNpc
 	internal virtual void OnEnemySpotted( GameObject target ) => Speak( Sounds.Alert );
 	internal virtual void OnThreatSeen( GameObject threat ) => Speak( Sounds.Alert );
 
-	internal void Speak( string sample )
+	internal void Speak( string sample, float attenuation = GoldSrcSoundEvents.Normal )
 	{
-		if ( _nextVoice <= 0 && _audio.Emit( VoiceSample( sample ), WorldPosition, VoiceVolume, VoicePitch, this as TalkingNpc ) )
+		if ( _nextVoice <= 0 && _audio.Emit( VoiceSample( sample ), WorldPosition, VoiceVolume, VoicePitch, this as TalkingNpc, attenuation ) )
 			_nextVoice = Game.Random.Float( 2, 4 );
 	}
 }

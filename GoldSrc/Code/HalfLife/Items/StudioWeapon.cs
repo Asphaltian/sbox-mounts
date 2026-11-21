@@ -30,6 +30,11 @@ public abstract class StudioWeapon : BaseCombatWeapon
 	internal virtual Vector3 WorldMuzzleOffset( bool hd ) => Vector3.Zero;
 	internal virtual string ShotSound => null;
 
+	internal virtual void PlayShotSound()
+	{
+		if ( ShotSound is { } sample ) PlaySample( sample );
+	}
+
 	protected override void OnShootEffects( ShotEffect shot )
 	{
 		if ( !Application.IsDedicatedServer && (shot.Hit || shot.HitPosition != default) )
@@ -39,7 +44,7 @@ public abstract class StudioWeapon : BaseCombatWeapon
 			DrawShotTrail( start, shot.HitPosition );
 		}
 		base.OnShootEffects( shot );
-		if ( !shot.NoEvents && ShotSound is { } sample ) PlaySample( sample );
+		if ( !shot.NoEvents ) PlayShotSound();
 	}
 
 	internal virtual void DrawShotTrail( Vector3 start, Vector3 end ) => BulletEffects.ShowTracer( start, end );

@@ -43,19 +43,19 @@ internal sealed class StudioSequenceEvents
 		switch ( e.Index )
 		{
 			case 1004:
-				NpcAudio.Play( audio.Find( e.Options ), position );
+				NpcAudio.Play( audio.Find( e.Options ), position, attenuation: GoldSrcSoundEvents.Idle );
 				break;
 			case 1008:
 				if ( npc is TalkingNpc speaker )
 				{
-					if ( Networking.IsHost ) audio.Emit( e.Options, position, speaker: speaker );
+					if ( Networking.IsHost ) audio.Emit( e.Options, position, speaker: speaker, attenuation: GoldSrcSoundEvents.Idle );
 				}
-				else NpcAudio.Play( audio.Find( e.Options ), position );
+				else NpcAudio.Play( audio.Find( e.Options ), position, attenuation: GoldSrcSoundEvents.Idle );
 				break;
 			case 1005:
 			case 1009:
 				if ( Networking.IsHost && (e.Index == 1005 || Game.Random.Int( 0, 2 ) != 0) )
-					audio.Emit( $"!{e.Options.TrimStart( '!' )}", position, speaker: npc as TalkingNpc );
+					audio.Emit( $"!{e.Options.TrimStart( '!' )}", position, speaker: npc as TalkingNpc, attenuation: GoldSrcSoundEvents.Idle );
 				break;
 			case 2001:
 			case 2002:
