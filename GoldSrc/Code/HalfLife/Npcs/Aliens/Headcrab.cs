@@ -3,7 +3,7 @@ namespace GoldSrc.HalfLife;
 [Title( "Headcrab" ), Category( "Half-Life" )]
 [Alias( "GoldSrc.HalfLifeHeadcrab" )]
 [NpcDefinition( "monster_headcrab", "headcrab", MonsterClass.AlienPrey, 10, 12, 24, 90, Attack = NpcAttack.Leap, Damage = 10, Range = 256, Gibs = GibSet.Alien, Blood = BloodColor.Yellow )]
-public class Headcrab : Npc
+public class Headcrab : VoicedNpc
 {
 	internal override NpcSounds Sounds { get; } = new( "headcrab/hc_idle", "headcrab/hc_alert1.wav", "headcrab/hc_pain", "headcrab/hc_die",
 				"headcrab/hc_attack", "headcrab/hc_headbite" );
@@ -30,9 +30,12 @@ public class Headcrab : Npc
 		if ( Movement?.MoveTarget.HasValue == true ) Movement.Stop();
 	}
 
-	internal override void IdleSound() => EmitSound( $"{Sounds.Idle}{Game.Random.Int( 1, 3 )}.wav", WorldPosition, VoiceVolume, VoicePitch );
-	internal override void OnEnemySpotted( GameObject target ) => EmitSound( Sounds.Alert, WorldPosition, VoiceVolume, VoicePitch );
-	internal override void PainSound() => EmitSound( Sounds.Pain, WorldPosition, VoiceVolume, VoicePitch );
+	void Call( string sample ) => EmitSound( sample, WorldPosition, VoiceVolume, VoicePitch, this );
+
+	internal override void IdleSound() => Call( $"{Sounds.Idle}{Game.Random.Int( 1, 3 )}.wav" );
+	internal override void OnEnemySpotted( GameObject target ) => Call( Sounds.Alert );
+	internal override void PainSound() => Call( Sounds.Pain );
+	internal override void DeathSound() => Call( Sounds.Death );
 
 	protected override void Think()
 	{
@@ -110,7 +113,7 @@ public class Headcrab : Npc
 		_biting = _pounceAction == ActionSerial;
 
 		var call = Game.Random.Int( 0, 2 );
-		if ( call != 0 ) EmitSound( $"headcrab/hc_attack{call + 1}.wav", WorldPosition, VoiceVolume, VoicePitch );
+		if ( call != 0 ) Call( $"headcrab/hc_attack{call + 1}.wav" );
 		Launch( velocity );
 	}
 
