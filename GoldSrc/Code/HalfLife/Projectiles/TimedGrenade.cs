@@ -61,13 +61,14 @@ public sealed class TimedGrenade : Component, Component.ICollisionListener
 	{
 		if ( !Networking.IsHost || collision.Other.IsTrigger ) return;
 		var other = collision.Other.GameObject;
-		if ( Thrower.IsValid() && other.Root == Thrower.Root ) return;
+		if ( other.IsValid() && Thrower.IsValid() && other.Root == Thrower.Root ) return;
 		var body = GetComponent<Rigidbody>();
+		if ( !body.IsValid() ) return;
 		var velocity = body.Velocity;
 		if ( _nextImpact <= 0 && collision.Contact.Speed.Length > 100 )
 		{
 			_nextImpact = 1;
-			if ( Thrower.IsValid() && other.GetComponentInParent<IDamageable>() is { } victim )
+			if ( other.IsValid() && Thrower.IsValid() && other.GetComponentInParent<IDamageable>() is { } victim )
 			{
 				var hit = new DamageInfo { Damage = 1, Attacker = Thrower, Weapon = GameObject, Origin = WorldPosition, Position = collision.Contact.Point };
 				hit.Tags.Add( "club" );
