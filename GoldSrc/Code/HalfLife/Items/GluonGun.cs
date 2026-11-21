@@ -43,7 +43,8 @@ public sealed partial class GluonGun : StudioWeapon
 			if ( hit.Hit )
 			{
 				ShootBullet( hit, damage, 0 );
-				ImpactPulse( hit.EndPosition );
+				// Keep the blast's visibility traces outside the surface, including sloped ceilings.
+				ImpactPulse( hit.EndPosition + hit.Normal * 2 );
 			}
 			if ( IsHeld && _nextCell <= 0 )
 			{
