@@ -239,7 +239,7 @@ public partial class Npc
 	{
 		if ( !player.IsValid() || player.IsProxy ) return;
 		if ( player.Body.IsValid() ) player.Body.Velocity += push;
-		if ( !player.ThirdPerson ) player.Scene.Camera?.AddPunch( punch, 0.5f, 0.65f );
+		if ( !player.ThirdPerson ) MeleeViewPunch.Apply( player.Scene.Camera, punch );
 	}
 
 	internal static void PushVictim( Component victim, Vector3 impulse )
