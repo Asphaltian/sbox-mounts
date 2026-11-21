@@ -15,7 +15,7 @@ public abstract partial class Personnel : Component.ICollisionListener
 	void PlayerTouch( Collision collision )
 	{
 		if ( !Networking.IsHost || !CanFollow || Health <= 0 || _talkUntil > 0 || _steppingAside || PhysicsCarrier.IsValid() ) return;
-		var player = collision.Other.GameObject.GetComponentInParent<PlayerController>();
+		var player = collision.Other.GameObject?.GetComponentInParent<PlayerController>();
 		if ( !player.IsValid() || !AcceptsLeader( player.GameObject ) ) return;
 		var velocity = player.Velocity;
 		if ( System.MathF.Abs( velocity.x ) + System.MathF.Abs( velocity.y ) <= 50 ) return;

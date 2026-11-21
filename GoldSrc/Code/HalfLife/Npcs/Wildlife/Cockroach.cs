@@ -131,7 +131,7 @@ public sealed class Cockroach : Npc, Component.ICollisionListener
 	void TrySquash( Collision collision )
 	{
 		if ( !Networking.IsHost || Health <= 0 ) return;
-		var player = collision.Other.GameObject.GetComponentInParent<PlayerController>();
+		var player = collision.Other.GameObject?.GetComponentInParent<PlayerController>();
 		if ( !player.IsValid() || player.Velocity.IsNearlyZero() ) return;
 		var floor = Scene.Trace.Ray( WorldPosition + Vector3.Up * 8, WorldPosition + Vector3.Down * 16 )
 			.IgnoreGameObjectHierarchy( GameObject ).IgnoreGameObjectHierarchy( player.GameObject )

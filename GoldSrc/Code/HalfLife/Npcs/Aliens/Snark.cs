@@ -97,13 +97,13 @@ public sealed class Snark : Npc, Component.ICollisionListener
 	{
 		if ( !Networking.IsHost || Health <= 0 || _nextTouch > 0 || !_body.IsValid() ) return;
 		var other = collision.Other.GameObject;
-		if ( !_touched && Thrower.IsValid() && other.Root == Thrower.Root ) return;
+		if ( !_touched && other.IsValid() && Thrower.IsValid() && other.Root == Thrower.Root ) return;
 
 		_touched = true;
 		_nextTouch = 0.1f;
 		_nextHunt = 0;
 		var pitch = (155 - 60 * (float)Detonation / Fuse) * 0.01f;
-		if ( _nextBite <= 0 && other.GetComponentInParent<IDamageable>() is { } victim && victim is not Snark )
+		if ( _nextBite <= 0 && other?.GetComponentInParent<IDamageable>() is { } victim && victim is not Snark )
 		{
 			_nextBite = 0.5f;
 			BlastDamage += PopDamage;

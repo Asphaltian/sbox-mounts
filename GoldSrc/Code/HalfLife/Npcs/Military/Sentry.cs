@@ -22,7 +22,7 @@ public sealed class Sentry : AutomatedTurret, Component.ICollisionListener
 	void ICollisionListener.OnCollisionStart( Collision collision )
 	{
 		var other = collision.Other.GameObject;
-		if ( Networking.IsHost && Health > 0 && (other.GetComponentInParent<Sandbox.Npcs.BaseNpc>() is not null
+		if ( Networking.IsHost && Health > 0 && other.IsValid() && (other.GetComponentInParent<Sandbox.Npcs.BaseNpc>() is not null
 			|| other.GetComponentInParent<PlayerController>() is not null) ) Deploy();
 	}
 }
