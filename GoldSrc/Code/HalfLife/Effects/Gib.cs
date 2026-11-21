@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace GoldSrc.HalfLife;
 
 [Hide]
@@ -10,13 +12,24 @@ public sealed class Gib : Component, Component.ICollisionListener
 	TimeSince _age;
 	TimeUntil _fade;
 	bool _landed;
+	bool _fading;
+	static readonly ConditionalWeakTable<Material, Material> FadeMaterials = new();
+
+	internal static void Scatter( BBox hull, Vector3 eye, Vector3 direction, float health, bool human, Npc.BloodColor blood, int pieces = 4, bool skull = true, string sourceModel = null )
+	{
+		Vector3? headTarget = null;
+		if ( human && skull && Game.Random.Int( 0, 100 ) <= 5 )
+			headTarget = Game.ActiveScene.GetAllComponents<PlayerController>().MinBy( p => p.WorldPosition.DistanceSquared( eye ) )?.EyeTransform.Position;
+		ScatterPieces( hull, eye, direction, health, human, blood, pieces, skull, headTarget, Game.Random.Next(), sourceModel );
+	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
-	internal static void Scatter( BBox hull, Vector3 eye, Vector3 direction, float health, bool human, Npc.BloodColor blood, int pieces = 4, bool skull = true )
+	static void ScatterPieces( BBox hull, Vector3 eye, Vector3 direction, float health, bool human, Npc.BloodColor blood, int pieces, bool skull, Vector3? headTarget, int seed, string sourceModel )
 	{
 		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount ) return;
 		var file = human ? "hgibs" : "agibs";
-		var path = mount.GameDirs.Select( dir => $"mount://hl1/{dir}/models/{file}.mdl.vmdl" ).FirstOrDefault( name => mount.GetByPath( name ) is ModelLoader );
+		var path = mount.GameDirs.OrderByDescending( dir => sourceModel?.StartsWith( $"mount://hl1/{dir}/" ) == true )
+			.Select( dir => $"mount://hl1/{dir}/models/{file}.mdl.vmdl" ).FirstOrDefault( name => mount.GetByPath( name ) is ModelLoader );
 		if ( path is null ) return;
 		var model = Model.Load( path );
 		if ( !model.IsValid() || model.IsError || model.Parts.All.FirstOrDefault() is not { } part ) return;
@@ -24,22 +37,21 @@ public sealed class Gib : Component, Component.ICollisionListener
 		// The human model also contains prop pieces. Monsters only use its first six choices.
 		var lastPiece = System.Math.Min( human ? 6 : 4, part.Choices.Count ) - 1;
 		if ( lastPiece < (human ? 1 : 0) ) return;
+		var random = new System.Random( seed );
 		if ( human && skull )
 		{
-			var velocity = new Vector3( Game.Random.Float( -100, 100 ), Game.Random.Float( -100, 100 ), Game.Random.Float( 200, 300 ) );
-			if ( Game.Random.Int( 0, 100 ) <= 5 && Game.ActiveScene.GetAllComponents<PlayerController>().OrderBy( p => p.WorldPosition.DistanceSquared( eye ) ).FirstOrDefault() is { } player )
-				velocity = (player.EyeTransform.Position - eye).Normal * 300 + Vector3.Up * 100;
-			Spawn( model, part.Name, 0, eye, velocity * scale, blood );
+			var velocity = headTarget is { } target ? (target - eye).Normal * 300 + Vector3.Up * 100
+				: new Vector3( random.Float( -100, 100 ), random.Float( -100, 100 ), random.Float( 200, 300 ) );
+			Spawn( model, part.Name, 0, eye, velocity * scale, blood, random: random );
 		}
 		for ( int i = 0; i < pieces; ++i )
 		{
-			var spread = new Vector3( Game.Random.Float( -0.25f, 0.25f ), Game.Random.Float( -0.25f, 0.25f ), Game.Random.Float( -0.25f, 0.25f ) );
-			var velocity = (direction + spread) * Game.Random.Float( 300, 400 ) * scale;
-			Spawn( model, part.Name, Game.Random.Int( human ? 1 : 0, lastPiece ), hull.RandomPointInside + Vector3.Up, velocity, blood );
+			var velocity = (direction + random.VectorInCube( 0.25f )) * random.Float( 300, 400 ) * scale;
+			Spawn( model, part.Name, random.Int( human ? 1 : 0, lastPiece ), random.VectorInCube( hull ) + Vector3.Up, velocity, blood, random: random );
 		}
 	}
 
-	internal static void Spawn( Model model, string group, int variant, Vector3 point, Vector3 velocity, Npc.BloodColor blood, float fadeAfter = 0 )
+	internal static void Spawn( Model model, string group, int variant, Vector3 point, Vector3 velocity, Npc.BloodColor blood, float fadeAfter = 0, System.Random random = null )
 	{
 		var go = new GameObject( false, "Gib" );
 		go.NetworkMode = NetworkMode.Never;
@@ -50,14 +62,19 @@ public sealed class Gib : Component, Component.ICollisionListener
 		gib._renderer = go.AddComponent<ModelRenderer>();
 		gib._renderer.Model = model;
 		gib._renderer.SetBodyGroup( group, variant );
-		var collider = go.AddComponent<SphereCollider>();
-		collider.Radius = 1;
+		var collider = go.AddComponent<HullCollider>();
+		collider.Type = HullCollider.PrimitiveType.Points;
+		collider.Points = ((ModelLoader)Sandbox.Mounting.Directory.Get( "hl1" ).GetByPath( model.Name )).GibHull( group, variant );
 		collider.Friction = 0.55f;
 		collider.Elasticity = 0.5f;
 		gib._body = go.AddComponent<Rigidbody>();
+		gib._body.RigidbodyFlags |= RigidbodyFlags.DisableCollisionSounds;
+		gib._body.EnhancedCcd = true;
+		gib._body.EnableImpactDamage = false;
 		go.Enabled = true;
 		gib._body.Velocity = velocity.ClampLength( 1500 );
-		gib._body.AngularVelocity = new Vector3( 0, Game.Random.Float( 100, 200 ).DegreeToRadian(), Game.Random.Float( 100, 300 ).DegreeToRadian() );
+		random ??= Game.Random;
+		gib._body.AngularVelocity = new Vector3( 0, random.Float( 100, 200 ).DegreeToRadian(), random.Float( 100, 300 ).DegreeToRadian() );
 		gib._age = 0;
 		if ( fadeAfter > 0 )
 		{
@@ -68,15 +85,12 @@ public sealed class Gib : Component, Component.ICollisionListener
 
 	void ICollisionListener.OnCollisionStart( Collision collision )
 	{
-		if ( _decals <= 0 || _blood == Npc.BloodColor.None ) return;
+		if ( _decals <= 0 || _blood == Npc.BloodColor.None || collision.Other.IsTrigger || collision.Other.Body?.BodyType != PhysicsBodyType.Static ) return;
+		var normal = collision.Contact.Normal;
+		if ( normal.Dot( collision.Self.Body.MassCenter - collision.Contact.Point ) < 0 ) normal = -normal;
+		var prefix = _blood == Npc.BloodColor.Red ? "blood" : "yblood";
+		ImpactDecal.Place( collision.Contact.Point, normal, $"{prefix}{Game.Random.Int( 1, 6 )}", 0 );
 		_decals--;
-		var trace = Scene.Trace.Ray( WorldPosition + Vector3.Up * 8, WorldPosition + Vector3.Down * 16 )
-			.WithoutTags( "debris", "npc", "trigger", "player", "ragdoll" ).Run();
-		if ( trace.Hit )
-		{
-			var prefix = _blood == Npc.BloodColor.Red ? "blood" : "yblood";
-			ImpactDecal.Place( trace.EndPosition, trace.Normal, $"{prefix}{Game.Random.Int( 1, 6 )}", 0 );
-		}
 	}
 
 	protected override void OnUpdate()
@@ -91,8 +105,24 @@ public sealed class Gib : Component, Component.ICollisionListener
 				Scene.GetSystem<Sandbox.Npcs.NpcSystem>().EmitStimulus( "meat", WorldPosition, GameObject, 384, 25 );
 		}
 		if ( _fade > 0 ) return;
-		var alpha = 1f + (float)_fade * 0.7f;
+		if ( !_fading )
+		{
+			_fading = true;
+			for ( int i = 0; i < _renderer.Materials.Count; i++ )
+			{
+				var material = _renderer.Materials.GetOriginal( i );
+				if ( material.IsValid() ) _renderer.Materials.SetOverride( i, FadeMaterials.GetValue( material, CreateFadeMaterial ) );
+			}
+		}
+		var alpha = 1 + (float)_fade * (70f / 255f);
 		if ( alpha <= 0 ) GameObject.Destroy();
-		else _renderer.Tint = Color.White.WithAlpha( alpha );
+		else _renderer.Attributes.Set( "StudioOpacity", alpha );
+	}
+
+	static Material CreateFadeMaterial( Material original )
+	{
+		var copy = original.CreateCopy();
+		copy.SetFeature( "F_STUDIO_FADE", 1 );
+		return copy;
 	}
 }

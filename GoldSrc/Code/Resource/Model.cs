@@ -8,6 +8,8 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 {
 	byte[] _transitions = [];
 	int _nodeCount;
+	internal List<Vector3> GibHull( string group, int variant ) => _gibHulls?.GetValueOrDefault( (group, variant) );
+	Dictionary<(string, int), List<Vector3>> _gibHulls;
 
 	internal StudioSequence TransitionTo( int from, StudioSequence goal, out bool reverse )
 	{
@@ -190,6 +192,11 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 				{
 					builder.AddMesh( null, bodyPart.Name, modelIndex );
 					continue;
+				}
+				if ( fullPath.EndsWith( "gibs.mdl", StringComparison.OrdinalIgnoreCase ) )
+				{
+					_gibHulls ??= new();
+					_gibHulls[(bodyPart.Name, modelIndex)] = collisionVertices.GetRange( collisionOffset, vertices.Length );
 				}
 
 				for ( var meshIndex = 0; meshIndex < bodyPartModel.NumMesh; ++meshIndex )

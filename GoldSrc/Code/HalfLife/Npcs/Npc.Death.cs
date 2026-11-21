@@ -27,7 +27,7 @@ public partial class Npc
 		{
 			var radius = Definition.Radius;
 			var hull = new BBox( new Vector3( -radius, -radius, 0 ), new Vector3( radius, radius, Definition.Height ) );
-			Gib.Scatter( hull + WorldPosition, EyePosition, direction, remaining, Definition.Gibs == GibSet.Human, Definition.Blood );
+			Gib.Scatter( hull + WorldPosition, EyePosition, direction, remaining, Definition.Gibs == GibSet.Human, Definition.Blood, sourceModel: ModelPath );
 			_audio?.Emit( "common/bodysplat.wav", WorldPosition );
 			OnGibbed();
 		}

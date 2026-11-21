@@ -11,6 +11,7 @@ FEATURES
 	Feature( F_CHROME, 0..1, "Chrome" );
 	Feature( F_FULLBRIGHT, 0..1, "Fullbright" );
 	Feature( F_ADDITIVE, 0..1, "Additive" );
+	Feature( F_STUDIO_FADE, 0..1, "Translucent" );
 }
 
 MODES
@@ -78,6 +79,8 @@ PS
 	
 	StaticCombo( S_FULLBRIGHT, F_FULLBRIGHT, Sys( ALL ) )
 	StaticCombo( S_ADDITIVE, F_ADDITIVE, Sys( ALL ) )
+	StaticCombo( S_STUDIO_FADE, F_STUDIO_FADE, Sys( ALL ) )
+	float g_flStudioOpacity < Attribute( "StudioOpacity" ); Default( 1 ); >;
 
 	#if S_ADDITIVE
 		BoolAttribute( translucent, true );
@@ -85,6 +88,12 @@ PS
 		RenderState( SrcBlend, ONE );
 		RenderState( DstBlend, ONE );
 		RenderState( BlendOp, ADD );
+		RenderState( DepthWriteEnable, false );
+	#elif S_STUDIO_FADE
+		BoolAttribute( translucent, true );
+		RenderState( BlendEnable, true );
+		RenderState( SrcBlend, SRC_ALPHA );
+		RenderState( DstBlend, INV_SRC_ALPHA );
 		RenderState( DepthWriteEnable, false );
 	#endif
 
@@ -106,7 +115,7 @@ PS
 		m.Metalness = 0;
 		m.AmbientOcclusion = 1;
 		m.TintMask = 1;
-		m.Opacity = 1;
+		m.Opacity = S_STUDIO_FADE ? g_flStudioOpacity : 1;
 		m.Emission = 0;
 		m.Transmission = 0;
 
