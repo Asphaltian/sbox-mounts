@@ -1,7 +1,7 @@
 namespace GoldSrc.HalfLife;
 
 [Hide]
-public sealed class PlacedCharge : Component, Component.IDamageable
+public sealed class PlacedCharge : Component, Component.IDamageable, Component.ICollisionListener
 {
 	[Property] public GameObject Thrower { get; set; }
 	[Property] public bool IsMine { get; set; }
@@ -9,6 +9,7 @@ public sealed class PlacedCharge : Component, Component.IDamageable
 	bool _armed, _spent;
 	float _length;
 	GameObject _surface;
+	SoundHandle _chargeSound;
 
 	internal static void Throw( PlayerController player, Ray ray )
 	{
@@ -16,8 +17,12 @@ public sealed class PlacedCharge : Component, Component.IDamageable
 		go.WorldPosition = ray.Position;
 		go.WorldRotation = Rotation.LookAt( ray.Forward );
 		go.AddComponent<ModelRenderer>().Model = Model.Load( "mount://hl1/valve/models/w_satchel.mdl.vmdl" );
-		go.AddComponent<BoxCollider>().Scale = new Vector3( 8, 8, 4 );
+		var collider = go.AddComponent<BoxCollider>();
+		collider.Scale = new Vector3( 8, 8, 8 );
+		collider.Friction = 0.8f;
 		var body = go.AddComponent<Rigidbody>();
+		body.GravityScale = 0.5f;
+		body.RigidbodyFlags |= RigidbodyFlags.DisableCollisionSounds;
 		var charge = go.AddComponent<PlacedCharge>();
 		charge.Thrower = player.GameObject;
 		go.Enabled = true;
@@ -41,7 +46,34 @@ public sealed class PlacedCharge : Component, Component.IDamageable
 		if ( hit.GameObject.IsValid() ) go.SetParent( hit.GameObject, true );
 		go.Enabled = true;
 		go.NetworkSpawn( true, null );
+		charge.PlayMineSound( false );
 	}
+
+	void ICollisionListener.OnCollisionStart( Collision collision )
+	{
+		if ( !Networking.IsHost || IsMine || collision.Other.IsTrigger || collision.Other.GameObject == Thrower ) return;
+		var body = GetComponent<Rigidbody>();
+		body.GravityScale = 1;
+		if ( collision.Contact.Speed.WithZ( 0 ).Length <= 10 ) return;
+		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount )
+			mount.NpcAudio.Emit( "weapons/g_bounce", collision.Contact.Point );
+	}
+
+	[Rpc.Broadcast( NetFlags.HostOnly )]
+	void PlayMineSound( bool armed )
+	{
+		if ( Application.IsDedicatedServer || Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount ) return;
+		_chargeSound?.Stop();
+		var audio = mount.NpcAudio;
+		if ( armed ) NpcAudio.Play( audio.Find( "weapons/mine_activate.wav" ), WorldPosition, 0.5f, 0.75f );
+		else
+		{
+			NpcAudio.Play( audio.Find( "weapons/mine_deploy.wav" ), WorldPosition );
+			_chargeSound = NpcAudio.Play( audio.Find( "weapons/mine_charge.wav" ), WorldPosition, 0.2f );
+		}
+	}
+
+	protected override void OnDisabled() => _chargeSound?.Stop();
 
 	internal static void PoseMine( SkinnedModelRenderer renderer, string pose )
 	{
@@ -68,13 +100,16 @@ public sealed class PlacedCharge : Component, Component.IDamageable
 		}
 
 		_armed = true;
+		PlayMineSound( true );
 		_length = hit.Distance;
 		_surface = hit.GameObject;
 		var beam = GameObject.AddComponent<LineRenderer>();
 		beam.UseVectorPoints = true;
 		beam.VectorPoints = [start, hit.EndPosition];
-		beam.Width = 0.5f;
-		beam.Color = Color.Red;
+		beam.Width = 1;
+		beam.Color = new Color( 0, 214f / 255, 198f / 255, 64f / 255 );
+		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount && mount.GetIndexedSprite( "laserbeam" ) is { } sprite )
+			beam.Texturing = beam.Texturing with { Texture = sprite.Animations[0].Frames[0].Texture };
 		beam.Additive = true;
 		beam.CastShadows = false;
 	}
