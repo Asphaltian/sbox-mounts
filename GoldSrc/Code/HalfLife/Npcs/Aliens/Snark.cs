@@ -27,6 +27,8 @@ public sealed class Snark : Npc, Component.ICollisionListener
 	Vector3 _heading, _previousPosition;
 	TimeUntil _nextHunt, _nextTouch, _nextBite, _nextBounceSound, _nextWaterCheck;
 	bool _touched, _warned;
+	[Sync( SyncFlags.FromHost )] Vector2 TumbleRate { get; set; }
+	[Sync( SyncFlags.FromHost )] TimeSince TumbleStart { get; set; }
 
 	protected override void OnStart()
 	{
@@ -44,12 +46,16 @@ public sealed class Snark : Npc, Component.ICollisionListener
 		_body.GravityScale = 0.5f;
 		_body.Gravity = true;
 		_body.MotionEnabled = true;
+		// GoldSrc bounces an axis-aligned box. Only the visual model tumbles.
+		_body.Locking = new PhysicsLock { Pitch = true, Roll = true, Yaw = true };
 		_previousPosition = WorldPosition;
 	}
 
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
+		if ( Renderer.IsValid() )
+			Renderer.LocalRotation = new Angles( TumbleRate.x * TumbleStart, 0, TumbleRate.y * TumbleStart ).ToRotation();
 		if ( !Networking.IsHost || Health <= 0 ) return;
 		if ( Detonation <= 0 ) { Health = 0; return; }
 		if ( !_warned && Detonation <= 0.5f )
@@ -87,6 +93,11 @@ public sealed class Snark : Npc, Component.ICollisionListener
 			velocity = new Vector3( Game.Random.Float( -100, 100 ), Game.Random.Float( -100, 100 ), velocity.z );
 		_previousPosition = WorldPosition;
 		_body.Velocity = velocity;
+		var grounded = System.MathF.Abs( velocity.z ) < 30 && Scene.Trace.Ray( WorldPosition + Vector3.Up, WorldPosition + Vector3.Down * 2 )
+			.IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "trigger" ).Run().Hit;
+		if ( grounded ) TumbleRate = Vector2.Zero;
+		else if ( TumbleRate == Vector2.Zero ) TumbleRate = new Vector2( Game.Random.Float( -100, 100 ), Game.Random.Float( -100, 100 ) );
+		TumbleStart = 0;
 		if ( velocity.WithZ( 0 ).LengthSquared > 1 ) WorldRotation = Rotation.LookAt( velocity.WithZ( 0 ) );
 	}
 
@@ -95,11 +106,14 @@ public sealed class Snark : Npc, Component.ICollisionListener
 
 	void Touch( Collision collision )
 	{
-		if ( !Networking.IsHost || Health <= 0 || _nextTouch > 0 || !_body.IsValid() ) return;
+		if ( !Networking.IsHost || Health <= 0 || !_body.IsValid() ) return;
 		var other = collision.Other.GameObject;
 		if ( !_touched && other.IsValid() && Thrower.IsValid() && other.Root == Thrower.Root ) return;
 
+		if ( !_touched ) WorldRotation = Rotation.FromYaw( WorldRotation.Yaw() );
 		_touched = true;
+		if ( TumbleRate != Vector2.Zero ) TumbleStart = 0;
+		if ( _nextTouch > 0 ) return;
 		_nextTouch = 0.1f;
 		_nextHunt = 0;
 		var pitch = (155 - 60 * (float)Detonation / Fuse) * 0.01f;
