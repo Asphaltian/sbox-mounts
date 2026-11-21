@@ -6,12 +6,13 @@ namespace GoldSrc.HalfLife;
 public sealed class HumanAssassin : Npc
 {
 	internal override float ViewDot => -0.7f;
+	internal override Vector3 AimAt( GameObject target ) => TargetBodyPosition( target );
 
 	static readonly string[] Attacks = ["grenadethrow", "jump", "fly_up", "fly_down", "fly_attack", "landfromjump"];
 	internal override string[] ExtraActions => Attacks;
 	GameObject _enemy;
 	Vector3 _jump, _toss;
-	TimeUntil _nextJump, _nextGrenade;
+	TimeUntil _nextJump, _nextGrenade, _nextFootstep;
 	TimeSince _sinceShot;
 	float _spread = 0.1f;
 	int _frustration;
@@ -46,7 +47,7 @@ public sealed class HumanAssassin : Npc
 	Vector3 GrenadeOrigin => WorldPosition + WorldRotation.Forward * 34 + Vector3.Up * 32;
 	bool CanThrow( GameObject target )
 	{
-		return TimedGrenade.TryAim( this, GrenadeOrigin, target, target.GetBounds().Center, out _toss );
+		return TimedGrenade.TryAim( this, GrenadeOrigin, target, TargetHullCenter( target ), out _toss );
 	}
 
 	internal override void HandleActionEvent( int id )
@@ -73,7 +74,16 @@ public sealed class HumanAssassin : Npc
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
-		if ( !Networking.IsHost || !Jumping ) return;
+		if ( !Networking.IsHost ) return;
+		if ( !Jumping )
+		{
+			if ( _nextFootstep <= 0 && Health > 0 && !IsBarnacleVictim && Action is null && IsOnGround && Animation.MoveVelocity.Length > 12 )
+			{
+				EmitSound( $"player/pl_step{Game.Random.Int( 1, 4 )}.wav", WorldPosition, 0.5f );
+				_nextFootstep = 0.2f;
+			}
+			return;
+		}
 		if ( !IsOnGround )
 		{
 			AdvanceAction();
