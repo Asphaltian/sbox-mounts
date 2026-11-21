@@ -46,21 +46,5 @@ public sealed class AcidMortar : NpcProjectile
 	}
 
 	static void Spray( Vector3 position, Vector3 direction, int count )
-	{
-		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount || mount.GetIndexedSprite( "mommaspout" ) is not { } sprite ) return;
-		var go = new GameObject( false, "Mortar spray" );
-		go.NetworkMode = NetworkMode.Never;
-		go.WorldPosition = position;
-		var effect = go.AddComponent<ParticleEffect>();
-		effect.Lifetime = 0.4f;
-		effect.InitialScale = 8;
-		go.AddComponent<ParticleSpriteRenderer>().Sprite = sprite;
-		go.Enabled = true;
-		for ( int i = 0; i < count; ++i )
-		{
-			var particle = effect.Emit( position, 0 );
-			if ( particle is not null ) particle.Velocity = (direction + Vector3.Random * 0.8f).Normal * 130;
-		}
-		go.AddComponent<TemporaryEffect>().DestroyAfterSeconds = 0.5f;
-	}
+		=> SpriteSpray.Emit( "Mortar spray", "mommaspout", position, direction, count, 130, 0.8f );
 }

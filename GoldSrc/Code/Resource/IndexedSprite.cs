@@ -4,6 +4,15 @@ public partial class HalfLifeMount
 {
 	readonly Dictionary<string, Sprite> _indexedSprites = new();
 
+	readonly Dictionary<string, Sprite[]> _indexedSpriteFrames = new();
+
+	internal Sprite[] GetIndexedSpriteFrames( string name )
+	{
+		if ( _indexedSpriteFrames.TryGetValue( name, out var frames ) ) return frames;
+		if ( GetIndexedSprite( name ) is not { } sprite ) return null;
+		return _indexedSpriteFrames[name] = sprite.Animations[0].Frames.Select( frame => Sprite.FromTexture( frame.Texture ) ).ToArray();
+	}
+
 	internal Sprite GetIndexedSprite( string name )
 	{
 		if ( _indexedSprites.TryGetValue( name, out var sprite ) )

@@ -33,26 +33,7 @@ public sealed class Spit : NpcProjectile
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
 	internal static void Spray( Vector3 position, Vector3 normal, int count, float speed, float noise )
-	{
-		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount && mount.GetIndexedSprite( "tinyspit" ) is { } fleck )
-		{
-			var spray = new GameObject( false, "Spit spray" );
-			spray.NetworkMode = NetworkMode.Never;
-			spray.WorldPosition = position;
-			var effect = spray.AddComponent<ParticleEffect>();
-			effect.Lifetime = 0.45f;
-			effect.InitialScale = 4;
-			spray.AddComponent<ParticleSpriteRenderer>().Sprite = fleck;
-			spray.Enabled = true;
-			for ( var i = 0; i < count; ++i )
-			{
-				var particle = effect.Emit( position, 0f );
-				if ( particle is not null )
-					particle.Velocity = (normal + Vector3.Random * noise).Normal * speed;
-			}
-			spray.AddComponent<TemporaryEffect>().DestroyAfterSeconds = 0.6f;
-		}
-	}
+		=> SpriteSpray.Emit( "Spit spray", "tinyspit", position, normal, count, speed, noise );
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
 	static void PlaceMark( Vector3 position, Vector3 normal, int variant ) => ImpactDecal.Place( position, normal, $"spit{variant}", 32 );
