@@ -121,11 +121,6 @@ public partial class Npc
 			var eventTime = e.Frame / _action.Description.Fps;
 			if ( ActionTime < (ActionReversed ? _action.Duration - eventTime : eventTime) ) break;
 			_nextEvent++;
-			if ( e.Index is 5001 or 5011 or 5021 or 5031 )
-			{
-				var attachment = Renderer.GetAttachment( $"attachment{1 + (e.Index - 5001) / 10}" );
-				if ( attachment.HasValue ) MuzzleFlash( attachment.Value.Position, "muzzleflash", 18 );
-			}
 			HandleActionEvent( e );
 		}
 		while ( _nextHit < _hitTimes.Length && ActionTime >= _hitTimes[_nextHit] )

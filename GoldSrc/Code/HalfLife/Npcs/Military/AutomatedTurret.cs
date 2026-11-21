@@ -110,7 +110,6 @@ public abstract partial class AutomatedTurret : Npc
 			}
 			State = Mode.Firing;
 			TraceBullets( origin, origin + WorldRotation * Aim.Forward * Definition.Range, 1, Definition.Damage, 0, Definition.Range, tracerFrequency: 1 );
-			MuzzleFlash( origin, "muzzleflash", 18 );
 			PlayGunshot( ShotSound, origin );
 			return;
 		}
