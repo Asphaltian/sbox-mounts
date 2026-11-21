@@ -27,11 +27,16 @@ public sealed class Rifle : BulletWeapon
 		PrimaryDelay = 0.1f;
 		SecondaryDelay = 1;
 		SecondaryAutomatic = true;
-		SecondaryAmmoType = GameResource.Load<BaseAmmoResource>( $"mount://hl1/{GrenadeAmmoPath}" );
 		ReloadTime = 1.5f;
 		CanCancelReload = false;
 		AttackDamageTags = ["bullet"];
 		Ballistics = new() { Damage = 5, Range = 8192, Radius = 0 };
+	}
+
+	internal override void BindAmmoTypes()
+	{
+		base.BindAmmoTypes();
+		SecondaryAmmoType ??= GameResource.Load<BaseAmmoResource>( $"mount://hl1/{GrenadeAmmoPath}" );
 	}
 
 	protected override bool OnAdding( BaseInventoryComponent inventory )

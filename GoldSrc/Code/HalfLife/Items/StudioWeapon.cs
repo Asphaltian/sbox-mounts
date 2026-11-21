@@ -134,8 +134,22 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 	{
 		DisplayName = Game.TypeLibrary.GetType( GetType() ).Title;
 		UsesAmmo = UsesClips = true;
-		if ( Definition.Ammo is not null ) PrimaryAmmoType = GameResource.Load<BaseAmmoResource>( $"mount://hl1/ammo/{Definition.Ammo}.ammo" );
+		BindAmmoTypes();
 		Configure();
+	}
+
+	internal virtual void BindAmmoTypes()
+	{
+		if ( Definition.Ammo is { } ammo ) PrimaryAmmoType ??= GameResource.Load<BaseAmmoResource>( $"mount://hl1/ammo/{ammo}.ammo" );
+	}
+
+	protected override async System.Threading.Tasks.Task OnLoad()
+	{
+		await base.OnLoad();
+		if ( Networking.IsHost ) return;
+		// Load mounted resources for the complete replicated inventory, including holstered weapons.
+		await Sandbox.Mounting.Directory.Mount( "hl1" );
+		if ( IsValid ) BindAmmoTypes();
 	}
 
 	protected void EjectShells( int count, bool shotgun )
