@@ -18,9 +18,9 @@ public sealed partial class Scientist
 	internal override bool AssistLeader()
 	{
 		if ( PhysicsCarrier.IsValid() || !NeedsTreatment( Leader ) || _drawNeedle is null || _inject is null || _putAway is null ) return false;
-		var distance = WorldPosition.Distance( Leader.WorldPosition );
-		if ( distance > 128 ) return false;
-		if ( distance > 50 )
+		var offset = Leader.WorldPosition - WorldPosition;
+		if ( offset.LengthSquared > 128 * 128 ) return false;
+		if ( offset.WithZ( 0 ).LengthSquared >= 50 * 50 )
 		{
 			MoveToward( Leader.WorldPosition, 50 );
 			return true;
@@ -38,7 +38,7 @@ public sealed partial class Scientist
 	bool TurnToPatient()
 	{
 		if ( !_turningToHeal ) return false;
-		if ( Action is not null || !NeedsTreatment( _patient ) || WorldPosition.DistanceSquared( _patient.WorldPosition ) > 50 * 50 )
+		if ( Action is not null || !NeedsTreatment( _patient ) || (_patient.WorldPosition - WorldPosition).WithZ( 0 ).LengthSquared >= 50 * 50 )
 		{
 			EndTreatment();
 			return false;
@@ -72,7 +72,7 @@ public sealed partial class Scientist
 		if ( direction.IsNearZeroLength ) return true;
 		var facing = Rotation.LookAt( direction, Vector3.Up );
 		var angle = WorldRotation.Distance( facing );
-		var step = turnSpeed * Time.Delta;
+		var step = 2 * turnSpeed * Time.Delta;
 		if ( angle <= step )
 		{
 			WorldRotation = facing;
