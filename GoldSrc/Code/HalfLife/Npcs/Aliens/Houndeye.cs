@@ -35,6 +35,12 @@ public sealed partial class Houndeye : VoicedNpc
 		_sonicAction = ActionSerial;
 	}
 
+	internal override void FinishAction( string name )
+	{
+		if ( ActionSerial == _sonicAction && WeightedActivity( IdleAngry ) is { } display )
+			PlayAction( display );
+	}
+
 	internal override void IdleMovement()
 	{
 		if ( Movement?.MoveTarget.HasValue == true ) Movement.Stop();
