@@ -29,18 +29,21 @@ public abstract class TalkingNpc : VoicedNpc
 		_head = loader.Controllers.FirstOrDefault();
 	}
 
+	internal virtual float GetHeadAngle( StudioController head )
+	{
+		var target = Math.Clamp( HeadYaw, Math.Min( head.Start, head.End ), Math.Max( head.Start, head.End ) );
+		var step = 240f * Time.Delta;
+		_headAngle += Math.Clamp( target - _headAngle, -step, step );
+		return _headAngle;
+	}
+
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
 		if ( Health > 0 && Renderer.IsValid() && Renderer.Animation.IsValid )
 		{
 			if ( _head is not null )
-			{
-				var target = Math.Clamp( HeadYaw, Math.Min( _head.Start, _head.End ), Math.Max( _head.Start, _head.End ) );
-				var step = 240f * Time.Delta;
-				_headAngle += Math.Clamp( target - _headAngle, -step, step );
-				Renderer.Animation.Parameters.TrySet( StudioAnimationGraphs.HeadParameter, _head.Fraction( _headAngle ) );
-			}
+				Renderer.Animation.Parameters.TrySet( StudioAnimationGraphs.HeadParameter, _head.Fraction( GetHeadAngle( _head ) ) );
 			Renderer.Animation.Parameters.TrySet( StudioAnimationGraphs.MouthParameter, VoiceAmplitude );
 		}
 	}

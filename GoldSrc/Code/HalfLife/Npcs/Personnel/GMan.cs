@@ -33,6 +33,13 @@ public sealed class GMan : TalkingNpc
 		else Animation.ClearLookTarget();
 	}
 
+	internal override float GetHeadAngle( StudioController head )
+	{
+		if ( !Animation.IsLooking || !Animation.LookObject.IsValid() || PhysicsCarrier.IsValid() ) return 0;
+		var direction = Animation.LookObject.WorldPosition - WorldPosition;
+		return Angles.NormalizeAngle( direction.EulerAngles.yaw - WorldRotation.Yaw() );
+	}
+
 	internal override void ModifyDamage( Component.IDamageable.DamageEvent damage )
 	{
 		var hit = damage.DamageInfo;
