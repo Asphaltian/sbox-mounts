@@ -21,8 +21,9 @@ public class NpcCorpse : Component
 	int _nextEvent;
 	[Sync( SyncFlags.FromHost )] float FinalStart { get; set; } = -1;
 	NpcAudio _audio;
-	float _fallVelocity;
-	protected bool Landed { get; private set; }
+	Vector3 _velocity;
+	BBox _hull;
+	[Sync( SyncFlags.FromHost )] protected bool Landed { get; private set; }
 
 	internal static GameObject Spawn( Npc npc, StudioSequence sequence, bool anchored = false )
 	{
@@ -51,6 +52,9 @@ public class NpcCorpse : Component
 			hitboxes.Renderer = renderer;
 			hitboxes.Target = go;
 		}
+		var radius = npc.Definition.Radius;
+		corpse._hull = new BBox( new Vector3( -radius, -radius, 0 ), new Vector3( radius, radius, npc.Definition.Height ) );
+		corpse._velocity = npc.GetComponent<Rigidbody>() is { MotionEnabled: true } body ? body.Velocity : Sandbox.Npcs.BaseNpc.GetVelocity( npc.GameObject );
 		corpse.Landed = anchored;
 		go.Enabled = true;
 		go.NetworkSpawn( true, null );
@@ -146,20 +150,29 @@ public class NpcCorpse : Component
 		if ( IsProxy || Landed )
 			return;
 
-		_fallVelocity += Scene.PhysicsWorld.Gravity.z * GravityScale * Time.Delta;
-		var nextPosition = WorldPosition + Vector3.Up * (_fallVelocity * Time.Delta);
-		if ( nextPosition.z >= WorldPosition.z )
+		_velocity += Scene.PhysicsWorld.Gravity * (GravityScale * Time.Delta);
+		var offset = Vector3.Up * ModelOriginHeight;
+		var feet = WorldPosition - offset;
+		var next = feet + _velocity * Time.Delta;
+		var hit = Scene.Trace.Box( _hull, feet, next )
+			.IgnoreGameObjectHierarchy( GameObject )
+			.WithoutTags( "npc", "player", "playercontroller", "ragdoll", "trigger" )
+			.Run();
+		if ( !hit.Hit )
 		{
-			WorldPosition = nextPosition;
+			WorldPosition = next + offset;
 			return;
 		}
 
-		var offset = Vector3.Up * ModelOriginHeight;
-		var floor = Scene.Trace.Ray( WorldPosition - offset + Vector3.Up * 2f, nextPosition - offset )
-			.IgnoreGameObjectHierarchy( GameObject )
-			.WithoutTags( "npc", "player", "ragdoll", "trigger" )
-			.Run();
-		Landed = floor.Hit;
-		WorldPosition = Landed ? floor.EndPosition + offset : nextPosition;
+		Landed = hit.Normal.z > 0.7f;
+		if ( Landed )
+		{
+			WorldPosition = hit.EndPosition + offset;
+			_velocity = Vector3.Zero;
+			return;
+		}
+
+		WorldPosition = hit.EndPosition + offset + hit.Normal * 0.03125f;
+		_velocity -= hit.Normal * MathF.Min( 0, _velocity.Dot( hit.Normal ) );
 	}
 }
