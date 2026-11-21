@@ -4,6 +4,8 @@ namespace GoldSrc.HalfLife;
 [NpcDefinition( "monster_grunt_repel", "hgrunt", MonsterClass.HumanMilitary, 0, 0, 0, 0 )]
 public sealed class GruntRepel : Component
 {
+	[Property] public string GruntPrefab { get; set; } = HumanGrunt.DeploymentPrefab;
+
 	protected override void OnStart()
 	{
 		if ( !Networking.IsHost ) return;
@@ -15,6 +17,6 @@ public sealed class GruntRepel : Component
 			start = ceiling.EndPosition - Vector3.Up * 72;
 			if ( start.z < WorldPosition.z ) start = WorldPosition;
 		}
-		HumanGrunt.Deploy( this, start, WorldRotation );
+		HumanGrunt.Deploy( this, start, WorldRotation, GruntPrefab );
 	}
 }

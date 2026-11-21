@@ -35,6 +35,7 @@ public abstract partial class GameMount : BaseGameMount
 			.Where( entry => entry.Pickup is not null ).ToArray();
 		var viewModels = weapons.Select( entry => entry.Pickup.ViewModelPath ).ToHashSet( System.StringComparer.OrdinalIgnoreCase );
 		var npcModels = registry is not null ? new Dictionary<string, string>( System.StringComparer.OrdinalIgnoreCase ) : null;
+		var originalModels = new Dictionary<string, string>( System.StringComparer.OrdinalIgnoreCase );
 		foreach ( var dir in GameDirs )
 		{
 			if ( !FileSystem.DirectoryExists( dir ) )
@@ -90,6 +91,7 @@ public abstract partial class GameMount : BaseGameMount
 					var animated = npc is not null || (registry is not null && viewModels.Contains( modelPath ));
 					context.Add( ResourceType.Model, path, new ModelLoader( fullPath, animated, npc ) );
 					npcModels?.TryAdd( modelPath, path );
+					if ( registry is not null && dir == "valve" ) originalModels[modelPath] = path;
 				}
 				else if ( ext == ".wav" )
 				{
@@ -101,7 +103,7 @@ public abstract partial class GameMount : BaseGameMount
 		MountSurfaces( context );
 		if ( npcModels is not null )
 		{
-			registry.Mount( context, npcModels );
+			registry.Mount( context, npcModels, originalModels );
 			context.Add( ResourceType.GameResource, Rifle.GrenadeAmmoPath, new AmmoLoader( "AR grenades", 10 ) );
 			foreach ( var ammo in weapons.Select( w => w.Pickup ).Where( p => p.Ammo is not null ).DistinctBy( w => w.Ammo ) )
 				context.Add( ResourceType.GameResource, $"ammo/{ammo.Ammo}.ammo", new AmmoLoader( ammo.Ammo, ammo.Limit ) );

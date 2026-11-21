@@ -19,19 +19,28 @@ internal sealed class NpcRegistry
 
 	internal NpcDefinitionAttribute FindModel( string path ) => _models.GetValueOrDefault( path );
 
-	internal void Mount( MountContext context, IReadOnlyDictionary<string, string> models )
+	internal void Mount( MountContext context, IReadOnlyDictionary<string, string> models, IReadOnlyDictionary<string, string> originals )
 	{
 		foreach ( var (component, definition) in _entries )
 		{
-			if ( !models.TryGetValue( $"models/{definition.Model}.mdl", out var model ) )
-				continue;
+			var path = $"models/{definition.Model}.mdl";
+			if ( !models.TryGetValue( path, out var model ) ) continue;
+			var projectilePath = $"models/{definition.ProjectileModel}.mdl";
+			models.TryGetValue( projectilePath, out var projectile );
+			var hasBoth = originals.TryGetValue( path, out var original ) && original != model;
+			Add( context, definition.ClassName, model, projectile, hasBoth ? "HD" : null );
+			if ( hasBoth )
+				Add( context, $"sd/{definition.ClassName}", original, originals.GetValueOrDefault( projectilePath ) ?? projectile, "SD" );
 
-			models.TryGetValue( $"models/{definition.ProjectileModel}.mdl", out var projectile );
-			var loader = new NpcPrefabLoader( component, definition, model, projectile );
-			loader.Tags.Add( "npc" );
-			context.Add( ResourceType.PrefabFile, $"entities/npcs/{definition.ClassName}.prefab", loader );
 			foreach ( var alias in definition.Aliases )
 				context.Add( ResourceType.PrefabFile, $"entities/npcs/{alias}.prefab", new NpcPrefabLoader( component, definition, model, projectile ) );
+
+			void Add( MountContext mount, string name, string modelPath, string projectileModel, string edition )
+			{
+				var loader = new NpcPrefabLoader( component, definition, modelPath, projectileModel, edition );
+				loader.Tags.Add( "npc" );
+				mount.Add( ResourceType.PrefabFile, $"entities/npcs/{name}.prefab", loader );
+			}
 		}
 	}
 }

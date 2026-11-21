@@ -2,7 +2,7 @@ using Sandbox.Npcs.Layers;
 
 namespace GoldSrc.HalfLife;
 
-internal sealed class NpcPrefabLoader( TypeDescription component, NpcDefinitionAttribute definition, string model, string projectile ) : ResourceLoader<GameMount>
+internal sealed class NpcPrefabLoader( TypeDescription component, NpcDefinitionAttribute definition, string model, string projectile, string edition = null ) : ResourceLoader<GameMount>
 {
 	PrefabFile _prefab;
 
@@ -10,7 +10,7 @@ internal sealed class NpcPrefabLoader( TypeDescription component, NpcDefinitionA
 	{
 		var modelPath = $"mount://{Host.Ident}/{model}.vmdl";
 		var builder = new PrefabBuilder().WithName( Path )
-			.WithMetadata( "Title", component.Title )
+			.WithMetadata( "Title", edition is null ? component.Title : $"{component.Title} ({edition})" )
 			.WithMetadata( "Group", Host.Title )
 			.WithMetadata( "PreviewModel", modelPath );
 
@@ -23,6 +23,8 @@ internal sealed class NpcPrefabLoader( TypeDescription component, NpcDefinitionA
 
 			var entry = root.Components.Create( component );
 			if ( entry is Npc npc ) ConfigureNpc( root, npc, modelPath );
+			else if ( entry is GruntRepel rappel && edition == "SD" )
+				rappel.GruntPrefab = "mount://hl1/entities/npcs/sd/monster_human_grunt.prefab";
 			else if ( entry is PosedCorpse corpse )
 			{
 				root.Tags.Add( "ragdoll", "removable" );
