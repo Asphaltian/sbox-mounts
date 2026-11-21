@@ -48,7 +48,7 @@ public sealed class NihilanthTeleport : EnergyBall
 			GameObject.Destroy();
 			return;
 		}
-		var delta = Target.GetBounds().Center - WorldPosition;
+		var delta = Npc.TargetHullCenter( Target ) - WorldPosition;
 		if ( delta.Length < 128 )
 		{
 			Arrive();

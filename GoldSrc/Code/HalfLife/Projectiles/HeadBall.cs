@@ -44,7 +44,7 @@ public sealed class HeadBall : EnergyBall
 			GameObject.Destroy();
 			return;
 		}
-		var center = Target.GetBounds().Center;
+		var center = Npc.TargetHullCenter( Target );
 		var offset = center - WorldPosition;
 		Velocity = Velocity.Normal * System.MathF.Min( Velocity.Length, 400 ) + offset.Normal * 100;
 		if ( offset.Length >= 64 ) return;
