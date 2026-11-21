@@ -11,7 +11,10 @@ public sealed class Leech : SwimmingNpc
 	internal override NpcSounds Sounds { get; } = new( Alert: "leech/leech_alert", Attack: "leech/leech_bite" );
 	static readonly string[] Clips = ["swim", "swim2", "attack", "hover", "leftturn", "rightturn"];
 	internal override string[] ExtraActions => Clips;
-	TimeUntil _switchTime, _nextSound;
+	[Sync( SyncFlags.FromHost )] string SwimClip { get; set; }
+	[Sync( SyncFlags.FromHost )] float SwimRate { get; set; } = 1;
+	TimeUntil _switchTime, _nextSound, _nextMotionSample;
+	float _smoothedSpeed;
 	float _lastYaw;
 
 	internal override void OnModelLoaded( ModelLoader loader )
@@ -27,10 +30,27 @@ public sealed class Leech : SwimmingNpc
 		var yaw = WorldRotation.Yaw();
 		var turn = new Angles( 0, yaw - _lastYaw, 0 ).Normal.yaw;
 		_lastYaw = yaw;
-		if ( Stranded ) return Find( "hover" );
-		if ( turn > 150 * Time.Delta ) return Find( "leftturn" );
-		if ( turn < -150 * Time.Delta ) return Find( "rightturn" );
-		return Find( speed > 60 ? "swim2" : "swim" );
+		if ( Stranded || System.MathF.Abs( turn ) > 150 * Time.Delta )
+		{
+			if ( Networking.IsHost ) SwimClip = null;
+			return Find( Stranded ? "hover" : turn > 0 ? "leftturn" : "rightturn" );
+		}
+		if ( Networking.IsHost && SwimClip is null ) SwimClip = WeightedActivity( Swim )?.Name;
+		return Find( SwimClip ) ?? Find( "swim" );
+	}
+
+	internal override float MovementPlaybackRate( StudioSequence sequence, float speed ) => Stranded ? 1 : SwimRate;
+
+	protected override void Think()
+	{
+		if ( _nextMotionSample <= 0 )
+		{
+			_nextMotionSample = 0.1f;
+			var speed = Animation.MoveVelocity.Length;
+			SwimRate = System.MathF.Min( 1.9f, 1 + System.MathF.Abs( speed - _smoothedSpeed ) / 10 );
+			_smoothedSpeed += (speed - _smoothedSpeed) * 0.2f;
+		}
+		base.Think();
 	}
 
 	protected override Sandbox.Npcs.Relationship GetFallbackRelationship( GameObject other ) =>
@@ -50,7 +70,10 @@ public sealed class Leech : SwimmingNpc
 		var facing = Vector3.Dot( WorldRotation.Forward.WithZ( 0 ).Normal, (eye - WorldPosition).WithZ( 0 ).Normal );
 		SwimTo( eye + Vector3.Down * 5, facing >= System.MathF.Cos( 67.5f.DegreeToRadian() ) ? 100 : 50, target );
 		if ( WorldPosition.Distance( eye ) < Definition.Range && Find( "attack" ) is { } attack )
-			PlayAction( attack );
+		{
+			SwimClip = null;
+			PlaySequence( attack, false, SwimRate );
+		}
 		return true;
 	}
 
