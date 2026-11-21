@@ -1,6 +1,6 @@
 namespace GoldSrc.HalfLife;
 
-internal sealed class WeaponPickupLoader( TypeDescription type, string modelPath ) : ResourceLoader<GameMount>
+internal sealed class WeaponPickupLoader( TypeDescription type, string modelPath, string iconPath ) : ResourceLoader<GameMount>
 {
 	PrefabFile _prefab;
 
@@ -22,6 +22,7 @@ internal sealed class WeaponPickupLoader( TypeDescription type, string modelPath
 			hull.Center = model.Bounds.Center;
 			root.AddComponent<Rigidbody>();
 			var weapon = (StudioWeapon)root.Components.Create( type );
+			if ( Texture.Load( iconPath ) is { IsError: false } icon ) weapon.DisplayIcon = icon;
 			weapon.SetupPickup();
 			weapon.PosePickup( renderer );
 		}

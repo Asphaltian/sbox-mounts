@@ -31,7 +31,15 @@ public partial class HalfLifeMount
 
 		var path = GameDirs.Select( dir => $"{dir}/sprites/{name}.spr" ).FirstOrDefault( FileSystem.FileExists );
 		if ( path is null ) return null;
-		using var reader = new BinaryReader( FileSystem.OpenRead( path ) );
+		var images = ReadSpriteFrames( FileSystem.OpenRead( path ) );
+		if ( images is null ) return null;
+		var frames = images.Select( image => Texture.Create( image.Width, image.Height ).WithData( image.Pixels ).WithMips().Finish() ).ToList();
+		return _indexedSprites[name] = Sprite.FromTextures( frames, 10 );
+	}
+
+	internal static List<(int Width, int Height, byte[] Pixels)> ReadSpriteFrames( Stream stream )
+	{
+		using var reader = new BinaryReader( stream );
 		if ( reader.BaseStream.Length < 42 || reader.ReadInt32() != 0x50534449 || reader.ReadInt32() != 2 ) return null;
 		reader.ReadInt32(); // billboard orientation
 		var format = reader.ReadInt32();
@@ -42,7 +50,7 @@ public partial class HalfLifeMount
 		if ( count is < 1 or > 256 || reader.ReadUInt16() != 256 ) return null;
 		var palette = reader.ReadBytes( 768 );
 		if ( palette.Length != 768 ) return null;
-		var frames = new List<Texture>();
+		var frames = new List<(int, int, byte[])>();
 		for ( var i = 0; i < count; ++i )
 		{
 			if ( reader.BaseStream.Length - reader.BaseStream.Position < 20 || reader.ReadInt32() != 0 ) return null;
@@ -61,8 +69,8 @@ public partial class HalfLifeMount
 				pixels[j * 4 + 2] = palette[color + 2];
 				pixels[j * 4 + 3] = format == 2 ? indices[j] : format == 3 && indices[j] == 255 ? (byte)0 : (byte)255;
 			}
-			frames.Add( Texture.Create( width, height ).WithData( pixels ).WithMips().Finish() );
+			frames.Add( (width, height, pixels) );
 		}
-		return _indexedSprites[name] = Sprite.FromTextures( frames, 10 );
+		return frames;
 	}
 }

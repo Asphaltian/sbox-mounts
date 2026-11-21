@@ -110,7 +110,10 @@ public abstract partial class GameMount : BaseGameMount
 			foreach ( var (type, pickup) in weapons )
 			{
 				if ( !npcModels.TryGetValue( pickup.WorldPickupPath, out var model ) ) continue;
-				var loader = new WeaponPickupLoader( type, model );
+				var className = Path.GetFileNameWithoutExtension( pickup.PrefabPath );
+				var icon = new WeaponIconLoader( className );
+				context.Add( ResourceType.Texture, $"icons/{className}", icon );
+				var loader = new WeaponPickupLoader( type, model, icon.Path );
 				loader.Tags.Add( "weapon" );
 				context.Add( ResourceType.PrefabFile, pickup.PrefabPath, loader );
 			}
