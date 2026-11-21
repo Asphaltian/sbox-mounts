@@ -86,6 +86,15 @@ public abstract partial class Personnel : TalkingNpc, Component.IPressable
 
 	bool CanFollow => Definition.Movement == NpcMovement.Ground;
 	bool AcceptsLeader( GameObject player ) => CanFollow && GetDisposition( player ) is not (Disposition.Hostile or Disposition.Fearful);
+	IPressable.Tooltip? IPressable.GetTooltip( IPressable.Event e )
+	{
+		var player = e.Source.GameObject;
+		if ( PreDisaster || !AcceptsLeader( player ) ) return null;
+		return Leader == player
+			? new IPressable.Tooltip( "#npc.action.stop_following", "person_off", null )
+			: new IPressable.Tooltip( "#npc.action.follow", "follow_the_signs", null );
+	}
+
 	bool IPressable.CanPress( IPressable.Event e ) => AcceptsLeader( e.Source.GameObject );
 	bool IPressable.Press( IPressable.Event e )
 	{
