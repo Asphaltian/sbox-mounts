@@ -3,7 +3,7 @@ namespace GoldSrc.HalfLife;
 [Title( "Zombie" ), Category( "Half-Life" )]
 [Alias( "GoldSrc.HalfLifeZombie" )]
 [NpcDefinition( "monster_zombie", "zombie", MonsterClass.AlienMonster, 50, 16, 72, 85, Attack = NpcAttack.Melee, Damage = 20, Range = 64, Gibs = GibSet.Alien, Blood = BloodColor.Yellow )]
-public sealed class Zombie : Npc
+public sealed class Zombie : VoicedNpc
 {
 	internal override NpcSounds Sounds { get; } = new( "zombie/zo_idle", "zombie/zo_alert", "zombie/zo_pain", null,
 				"zombie/zo_attack", "zombie/claw_strike" );
@@ -24,8 +24,10 @@ public sealed class Zombie : Npc
 		if ( Movement?.MoveTarget.HasValue == true ) Movement.Stop();
 	}
 
-	internal override void OnEnemySpotted( GameObject target ) => EmitSound( Sounds.Alert, WorldPosition, pitch: VoicePitch );
-	internal override void IdleSound() => EmitSound( Sounds.Idle, WorldPosition, pitch: Game.Random.Int( 95, 105 ) * 0.01f );
+	void Call( string sample, float pitch ) => EmitSound( sample, WorldPosition, pitch: pitch, speaker: this );
+
+	internal override void OnEnemySpotted( GameObject target ) => Call( Sounds.Alert, VoicePitch );
+	internal override void IdleSound() => Call( Sounds.Idle, Game.Random.Int( 95, 105 ) * 0.01f );
 
 	internal override bool InAttackRange( GameObject target, Vector3 aim ) => WorldPosition.DistanceSquared( target.WorldPosition ) <= 64 * 64;
 
@@ -72,7 +74,7 @@ public sealed class Zombie : Npc
 	{
 		// Both CZombie and its base run the pain-sound roll on a hit.
 		if ( Game.Random.Int( 0, 5 ) < 2 || Game.Random.Int( 0, 5 ) < 2 )
-			EmitSound( Sounds.Pain, WorldPosition, pitch: VoicePitch );
+			Call( Sounds.Pain, VoicePitch );
 	}
 
 	internal override void HandleActionEvent( int id )
@@ -83,7 +85,7 @@ public sealed class Zombie : Npc
 		if ( victim.IsValid() && victim.GameObject.GetComponent<PlayerController>() is { } player )
 			PunchPlayer( player, push, new Angles( 5, 0, id == 1 ? -18 : id == 2 ? 18 : 0 ) );
 		else if ( victim.IsValid() ) PushVictim( victim, push );
-		if ( Game.Random.Int( 0, 1 ) == 1 ) EmitSound( Sounds.Attack, WorldPosition, pitch: Game.Random.Int( 95, 105 ) * 0.01f );
+		if ( Game.Random.Int( 0, 1 ) == 1 ) Call( Sounds.Attack, Game.Random.Int( 95, 105 ) * 0.01f );
 	}
 
 	static bool IsPlainBullet( DamageInfo info ) => info.Tags.Has( "bullet" ) && info.Tags.TryGetAll().All( tag =>
