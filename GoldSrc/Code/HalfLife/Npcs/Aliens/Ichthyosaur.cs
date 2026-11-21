@@ -15,14 +15,19 @@ public sealed class Ichthyosaur : SwimmingNpc
 	float _speed = 150;
 	TimeUntil _nextAlert, _blink, _contactExpires;
 	GameObject _lastContact;
+	bool _chasing;
 	int _eye = -1;
 
-	void Call( string sample ) => EmitSound( VoiceSample( sample ), WorldPosition, pitch: VoicePitch, attenuation: 0.6f );
-	internal override void SwimAlert() => Call( Sounds.Alert );
+	void Call( string sample ) => EmitSound( VoiceSample( sample ), WorldPosition, pitch: VoicePitch, speaker: this, attenuation: 0.6f );
+	internal override void SwimAlert()
+	{
+		_chasing = false;
+		Call( Sounds.Alert );
+	}
 	internal override float VoicePitch => Game.Random.Int( 95, 105 ) / 100f;
-	internal override void PainSound() => Speak( Sounds.Pain, attenuation: 0.6f );
+	internal override void PainSound() => Call( Sounds.Pain );
 	internal override void DeathSound() => Call( Sounds.Death );
-	internal override void IdleSound() => Speak( Sounds.Idle, attenuation: 0.6f );
+	internal override void IdleSound() => Call( Sounds.Idle );
 
 	internal override string VoiceSample( string sample ) => sample switch
 	{
@@ -67,12 +72,19 @@ public sealed class Ichthyosaur : SwimmingNpc
 			SwimTo( center, _speed, target );
 			if ( contact && Vector3.Dot( WorldRotation.Forward, toward ) >= 0.7f )
 			{
+				_chasing = false;
 				Movement.Stop();
 				PlayAction( Find( Clips[Game.Random.Int( 2, 4 )] ) );
+			}
+			else if ( !_chasing )
+			{
+				_chasing = true;
+				Call( "ichy/ichy_attack" );
 			}
 			return true;
 		}
 
+		_chasing = false;
 		var watched = Vector3.Dot( target.WorldRotation.Forward, -toward ) > 0.5f;
 		_distance = (_distance + (watched ? 4 : -4)).Clamp( 128, 384 );
 		_speed = (_speed + (watched ? -2 : 4)).Clamp( 80, 300 );
@@ -106,7 +118,7 @@ public sealed class Ichthyosaur : SwimmingNpc
 				DealDamage( Prey, WorldPosition, end, "slash" );
 			}
 		}
-		Call( Sounds.Attack );
+		EmitSound( Sounds.Attack, WorldPosition, pitch: VoicePitch, attenuation: 0.6f );
 		Bubbles( WorldPosition + WorldRotation.Forward * 32 );
 	}
 

@@ -4,7 +4,7 @@ using Sandbox.Npcs.Layers;
 namespace GoldSrc.HalfLife;
 
 [Hide]
-public abstract class SwimmingNpc : Npc
+public abstract class SwimmingNpc : VoicedNpc
 {
 	internal abstract void SwimAlert();
 
