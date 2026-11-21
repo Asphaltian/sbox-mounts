@@ -7,7 +7,13 @@ public sealed class Crossbow : ProjectileWeapon
 	internal override float ZoomFieldOfView => 20;
 
 	internal override string DeploySequence => Clip1 == 0 ? "draw2" : "draw1";
-	internal override string IdleSequence => Clip1 == 0 ? "idle2" : "idle1";
+	internal override void PlayIdle( StudioWeaponView view )
+	{
+		if ( Game.Random.Float( 0, 1 ) <= 0.75f )
+			view.Play( Clip1 > 0 ? "idle1" : "idle2", idleAfter: Game.Random.Float( 10, 15 ) );
+		else
+			view.Play( Clip1 > 0 ? "fidget1" : "fidget2", idleAfter: Clip1 > 0 ? 3 : 80f / 30 );
+	}
 	internal override string ShotSequence => Clip1 == 0 ? "fire3" : "fire1";
 
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => hd ? new( 22.4f, 1.5f, 2.9f ) : new( 19.3f, 0.8f, 2.6f );

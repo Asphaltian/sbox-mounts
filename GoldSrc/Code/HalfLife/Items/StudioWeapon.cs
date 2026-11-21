@@ -29,6 +29,7 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 	internal virtual string DeploySequence => "draw";
 	internal virtual bool CanIdle => true;
 	internal virtual string IdleSequence => "idle1";
+	internal virtual void PlayIdle( StudioWeaponView view ) => view.Play( IdleSequence );
 	internal virtual string ShotSequence => "shoot";
 	internal virtual string ReloadSequence => "reload";
 

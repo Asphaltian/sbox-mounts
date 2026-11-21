@@ -4,7 +4,11 @@ namespace GoldSrc.HalfLife;
 [WeaponPickup( "grenade", "grenades", 10, ClassName = "handgrenade" )]
 public sealed class HandGrenade : StudioWeapon
 {
-	internal override string IdleSequence => "idle";
+	internal override void PlayIdle( StudioWeaponView view )
+	{
+		if ( Game.Random.Float( 0, 1 ) <= 0.75f ) view.Play( "idle", idleAfter: Game.Random.Float( 10, 15 ) );
+		else view.Play( "fidget", idleAfter: 2.5f );
+	}
 	bool _holdingPin, _primed, _redrawing;
 	TimeSince _pinAge;
 	TimeUntil _redrawAt;

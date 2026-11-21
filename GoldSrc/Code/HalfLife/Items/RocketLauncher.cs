@@ -6,7 +6,14 @@ public sealed partial class RocketLauncher : ProjectileWeapon
 {
 	internal override string DeploySequence => Clip1 > 0 ? "draw1" : "draw2";
 	internal override string ShotSequence => "fire";
-	internal override string IdleSequence => Clip1 > 0 ? "idle" : "idle2";
+	internal override bool CanIdle => Ammo1 > 0;
+	internal override void PlayIdle( StudioWeaponView view )
+	{
+		if ( !LaserEnabled && Game.Random.Float( 0, 1 ) > 0.75f &&
+			view.Play( Clip1 > 0 ? "fidget" : "fidget2", idleAfter: 3 ) ) return;
+		// The HD model has no empty-launcher fidget.
+		view.Play( Clip1 > 0 ? "idle" : "idle2", idleAfter: 6 );
+	}
 	internal override void PlayLaunchSound()
 	{
 		PlaySample( "weapons/rocketfire1.wav", 0.9f );
