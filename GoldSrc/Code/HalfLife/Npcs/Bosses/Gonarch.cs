@@ -34,10 +34,11 @@ public sealed class Gonarch : Npc
 	internal override void BeginAttack( GameObject target )
 	{
 		_enemy = target;
-		if ( target.WorldPosition.Distance( WorldPosition ) <= 170 && _claws.Length > 0 )
-			PlayAction( _claws[Game.Random.Int( 0, _claws.Length - 1 )] );
-		else if ( _nextMortar <= 0 && CanToss( target.GetBounds().Center ) )
+		var offset = target.WorldPosition - WorldPosition;
+		if ( _nextMortar <= 0 && offset.Length <= AttackRange && CanToss( target.GetBounds().Center ) )
 			PlayAction( Find( "mortar" ) );
+		else if ( _claws.Length > 0 && offset.Length <= 170 && Vector3.Dot( offset.WithZ( 0 ).Normal, WorldRotation.Forward ) >= 0.7f )
+			PlayAction( _claws[Game.Random.Int( 0, _claws.Length - 1 )] );
 		else if ( _nextBirth <= 0 && CanLay() )
 			PlayAction( Find( "spawn" ) );
 	}
@@ -105,7 +106,6 @@ public sealed class Gonarch : Npc
 
 	void LayCrab()
 	{
-		if ( !CanLay() ) return;
 		var prefab = PrefabFile.Load( "mount://hl1/entities/npcs/monster_babycrab.prefab" );
 		if ( prefab is null ) return;
 		var child = GameObject.Clone( prefab, WorldTransform, startEnabled: false );
@@ -125,7 +125,11 @@ public sealed class Gonarch : Npc
 	[Rpc.Broadcast( NetFlags.HostOnly )]
 	static void BirthMark( Vector3 position, Vector3 normal ) => ImpactDecal.Place( position, normal, "mommablob", 0 );
 
-	internal void OnChildDied() => EmitSound( "gonarch/gon_childdie", WorldPosition, pitch: SoundPitch );
+	internal void OnChildDied( BabyHeadcrab child )
+	{
+		_children.Remove( child );
+		if ( Health > 0 ) EmitSound( "gonarch/gon_childdie", WorldPosition, pitch: SoundPitch );
+	}
 
 	void Swipe( int id )
 	{
@@ -134,6 +138,8 @@ public sealed class Gonarch : Npc
 		foreach ( var obj in Scene.FindInPhysics( area ) )
 		{
 			if ( obj.GetComponentInParent<IDamageable>() is not Component victim || victim == this || victim is BabyHeadcrab child && child.Mother == this ) continue;
+			var player = victim.GameObject.GetComponent<PlayerController>();
+			if ( victim is not Sandbox.Npcs.BaseNpc && !player.IsValid() ) continue;
 			var hit = new DamageInfo { Damage = 60, Attacker = GameObject, Weapon = GameObject, Origin = WorldPosition, Position = victim.WorldPosition };
 			hit.Tags.Add( "slash" );
 			hit.Tags.Add( "crush" );
@@ -141,8 +147,8 @@ public sealed class Gonarch : Npc
 			if ( victim.IsValid() )
 			{
 				var push = id == 10 ? WorldRotation.Forward * 220 + Vector3.Up * 200 : WorldRotation.Forward * 150 + Vector3.Up * 250 + WorldRotation.Right * (id == 8 ? -200 : 200);
-				if ( victim is Sandbox.Npcs.BaseNpc npc ) npc.Launch( push );
-				else if ( victim.GameObject.GetComponent<Rigidbody>() is { } body ) body.Velocity += push;
+				if ( player.IsValid() ) PunchPlayer( player, push, new Angles( 15, 0, 0 ) );
+				else PushVictim( victim, push );
 			}
 			EmitSound( "zombie/claw_strike", WorldPosition, pitch: SoundPitch );
 			break;

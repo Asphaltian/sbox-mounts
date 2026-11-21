@@ -9,7 +9,7 @@ public sealed class BabyHeadcrab : Headcrab
 
 	protected override void OnDeath( Component.IDamageable.DeathEvent death )
 	{
-		if ( Mother.IsValid() ) Mother.OnChildDied();
+		if ( Mother.IsValid() ) Mother.OnChildDied( this );
 		base.OnDeath( death );
 	}
 
