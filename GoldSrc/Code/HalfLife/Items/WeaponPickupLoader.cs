@@ -14,6 +14,7 @@ internal sealed class WeaponPickupLoader( TypeDescription type, string modelPath
 			var root = new GameObject( true, type.Title );
 			root.NetworkMode = NetworkMode.Object;
 			root.Tags.Add( "removable" );
+			root.Tags.Add( "nocollide_props" );
 			var model = Model.Load( path );
 			var renderer = root.AddComponent<SkinnedModelRenderer>();
 			renderer.Model = model;
