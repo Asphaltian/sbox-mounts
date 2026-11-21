@@ -8,6 +8,7 @@ public sealed class Zombie : Npc
 	internal override NpcSounds Sounds { get; } = new( "zombie/zo_idle", "zombie/zo_alert", "zombie/zo_pain", null,
 				"zombie/zo_attack", "zombie/claw_strike" );
 
+	const float BulletDamageScale = 0.3f;
 	TimeUntil _nextFlinch;
 
 	internal override IEnumerable<StudioSequence> ExtraSequences => Activities( Melee ).Concat( Activities( BigFlinch ) );
@@ -71,15 +72,22 @@ public sealed class Zombie : Npc
 	internal override void ModifyDamage( Component.IDamageable.DamageEvent damage )
 	{
 		base.ModifyDamage( damage );
-		if ( IsPlainBullet( damage.DamageInfo ) ) damage.AcceptedDamage *= 0.3f;
+		if ( IsPlainBullet( damage.DamageInfo ) ) damage.AcceptedDamage *= BulletDamageScale;
+	}
+
+	internal override void ShowWound( Component.IDamageable.DamageEvent hit )
+	{
+		// TraceAttack draws blood before TakeDamage reduces bullet damage.
+		var amount = IsPlainBullet( hit.DamageInfo ) ? hit.AcceptedDamage / BulletDamageScale : hit.AcceptedDamage;
+		BloodEffects.Wound( GameObject, Definition.Blood, hit.DamageInfo, amount );
 	}
 
 	protected override void OnDamaged( Component.IDamageable.DamageEvent damage )
 	{
 		base.OnDamaged( damage );
 		var info = damage.DamageInfo;
-		if ( Health <= 0 || damage.AcceptedDamage <= 0 || !IsPlainBullet( info ) ) return;
-		var force = System.MathF.Min( damage.AcceptedDamage * (5 / 0.3f), 1000 );
+		if ( damage.AcceptedDamage <= 0 || !IsPlainBullet( info ) ) return;
+		var force = System.MathF.Min( damage.AcceptedDamage / BulletDamageScale * 5, 1000 );
 		var origin = info.Weapon.IsValid() ? info.Weapon.GetBounds().Center : info.Origin;
 		PushVictim( this, (WorldPosition - origin).Normal * force );
 	}
