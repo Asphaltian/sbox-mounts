@@ -6,6 +6,7 @@ public sealed class StudioWeaponView : BaseWeaponModel
 	IReadOnlyList<StudioSequence> _clips;
 	StudioSequence _current;
 	TimeSince _elapsed;
+	bool _holdLastFrame;
 	readonly StudioSequenceEvents _sequenceEvents = new();
 	NpcAudio _audio;
 
@@ -19,9 +20,10 @@ public sealed class StudioWeaponView : BaseWeaponModel
 		OnDeploy();
 	}
 
-	internal void Play( string name )
+	internal void Play( string name, bool holdLastFrame = false )
 	{
 		_current = _clips?.FirstOrDefault( clip => string.Equals( clip.Name, name, System.StringComparison.OrdinalIgnoreCase ) );
+		_holdLastFrame = holdLastFrame;
 		_elapsed = 0;
 		_sequenceEvents.Reset( _current, 0, true );
 	}
@@ -39,9 +41,9 @@ public sealed class StudioWeaponView : BaseWeaponModel
 		if ( Scene.Camera.IsValid() ) WorldTransform = Scene.Camera.WorldTransform;
 		if ( _current is null || !Renderer.Animation.IsValid ) return;
 		_sequenceEvents.Update( _audio, Renderer, _elapsed, false );
-		if ( _elapsed >= _current.Duration ) Play( _weapon.IdleSequence );
+		if ( !_holdLastFrame && _elapsed >= _current.Duration ) Play( _weapon.IdleSequence );
 		if ( _current is null ) return;
 		Renderer.Animation.Parameters.Set( StudioAnimationGraphs.StateParameter, _current.Name );
-		Renderer.Animation.Parameters.Set( _current.TimeParameter, (float)_elapsed / _current.Duration );
+		Renderer.Animation.Parameters.Set( _current.TimeParameter, System.MathF.Min( 1, (float)_elapsed / _current.Duration ) );
 	}
 }
