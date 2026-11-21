@@ -38,6 +38,7 @@ public sealed class Barnacle : Npc
 	[Sync( SyncFlags.FromHost )] float TongueLength { get; set; }
 	GameObject _prey;
 	Rigidbody _heldBody;
+	Vector3 _mouthOffset;
 	TimeUntil _bite, _nextChew;
 	TimeUntil _scan;
 	bool _placed;
@@ -123,24 +124,29 @@ public sealed class Barnacle : Npc
 
 	void LiftPrey()
 	{
-		var eyeHeight = TargetEyePosition( _prey ).z - _prey.WorldPosition.z;
-		var top = WorldPosition.z - 36 - eyeHeight;
-		var next = System.MathF.Min( _prey.WorldPosition.z + 80 * Time.Delta, top );
-		var neck = WorldPosition - _prey.WorldRotation.Forward.WithZ( 0 ) * 6;
-		_prey.WorldPosition = neck.WithZ( next );
-		if ( _prey.GetComponent<Rigidbody>() is { } body && body.MotionEnabled )
+		if ( _prey.GetComponent<Rigidbody>() is { MotionEnabled: true } body )
 			body.Velocity = Vector3.Zero;
-		TongueLength = WorldPosition.z - next - eyeHeight;
-		if ( next < top ) return;
-
 		if ( State == FeedingState.Lifting )
 		{
+			var eyeHeight = TargetEyePosition( _prey ).z - _prey.WorldPosition.z;
+			var mouthHeight = WorldPosition.z - 36 - eyeHeight;
+			var height = _prey.WorldPosition.z;
+			var next = height + System.Math.Clamp( mouthHeight - height, 0, 80 * Time.Delta );
+			var neck = WorldPosition - Rotation.FromYaw( _prey.WorldRotation.Yaw() ).Forward * 6;
+			_prey.WorldPosition = neck.WithZ( next );
+			TongueLength = WorldPosition.z - next - eyeHeight;
+			if ( next < mouthHeight ) return;
+
+			_mouthOffset = _prey.WorldPosition - WorldPosition;
 			State = FeedingState.Chewing;
 			EmitSound( "barnacle/bcl_bite3.wav", WorldPosition );
 			_bite = 10;
 			Chomp();
+			return;
 		}
-		else if ( _bite <= 0 )
+
+		_prey.WorldPosition = WorldPosition + _mouthOffset;
+		if ( _bite <= 0 )
 		{
 			Bite( playerChomp: false );
 		}
