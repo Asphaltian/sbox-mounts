@@ -63,6 +63,22 @@ public abstract partial class AutomatedTurret : Npc
 		_hull.Scale = new Vector3( Definition.Radius * 2, Definition.Radius * 2, halfHeight * 2 );
 	}
 
+	bool FindVisiblePoint( GameObject enemy, Vector3 eye, out Vector3 point )
+	{
+		point = default;
+		if ( !SharesWaterLevel( enemy, WaterBody.Find( Scene, eye ).IsValid() ) ) return false;
+
+		var bounds = TargetHullBounds( enemy );
+		for ( int i = 0; i < 5; i++ )
+		{
+			point = bounds.RandomPointInside;
+			var sight = Scene.Trace.Ray( eye, point ).IgnoreGameObjectHierarchy( GameObject )
+				.IgnoreGameObjectHierarchy( enemy ).WithoutTags( "npc", "player", "playercontroller", "trigger", "glass" ).Run();
+			if ( !sight.Hit && !sight.StartedSolid ) return eye.Distance( point ) <= Definition.Range;
+		}
+		return false;
+	}
+
 	protected override void Think()
 	{
 		if ( !_loaded || AdvanceAction() || _nextThink > 0 ) return;
@@ -70,14 +86,8 @@ public abstract partial class AutomatedTurret : Npc
 		var enemy = IsLiveTarget( _enemy ) ? _enemy : FindVisibleEnemy();
 		var eye = WorldPosition + WorldRotation.Up * EyeHeight;
 		var origin = State == Mode.Retracted ? eye : Renderer.GetAttachment( "attachment1" )?.Position ?? eye;
-		var end = enemy.IsValid() ? enemy.GetBounds().Center : origin;
-		var direction = end - origin;
-		if ( enemy.IsValid() )
-		{
-			var trace = Scene.Trace.Ray( origin, end ).IgnoreGameObjectHierarchy( GameObject ).Run();
-			if ( direction.Length > Definition.Range || (trace.Hit && trace.GameObject?.Root != enemy.Root) ) enemy = null;
-		}
-		var visible = enemy.IsValid();
+		var end = eye;
+		var visible = enemy.IsValid() && FindVisiblePoint( enemy, eye, out end );
 		if ( visible )
 		{
 			_enemy = enemy;
@@ -86,7 +96,7 @@ public abstract partial class AutomatedTurret : Npc
 		}
 		if ( visible || _enemy is not null && _sinceEnemy < 0.5f )
 		{
-			direction = _lastSight - origin;
+			var direction = _lastSight - origin;
 			if ( State == Mode.Retracted )
 			{
 				EmitSound( "turret/tu_alert.wav", WorldPosition, 0.5f );

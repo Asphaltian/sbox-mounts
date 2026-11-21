@@ -162,14 +162,23 @@ public partial class Npc
 		return WaterBody.Find( target.Scene, point ).IsValid() == sourceSubmerged;
 	}
 
+	internal static BBox TargetHullBounds( GameObject target )
+	{
+		if ( target.GetComponent<Npc>() is { } npc && npc._collisionHull.IsValid() )
+			return npc._collisionHull.GetWorldBounds();
+		if ( target.GetComponent<PlayerController>() is { } player )
+			return player.BodyBox( MathF.Abs( player.WorldTransform.UniformScale ) ) + player.WorldPosition;
+		if ( target.GetComponent<Rigidbody>() is { } body ) return body.GetWorldBounds();
+		if ( target.GetComponent<Collider>() is { } collider ) return collider.GetWorldBounds();
+		return target.GetBounds();
+	}
+
 	internal static Vector3 TargetHullCenter( GameObject target )
 	{
 		if ( target.GetComponent<Npc>() is { } npc ) return npc.HullCenter;
 		if ( target.GetComponent<PlayerController>() is { } player )
 			return target.WorldTransform.PointToWorld( Vector3.Up * (player.CurrentHeight * 0.5f) );
-		if ( target.GetComponent<Rigidbody>() is { } body ) return body.GetWorldBounds().Center;
-		if ( target.GetComponent<Collider>() is { } collider ) return collider.GetWorldBounds().Center;
-		return target.GetBounds().Center;
+		return TargetHullBounds( target ).Center;
 	}
 
 	internal static Vector3 TargetBodyPosition( GameObject target )
