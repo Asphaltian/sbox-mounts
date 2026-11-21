@@ -36,14 +36,14 @@ public sealed partial class GaussGun
 			var incidence = -hit.Normal.Dot( direction );
 			if ( incidence < 0.5f )
 			{
-				ShowImpact( hit.EndPosition, hit.Normal, false, 3 );
+				ShowReflection( hit.EndPosition, hit.Normal, damage * incidence );
 				direction += hit.Normal * (2 * incidence);
 				origin = hit.EndPosition + direction * 8;
 				if ( incidence > 0 ) Blast.DamageInRadius( GameObject, Owner.GameObject, hit.EndPosition, damage * incidence, damage * incidence * 2.5f, "blast" );
 				damage *= 1 - (incidence > 0 ? incidence : 0.1f);
 				continue;
 			}
-			ShowImpact( hit.EndPosition, hit.Normal, true, charged && !punched ? 3 : 0 );
+			ShowWallHit( hit.EndPosition, hit.Normal, damage, !charged );
 			if ( !charged || punched ) break;
 			punched = true;
 
@@ -53,7 +53,7 @@ public sealed partial class GaussGun
 			if ( exit.StartedSolid || !exit.Hit ) break;
 			damage -= System.MathF.Max( 1, exit.EndPosition.Distance( hit.EndPosition ) );
 			if ( damage <= 0 ) break;
-			ShowImpact( exit.EndPosition, exit.Normal, true, (int)(damage * 0.3f) );
+			ShowPenetration( hit.EndPosition, exit.EndPosition, exit.Normal, direction, damage );
 			var radius = damage * (Networking.MaxPlayers > 1 ? 1.75f : 2.5f);
 			Blast.DamageInRadius( GameObject, Owner.GameObject, exit.EndPosition + direction * 8, damage, radius, "blast" );
 			origin = exit.EndPosition + direction;
@@ -73,11 +73,4 @@ public sealed partial class GaussGun
 	static void ShowSegment( Vector3 start, Vector3 end, bool charged, float damage ) =>
 		EnergyBeam.Show( start, end, charged ? Color.White.WithAlpha( damage / 255 ) : new Color( 1, 0.5f, 0, 0.5f ), "smoke", "Gauss beam", charged ? 2.5f : 1, 0.1f );
 
-	[Rpc.Broadcast( NetFlags.HostOnly )]
-	static void ShowImpact( Vector3 point, Vector3 normal, bool decal, int sparks )
-	{
-		if ( decal ) ImpactDecal.Place( point, normal, $"shot{Game.Random.Int( 1, 5 )}", 10 );
-		if ( sparks > 0 ) SpriteSpray.Emit( "Gauss sparks", "hotglow", point, normal, sparks, 50, 1 );
-		Blast.SpriteEffect( "Gauss impact", "hotglow", point + normal, 0.2f, 10 );
-	}
 }
