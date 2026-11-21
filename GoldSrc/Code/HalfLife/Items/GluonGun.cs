@@ -138,8 +138,10 @@ public sealed partial class GluonGun : StudioWeapon
 		if ( GameObject.IsDestroyed || Scene.IsDestroyed ) return;
 		var shutdown = _beamSound = PlaySample( "weapons/egon_off1.wav", 0.98f );
 		if ( !shutdown.IsValid() ) return;
-		// The shutdown WAV lasts 3.284 seconds, including when the gun is holstered.
-		await GameTask.DelayRealtimeSeconds( 3.3f );
+		// A muted mixer can stop advancing the voice. Release it even while holstered.
+		var file = shutdown.SoundFile;
+		if ( await file.LoadAsync() && shutdown == _beamSound )
+			await GameTask.DelayRealtimeSeconds( file.Duration );
 		if ( shutdown != _beamSound ) return;
 		shutdown.Stop();
 		_beamSound = null;
