@@ -67,9 +67,9 @@ public sealed class CrossbowBolt : NpcProjectile
 	static void Explode( Vector3 position )
 	{
 		bool water = WaterBody.Find( Game.ActiveScene, position ).IsValid();
-		Blast.SpriteEffect( "Crossbow bolt explosion", water ? "wxplo1" : "zerogxplode", position, 1, 15 );
+		Blast.ExplosionFlash( "Crossbow bolt explosion", position, 1, water );
 		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount )
-			NpcAudio.Play( mount.NpcAudio.Find( $"weapons/explode{Game.Random.Int( 3, 5 )}.wav" ), position );
+			NpcAudio.Play( mount.NpcAudio.Find( $"weapons/explode{Game.Random.Int( 3, 5 )}.wav" ), position, attenuation: 0.3f );
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]

@@ -25,20 +25,23 @@ internal static partial class Blast
 			for ( int i = 0; i < count; ++i ) SparkShower.Spawn( origin, hit ? normal : Vector3.Zero );
 		}
 		if ( hit ) ImpactDecal.Place( contact, normal, $"scorch{Game.Random.Int( 1, 2 )}", 48 );
-		var flash = SpriteEffect( "Grenade explosion", underwater ? "wxplo1" : "zerogxplode", origin, (damage - 50) * 0.06f, 15 );
-		if ( flash.IsValid() )
-		{
-			var light = flash.AddComponent<PointLight>();
-			light.LightColor = new Color( 1, 0.72f, 0.36f );
-			light.Radius = 200;
-			light.Shadows = false;
-			await GameTask.DelaySeconds( 0.1f );
-			if ( light.IsValid() ) light.Destroy();
-			await GameTask.DelaySeconds( 0.2f );
-		}
+		ExplosionFlash( "Grenade explosion", origin, (damage - 50) * 0.06f, underwater );
+		await GameTask.DelaySeconds( 0.3f );
 		if ( !scene.IsValid() ) return;
 		if ( underwater ) Bubbles( origin, 64, 100, "Explosion bubbles" );
 		else SpriteEffect( "Explosion smoke", "steam1", origin, (damage - 50) * 0.08f, 12 );
+	}
+
+	internal static async void ExplosionFlash( string name, Vector3 origin, float scale, bool underwater )
+	{
+		var flash = SpriteEffect( name, underwater ? "wxplo1" : "zerogxplode", origin, scale, 15 );
+		if ( !flash.IsValid() ) return;
+		var light = flash.AddComponent<PointLight>();
+		light.LightColor = new Color( 1, 0.72f, 0.36f );
+		light.Radius = 200;
+		light.Shadows = false;
+		await GameTask.DelaySeconds( 0.1f );
+		if ( light.IsValid() ) light.Destroy();
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
