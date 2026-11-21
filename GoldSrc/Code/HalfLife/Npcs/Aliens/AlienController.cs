@@ -3,11 +3,22 @@ namespace GoldSrc.HalfLife;
 [Title( "Alien Controller" ), Category( "Half-Life" )]
 [Alias( "GoldSrc.HalfLifeAlienController" )]
 [NpcDefinition( "monster_alien_controller", "controller", MonsterClass.AlienMilitary, 60, 32, 64, 135, Attack = NpcAttack.Projectile, Damage = 4, Range = 2048, Movement = NpcMovement.Flying, IdleSequence = "up", Gibs = GibSet.Alien, Blood = BloodColor.Yellow )]
-public sealed partial class AlienController : Npc
+public sealed partial class AlienController : VoicedNpc
 {
 	internal override float ViewDot => -1;
 
 	internal override NpcSounds Sounds { get; } = new( "controller/con_idle", "controller/con_alert", "controller/con_pain", "controller/con_die", "controller/con_attack" );
+
+	void Call( string sample ) => EmitSound( sample, WorldPosition, pitch: Game.Random.Int( 95, 105 ) * 0.01f, speaker: this );
+
+	internal override void OnEnemySpotted( GameObject target ) => Call( Sounds.Alert );
+	internal override void IdleSound() => Call( Sounds.Idle );
+	internal override void DeathSound() => Call( Sounds.Death );
+
+	internal override void PainSound()
+	{
+		if ( Game.Random.Int( 0, 5 ) < 2 ) Call( Sounds.Pain );
+	}
 
 	static readonly string[] FlightClips = ["attack1", "attack2", "shoot", "forward", "backward", "right", "left", "up", "down"];
 	internal override string[] ExtraActions => FlightClips;
@@ -60,7 +71,7 @@ public sealed partial class AlienController : Npc
 				NpcProjectile.Fire<HeadBall>( GameObject, null, Definition.Damage, EventTarget(), Attachment( 1 ), Vector3.Up, null );
 				break;
 			case 3:
-				EmitSound( Sounds.Attack, WorldPosition );
+				Call( Sounds.Attack );
 				_enemy = EventTarget();
 				_ballsLeft = (frames + 2) / 3;
 				_nextBall = 0;
