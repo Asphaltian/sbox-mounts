@@ -24,7 +24,12 @@ public abstract class ProjectileWeapon : StudioWeapon
 	void ShowLaunch()
 	{
 		ViewModel?.GetComponent<StudioWeaponView>()?.Play( ShotSequence );
-		if ( ShotSound is { } sound ) PlaySample( sound );
+		PlayLaunchSound();
 		PostWeaponEvent( WeaponEvents.Attack );
+	}
+
+	internal virtual void PlayLaunchSound()
+	{
+		if ( ShotSound is { } sound ) PlaySample( sound );
 	}
 }
