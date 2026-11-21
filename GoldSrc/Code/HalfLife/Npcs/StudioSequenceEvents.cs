@@ -88,7 +88,7 @@ internal sealed class StudioSequenceEvents
 		}
 	}
 
-	static void ShowMuzzleFlash( SkinnedModelRenderer model, Transform muzzle, int type )
+	internal static void ShowMuzzleFlash( SkinnedModelRenderer model, Transform muzzle, int type )
 	{
 		var index = System.Math.Max( 0, type % 10 ) % 3;
 		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount ||

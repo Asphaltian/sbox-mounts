@@ -4,6 +4,8 @@ namespace GoldSrc.HalfLife;
 [WeaponPickup( "shotgun", "buckshot", 125 )]
 public sealed class Shotgun : BulletWeapon
 {
+	internal override int PlayerMuzzleFlash => 51;
+
 	bool _double;
 	bool _reloadWhenReady;
 	TimeUntil _pump, _insert;

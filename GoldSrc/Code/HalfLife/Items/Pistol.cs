@@ -4,6 +4,8 @@ namespace GoldSrc.HalfLife;
 [WeaponPickup( "9mmhandgun", "9mm", 250 )]
 public sealed class Pistol : BulletWeapon
 {
+	internal override int PlayerMuzzleFlash => 21;
+
 	bool _rapidFire;
 
 	internal override bool CanIdle => Clip1 > 0;

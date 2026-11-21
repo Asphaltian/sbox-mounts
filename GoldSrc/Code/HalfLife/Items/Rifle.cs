@@ -4,6 +4,8 @@ namespace GoldSrc.HalfLife;
 [WeaponPickup( "9mmar", "9mm", 250 )]
 public sealed class Rifle : BulletWeapon
 {
+	internal override int PlayerMuzzleFlash => 40;
+
 	internal const string GrenadeAmmoPath = "ammo/argrenades.ammo";
 	TimeUntil _nextLaunch;
 	bool _tracer;
@@ -104,6 +106,7 @@ public sealed class Rifle : BulletWeapon
 	[Rpc.Broadcast( NetFlags.HostOnly )]
 	void LaunchEffects()
 	{
+		ShowPlayerMuzzleFlash();
 		if ( !IsProxy && Owner is { ThirdPerson: false } )
 			MeleeViewPunch.Apply( Scene.Camera, new Angles( -10, 0, 0 ) );
 		ViewModel?.GetComponent<StudioWeaponView>()?.Play( "grenade" );

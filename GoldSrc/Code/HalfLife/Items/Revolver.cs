@@ -4,6 +4,8 @@ namespace GoldSrc.HalfLife;
 [WeaponPickup( "357", "357", 36 )]
 public sealed class Revolver : BulletWeapon
 {
+	internal override int PlayerMuzzleFlash => 31;
+
 	internal override float ZoomFieldOfView => 40;
 	internal override string IdleSequence => Game.Random.Float( 0, 1 ) switch
 	{

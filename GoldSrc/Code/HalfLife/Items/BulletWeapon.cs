@@ -4,7 +4,22 @@ namespace GoldSrc.HalfLife;
 public abstract class BulletWeapon : StudioWeapon
 {
 	internal abstract Vector2 PelletSpread { get; }
+	// Muzzle event option from the matching player.mdl shoot sequence.
+	internal abstract int PlayerMuzzleFlash { get; }
 	internal static bool Deathmatch => Networking.MaxPlayers > 1;
+
+	protected override void OnShootEffects( ShotEffect shot )
+	{
+		base.OnShootEffects( shot );
+		if ( !shot.NoEvents ) ShowPlayerMuzzleFlash();
+	}
+
+	protected void ShowPlayerMuzzleFlash()
+	{
+		if ( Application.IsDedicatedServer || (!IsProxy && Owner is { ThirdPerson: false }) ) return;
+		if ( WorldModel?.GetComponent<SkinnedModelRenderer>() is { } renderer )
+			StudioSequenceEvents.ShowMuzzleFlash( renderer, GetMuzzleTransform(), PlayerMuzzleFlash );
+	}
 
 	// FireBulletsPlayer applies its spread at trace time, independently for each pellet.
 	public sealed override Vector2 CurrentSpread => Vector2.Zero;
