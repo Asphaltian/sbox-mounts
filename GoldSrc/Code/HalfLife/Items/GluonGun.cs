@@ -10,6 +10,40 @@ public sealed class GluonGun : StudioWeapon
 	TimeUntil _nextPulseDeadline, _windupEnds;
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => new( 25, 2, 4 );
 
+	protected override void Think()
+	{
+		base.Think();
+		if ( _firing && Input.Released( "attack1" ) ) EndAttack( 0.5f );
+	}
+
+	public override void PrimaryAttack()
+	{
+		if ( Owner.IsValid() && WaterBody.Find( Scene, Owner.EyePosition ).IsValid() )
+		{
+			if ( _firing ) EndAttack( 0.5f );
+			else DryFire();
+			return;
+		}
+
+		base.PrimaryAttack();
+		if ( IsHeld && !HasPrimaryAmmo() ) EndAttack( 1 );
+	}
+
+	public override void DryFire()
+	{
+		PlaySample( "weapons/357_cock1.wav", 0.8f );
+		SetNextFire( 0.25f );
+	}
+
+	void EndAttack( float delay )
+	{
+		SetNextFire( delay );
+		EndBeamEffects();
+	}
+
+	[Rpc.Broadcast( NetFlags.OwnerOnly )]
+	void EndBeamEffects() => StopBeam();
+
 	protected override void OnShootEffects( ShotEffect shot )
 	{
 		base.OnShootEffects( shot );
@@ -18,6 +52,7 @@ public sealed class GluonGun : StudioWeapon
 		if ( _firing ) return;
 		_firing = true;
 		_windupEnds = 2;
+		_beamSound?.Stop();
 		_beamSound = PlaySample( "weapons/egon_windup2.wav", 0.98f, 1.25f );
 	}
 
@@ -43,7 +78,9 @@ public sealed class GluonGun : StudioWeapon
 
 	protected override void OnDisabled()
 	{
-		StopBeam();
+		_firing = _running = false;
+		_beamSound?.Stop();
+		_beamSound = null;
 		base.OnDisabled();
 	}
 
@@ -52,8 +89,7 @@ public sealed class GluonGun : StudioWeapon
 		if ( !_firing ) return;
 		_firing = _running = false;
 		_beamSound?.Stop();
-		_beamSound = null;
-		PlaySample( "weapons/egon_off1.wav" );
+		_beamSound = PlaySample( "weapons/egon_off1.wav" );
 	}
 
 	internal override void DrawShotTrail( Vector3 start, Vector3 end ) =>
