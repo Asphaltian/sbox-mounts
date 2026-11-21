@@ -54,7 +54,8 @@ public sealed partial class PlacedCharge : Component, Component.IDamageable, Com
 		var normal = WorldRotation.Forward;
 		var contact = IsMine ? Scene.Trace.Ray( WorldPosition + normal * 8, WorldPosition - normal * 64 )
 			.IgnoreGameObjectHierarchy( GameObject ).Run() : default;
-		Blast.Detonate( GameObject, Thrower, contact.Hit ? contact.EndPosition : WorldPosition, contact.Hit ? contact.Normal : normal, 150, contact.Hit );
+		var damage = !IsMine && Networking.MaxPlayers > 1 ? 120 : 150;
+		Blast.Detonate( GameObject, Thrower, contact.Hit ? contact.EndPosition : WorldPosition, contact.Hit ? contact.Normal : normal, damage, contact.Hit );
 		GameObject.Destroy();
 	}
 }
