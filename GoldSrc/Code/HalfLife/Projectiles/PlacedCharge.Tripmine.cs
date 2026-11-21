@@ -63,9 +63,8 @@ public sealed partial class PlacedCharge
 		renderer.Sequence.Name = pose;
 	}
 
-	protected override void OnFixedUpdate()
+	void CheckMine()
 	{
-		if ( !Networking.IsHost || !IsMine ) return;
 		if ( _detonateAt is { } delay )
 		{
 			if ( delay <= 0 ) Detonate();
