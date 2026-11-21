@@ -86,7 +86,8 @@ public sealed partial class AlienGrunt : VoicedNpc, Component.IDamageable.IEvent
 			var reflection = (info.Origin - info.Position).Normal + Vector3.Random * 0.3f;
 			BulletEffects.Tracer( info.Position, info.Position + reflection * 512 );
 		}
-		hit.AcceptedDamage = System.MathF.Max( 0.1f, hit.AcceptedDamage - 20 );
+		hit.AcceptedDamage -= 20;
+		if ( hit.AcceptedDamage <= 0 ) hit.AcceptedDamage = 0.1f;
 	}
 
 	internal override void ShowWound( Component.IDamageable.DamageEvent hit )
