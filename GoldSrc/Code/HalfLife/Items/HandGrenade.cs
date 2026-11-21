@@ -4,11 +4,8 @@ namespace GoldSrc.HalfLife;
 [WeaponPickup( "grenade", "grenades", 10, ClassName = "handgrenade" )]
 public sealed class HandGrenade : StudioWeapon
 {
-	internal override void PlayIdle( StudioWeaponView view )
-	{
-		if ( Game.Random.Float( 0, 1 ) <= 0.75f ) view.Play( "idle", idleAfter: Game.Random.Float( 10, 15 ) );
-		else view.Play( "fidget", idleAfter: 2.5f );
-	}
+	internal override (string Name, float? Delay) IdleAnimation => Game.Random.Float( 0, 1 ) <= 0.75f
+		? ("idle", Game.Random.Float( 10, 15 )) : ("fidget", 2.5f);
 	bool _holdingPin, _primed, _redrawing;
 	TimeSince _pinAge;
 	TimeUntil _redrawAt;
@@ -38,7 +35,7 @@ public sealed class HandGrenade : StudioWeapon
 		if ( !IsActive || !Owner.IsValid() || _primed || _redrawing || !HasPrimaryAmmo() ) return;
 		_primed = true;
 		_pinAge = 0;
-		ShowAnimation( "pinpull", true );
+		ShowAnimation( "pinpull" );
 	}
 
 	protected override void Think()
@@ -83,14 +80,16 @@ public sealed class HandGrenade : StudioWeapon
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
-	void ShowAnimation( string name, bool hold = false )
+	void ShowAnimation( string name )
 	{
 		if ( name.StartsWith( "throw" ) )
 		{
 			SetNextPrimaryFire( PrimaryDelay );
 			PostWeaponEvent( WeaponEvents.Attack );
 		}
-		ViewModel?.GetComponent<StudioWeaponView>()?.Play( name, hold );
+		var view = ViewModel?.GetComponent<StudioWeaponView>();
+		if ( name == DeploySequence ) view?.Play( name, idleAfter: Game.Random.Float( 10, 15 ) );
+		else view?.Play( name, holdLastFrame: true );
 	}
 
 	protected override void OnHolstered()
