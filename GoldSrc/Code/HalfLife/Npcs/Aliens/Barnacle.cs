@@ -75,7 +75,7 @@ public sealed class Barnacle : Npc
 		if ( !_placed ) return;
 		if ( State != FeedingState.Waiting )
 		{
-			if ( IsLiveTarget( _prey ) ) LiftPrey();
+			if ( IsLiveTarget( _prey ) && (_prey.GetComponent<BaseNpc>() is not { } captive || captive.PhysicsCarrier == GameObject) ) LiftPrey();
 			else Release();
 			return;
 		}
@@ -102,13 +102,16 @@ public sealed class Barnacle : Npc
 			if ( !IsLiveTarget( target ) || GetDisposition( target ) != Disposition.Hostile ) continue;
 			var npc = target.GetComponent<BaseNpc>();
 			if ( npc.IsValid() && npc.PhysicsCarrier.IsValid() ) continue;
+			var playerBody = target.GetComponent<PlayerController>()?.Body;
+			if ( playerBody is { MotionEnabled: false } ) continue;
 			_prey = target;
+			target.WorldPosition = WorldPosition.WithZ( target.WorldPosition.z );
 			npc?.StartCarry( GameObject );
-			if ( target.GetComponent<PlayerController>()?.Body is { MotionEnabled: true } bodyToHold )
+			if ( target.GetComponent<Rigidbody>() is { MotionEnabled: true } movingBody ) movingBody.Velocity = Vector3.Zero;
+			if ( playerBody.IsValid() )
 			{
-				bodyToHold.Velocity = Vector3.Zero;
-				bodyToHold.MotionEnabled = false;
-				_heldBody = bodyToHold;
+				playerBody.MotionEnabled = false;
+				_heldBody = playerBody;
 			}
 			if ( npc is Npc mounted ) mounted.SetCaptured( false );
 			TongueLength = WorldPosition.z - TargetEyePosition( target ).z;
