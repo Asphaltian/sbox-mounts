@@ -114,6 +114,12 @@ public abstract partial class GameMount : BaseGameMount
 				var icon = new WeaponIconLoader( className );
 				context.Add( ResourceType.Texture, $"icons/{className}", icon );
 				var preview = pickup.PreviewModel is null ? model : npcModels.GetValueOrDefault( $"models/{pickup.PreviewModel}.mdl", model );
+				if ( pickup.PreviewPitch != 0 )
+				{
+					var upright = $"previews/{className}";
+					context.Add( ResourceType.Model, upright, new ModelLoader( preview, previewRotation: Rotation.FromPitch( pickup.PreviewPitch ) ) );
+					preview = upright;
+				}
 				var loader = new WeaponPickupLoader( type, model, preview, icon.Path );
 				loader.Tags.Add( "weapon" );
 				context.Add( ResourceType.PrefabFile, pickup.PrefabPath, loader );

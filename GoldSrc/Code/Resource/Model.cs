@@ -4,7 +4,7 @@ using Sandbox.Animation;
 
 namespace GoldSrc;
 
-class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefinitionAttribute npc = null ) : ResourceLoader<GameMount>
+class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefinitionAttribute npc = null, Rotation? previewRotation = null ) : ResourceLoader<GameMount>
 {
 	protected override ResourceLoader ResolveChild( string name, out ResourceType type )
 	{
@@ -156,7 +156,7 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 		}
 
 		using var main = new BinaryReader( ms );
-		ReadAnimations( mdlFile, main, npcAnimations );
+		if ( previewRotation is null ) ReadAnimations( mdlFile, main, npcAnimations );
 		EyePosition = mdlFile.Header.Eyeposition;
 
 		var builder = Model.Builder.WithName( Path ).WithSurface( Host.GetSurfaceBindingName( 'C' ) );
@@ -171,6 +171,8 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 		for ( var i = 0; i < boneTransforms.Length; ++i )
 		{
 			var (tx, parent) = skeletonTransforms[i];
+			if ( parent < 0 && previewRotation is { } rotation )
+				tx = new Transform( Vector3.Zero, rotation ).ToWorld( tx );
 			boneTransforms[i] = parent >= 0 ? boneTransforms[parent].ToWorld( tx ) : tx;
 		}
 
@@ -298,6 +300,9 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 				}
 			}
 		}
+
+		// The preview is baked into the mesh vertices and only needs the default skin.
+		if ( previewRotation is not null ) return builder.Create();
 
 		for ( int i = 0; i < bones.Count; i++ )
 			bones[i] = bones[i] with { Bounds = boneBounds[i] };
