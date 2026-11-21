@@ -47,6 +47,13 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 
 	protected override void OnAdded( BaseInventoryComponent inventory )
 	{
+		// Clipless pickups contribute their payload even when another weapon shares the pool.
+		if ( UsesAmmo && !UsesClips && StartingAmmo > 0 && inventory.GetAmmo( PrimaryAmmoType ) != int.MaxValue )
+		{
+			inventory.GiveAmmo( PrimaryAmmoType, StartingAmmo );
+			StartingAmmo = 0;
+		}
+
 		var extra = Clip1 < 0 && UsesPrimaryClip ? FreshPickupRounds - ClipMaxSize : 0;
 		base.OnAdded( inventory );
 		if ( extra > 0 ) inventory.GiveAmmo( PrimaryAmmoType, extra );
@@ -54,6 +61,9 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 
 	protected override bool OnAdding( BaseInventoryComponent inventory )
 	{
+		if ( UsesAmmo && !UsesClips && StartingAmmo == 0 && inventory.Items.Any( item => item.GetType() == GetType() ) )
+			return false;
+
 		if ( Clip1 >= 0 || !UsesPrimaryClip || FreshPickupRounds <= ClipMaxSize ||
 			!inventory.Items.Any( item => item != this && item.GetType() == GetType() ) )
 			return base.OnAdding( inventory );
