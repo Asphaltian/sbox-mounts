@@ -10,7 +10,7 @@ public abstract class ProjectileWeapon : StudioWeapon
 	[Rpc.Host( NetFlags.OwnerOnly )]
 	void Launch( Ray ray ) => TryLaunch( ray, Release );
 
-	protected void TryLaunch( Ray ray, System.Func<Ray, bool> release, bool secondary = false, float extraDelay = 0 )
+	protected void TryLaunch( Ray ray, System.Func<Ray, bool> release, bool secondary = false, float extraDelay = 0, bool keepIdleDeadline = false )
 	{
 		if ( !IsActive || !Owner.IsValid() || (secondary ? _nextSecondary : _nextLaunch) > 0 || !ray.Position.IsFinite || !ray.Forward.IsFinite ||
 			ray.Position.Distance( Owner.EyePosition ) > 96 || !HasPrimaryAmmo() ) return;
@@ -18,15 +18,21 @@ public abstract class ProjectileWeapon : StudioWeapon
 		TakePrimaryAmmo();
 		_nextLaunch = (secondary ? SecondaryDelay : PrimaryDelay) + extraDelay;
 		if ( secondary ) _nextSecondary = _nextLaunch;
-		ShowLaunch();
+		ShowLaunch( ShotSequence, IdleAfterLaunch, keepIdleDeadline );
 	}
 
 	internal abstract bool Release( Ray ray );
+	internal virtual float? IdleAfterLaunch => null;
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
-	void ShowLaunch()
+	void ShowLaunch( string sequence, float? idleAfter, bool keepIdleDeadline )
 	{
-		ViewModel?.GetComponent<StudioWeaponView>()?.Play( ShotSequence );
+		if ( ViewModel?.GetComponent<StudioWeaponView>() is { } view )
+		{
+			if ( keepIdleDeadline ) idleAfter = view.RemainingIdleTime;
+			if ( sequence is not null ) view.Play( sequence, idleAfter: idleAfter );
+			else if ( idleAfter.HasValue ) view.RemainingIdleTime = idleAfter.Value;
+		}
 		PlayLaunchSound();
 		PostWeaponEvent( WeaponEvents.Attack );
 	}

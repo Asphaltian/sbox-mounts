@@ -8,6 +8,11 @@ public sealed class StudioWeaponView : BaseWeaponModel
 	TimeSince _elapsed;
 	float _idleAfter;
 	bool _loop;
+	internal float RemainingIdleTime
+	{
+		get => System.MathF.Max( 0, _idleAfter - _elapsed );
+		set => _idleAfter = _elapsed + value;
+	}
 	readonly StudioSequenceEvents _sequenceEvents = new();
 	NpcAudio _audio;
 
