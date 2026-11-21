@@ -11,7 +11,6 @@ public sealed partial class GluonGun : StudioWeapon
 	bool _firing, _running;
 	TimeUntil _nextPulseDeadline, _windupEnds;
 	TimeUntil _burstExpires, _nextCell, _nextShake;
-	RealTimeUntil _shutdownEnds;
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => hd ? new( 29, -5.2f, 0.5f ) : new( 28.4f, -5.1f, 0 );
 
 	protected override void Think()
@@ -98,15 +97,7 @@ public sealed partial class GluonGun : StudioWeapon
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
-		if ( !_firing )
-		{
-			if ( _beamSound is not null && _shutdownEnds <= 0 )
-			{
-				_beamSound.Stop();
-				_beamSound = null;
-			}
-			return;
-		}
+		if ( !_firing ) return;
 		if ( _nextPulseDeadline <= 0 ) { StopBeam(); return; }
 		if ( !_running && _windupEnds <= 0 )
 		{
@@ -127,23 +118,31 @@ public sealed partial class GluonGun : StudioWeapon
 
 	protected override void OnDisabled()
 	{
-		StopBeamVisual();
 		_burstExpires = 0;
-		_firing = _running = false;
-		_beamSound?.Stop();
-		_beamSound = null;
+		StopBeam();
 		base.OnDisabled();
 	}
 
-	void StopBeam()
+	protected override void OnDestroy()
+	{
+		_beamSound?.Stop();
+		base.OnDestroy();
+	}
+
+	async void StopBeam()
 	{
 		StopBeamVisual();
 		if ( !_firing ) return;
 		_firing = _running = false;
 		_beamSound?.Stop();
-		_beamSound = PlaySample( "weapons/egon_off1.wav", 0.98f );
-		// The shutdown WAV lasts 3.284 seconds. Retire the channel even if audio playback stalls.
-		_shutdownEnds = 3.3f;
+		if ( GameObject.IsDestroyed || Scene.IsDestroyed ) return;
+		var shutdown = _beamSound = PlaySample( "weapons/egon_off1.wav", 0.98f );
+		if ( !shutdown.IsValid() ) return;
+		// The shutdown WAV lasts 3.284 seconds, including when the gun is holstered.
+		await GameTask.DelayRealtimeSeconds( 3.3f );
+		if ( shutdown != _beamSound ) return;
+		shutdown.Stop();
+		_beamSound = null;
 	}
 
 	void StopBeamVisual()
