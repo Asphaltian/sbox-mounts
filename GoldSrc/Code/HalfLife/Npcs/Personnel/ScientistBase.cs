@@ -10,6 +10,8 @@ public abstract class ScientistBase : Personnel
 	internal override int EffectiveBody => ResolveBody( Body, GameObject );
 
 	protected override int PainVariants => 5;
+	protected override string PreDisasterGreeting => "PHELLO";
+	protected override string PreDisasterIdle => "PIDLE";
 	internal override void DeathSound() => PainSound();
 
 	internal override string SentencePrefix => "SC";

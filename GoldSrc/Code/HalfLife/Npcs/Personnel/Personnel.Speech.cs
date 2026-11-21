@@ -22,6 +22,8 @@ public abstract partial class Personnel
 
 	protected float SpeechPitch => VoicePitch + Game.Random.Int( 0, 3 ) / 100f;
 	protected abstract int PainVariants { get; }
+	protected virtual string PreDisasterGreeting => null;
+	protected virtual string PreDisasterIdle => null;
 	TimeUntil _nextPain;
 
 	internal override void PainSound()
@@ -102,7 +104,9 @@ public abstract partial class Personnel
 		}
 		if ( !HasSpoken )
 		{
-			Say( "HELLO", player, Game.Random.Float( 3, 3.5f ) );
+			var greeting = PreDisaster ? PreDisasterGreeting : "HELLO";
+			if ( greeting is not null ) Say( greeting, player, Game.Random.Float( 3, 3.5f ) );
+			else HasSpoken = true;
 			return;
 		}
 		if ( !Leader.IsValid() && _nextSmellRemark <= 0 && Senses.Disturbance is { Kind: "meat" or "carcass" or "garbage" } )
@@ -129,12 +133,13 @@ public abstract partial class Personnel
 		var friend = NearestColleague();
 		if ( friend.IsValid() && friend.Movement?.IsMoving != true && Game.Random.Int( 0, 99 ) < 75 )
 		{
-			Ask( friend, "QUESTION", Game.Random.Float( 2.8f, 3.2f ) );
+			Ask( friend, PreDisaster ? "PQUEST" : "QUESTION", Game.Random.Float( 2.8f, 3.2f ) );
 			_idleLines++;
 		}
 		else if ( Game.Random.Int( 0, 1 ) == 1 )
 		{
-			Say( "IDLE", player );
+			var line = PreDisaster ? PreDisasterIdle : "IDLE";
+			if ( line is not null ) Say( line, player );
 			_idleLines++;
 		}
 	}

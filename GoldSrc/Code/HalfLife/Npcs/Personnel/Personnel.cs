@@ -7,6 +7,9 @@ public abstract partial class Personnel : TalkingNpc, Component.IPressable
 {
 	internal override float ViewDot => -0.7f;
 
+	/// <summary>Use Black Mesa's pre-disaster dialogue and decline follow requests.</summary>
+	[Property] public bool PreDisaster { get; set; }
+
 	[Sync( SyncFlags.FromHost )] protected GameObject Leader { get; set; }
 
 	internal override void IdleMovement()
@@ -96,6 +99,11 @@ public abstract partial class Personnel : TalkingNpc, Component.IPressable
 		if ( !player.IsValid() || !AcceptsLeader( player.GameObject ) || player.WorldPosition.Distance( WorldPosition ) > 160 ||
 			(Rpc.Caller is not null && player.Network.Owner != Rpc.Caller) )
 			return;
+		if ( PreDisaster )
+		{
+			Say( "POK", player.GameObject, 2 );
+			return;
+		}
 		if ( Leader == player.GameObject )
 		{
 			StopFollowing( true );
