@@ -42,13 +42,21 @@ public sealed class Barnacle : Npc
 	bool _placed;
 	int _storedGibs;
 
+	[Sync( SyncFlags.FromHost )] string IdleSequence { get; set; }
+
+	internal override void FinishMovementCycle()
+	{
+		if ( State == FeedingState.Waiting ) IdleSequence = WeightedActivity( Idle )?.Name;
+	}
+
 	static readonly string[] FeedingActions = ["attack1", "chewcycle"];
 	internal override string[] ExtraActions => FeedingActions;
+	internal override IEnumerable<StudioSequence> ExtraSequences => base.ExtraSequences.Concat( Activities( Idle ) );
 	internal override StudioSequence RestSequence => State switch
 	{
 		FeedingState.Lifting => Find( "attack1" ),
 		FeedingState.Chewing => Find( "chewcycle" ),
-		_ => base.RestSequence
+		_ => Find( IdleSequence ) ?? base.RestSequence
 	};
 
 	internal override void PlaceAtSpawn()
@@ -56,6 +64,8 @@ public sealed class Barnacle : Npc
 		var ceiling = Scene.Trace.Ray( WorldPosition + Vector3.Up * 4, WorldPosition + Vector3.Up * 2048 )
 			.IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "npc", "player", "trigger" ).Run();
 		if ( ceiling.Hit ) WorldPosition = ceiling.EndPosition - Vector3.Up;
+		IdleSequence = WeightedActivity( Idle )?.Name;
+		_scan = 0.5f;
 		_placed = true;
 	}
 
