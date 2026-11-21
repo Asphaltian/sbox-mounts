@@ -7,6 +7,7 @@ public sealed partial class GluonGun : StudioWeapon
 	internal override string ShotSequence => $"fire{Game.Random.Int( 1, 4 )}";
 	internal override string IdleSequence => Game.Random.Int( 0, 1 ) == 0 ? "idle1" : "fidget1";
 	SoundHandle _beamSound;
+	GluonBeam _beam;
 	bool _firing, _running;
 	TimeUntil _nextPulseDeadline, _windupEnds;
 	TimeUntil _burstExpires, _nextCell, _nextShake;
@@ -125,6 +126,7 @@ public sealed partial class GluonGun : StudioWeapon
 
 	protected override void OnDisabled()
 	{
+		StopBeamVisual();
 		_burstExpires = 0;
 		_firing = _running = false;
 		_beamSound?.Stop();
@@ -134,6 +136,7 @@ public sealed partial class GluonGun : StudioWeapon
 
 	void StopBeam()
 	{
+		StopBeamVisual();
 		if ( !_firing ) return;
 		_firing = _running = false;
 		_beamSound?.Stop();
@@ -142,13 +145,21 @@ public sealed partial class GluonGun : StudioWeapon
 		_shutdownEnds = 3.3f;
 	}
 
-	internal override void DrawShotTrail( Vector3 start, Vector3 end ) =>
-		EnergyBeam.Show( start, end, new Color( 0.4f, 0.55f, 1 ), "xbeam1", "Gluon beam", 3, PrimaryDelay );
+	void StopBeamVisual()
+	{
+		if ( _beam.IsValid() ) _beam.Stop();
+		_beam = null;
+	}
+
+	internal override void DrawShotTrail( Vector3 start, Vector3 end )
+	{
+		if ( !_beam.IsValid() ) _beam = GluonBeam.Start( this, end );
+	}
 
 	protected override void OnShootImpact( in ShotEffect shot )
 	{
-		if ( shot.Hit && shot.HitObject.IsValid() && shot.HitObject.GetComponentInParent<Component.IDamageable>() is not null )
-			Blast.SpriteEffect( "Gluon impact", "xspark1", shot.HitPosition, 1, 16 );
+		var showFlare = Networking.MaxPlayers <= 1 || (shot.HitObject.IsValid() && shot.HitObject.GetComponentInParent<Component.IDamageable>() is not null);
+		_beam?.Aim( shot.HitPosition, showFlare );
 	}
 
 	internal override void Configure()
