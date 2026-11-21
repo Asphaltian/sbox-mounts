@@ -13,6 +13,7 @@ public sealed class Ichthyosaur : SwimmingNpc
 	[Property, Sync( SyncFlags.FromHost )] public bool Aggressive { get; set; }
 	float _distance = 384;
 	float _speed = 150;
+	float _minSpeed = 80;
 	TimeUntil _nextAlert, _blink, _contactExpires;
 	GameObject _lastContact;
 	bool _chasing;
@@ -56,7 +57,6 @@ public sealed class Ichthyosaur : SwimmingNpc
 	{
 		var center = TargetHullCenter( target );
 		var delta = center - WorldPosition;
-		var toward = delta.Normal;
 		var nearest = target.GetComponent<Rigidbody>()?.FindClosestPoint( WorldPosition )
 			?? target.GetComponentInChildren<Collider>()?.FindClosestPoint( WorldPosition ) ?? center;
 		var contact = WorldPosition.DistanceSquared( nearest ) <= 34 * 34;
@@ -89,18 +89,44 @@ public sealed class Ichthyosaur : SwimmingNpc
 
 		if ( Health < MaxHealth - 20 ) Aggressive = true;
 		_chasing = false;
-		var watched = Vector3.Dot( target.WorldRotation.Forward, -toward ) > 0.5f;
-		_distance = (_distance + (watched ? 4 : -4)).Clamp( 128, 384 );
-		_speed = (_speed + (watched ? -2 : 4)).Clamp( 80, 300 );
-		var lateral = Vector3.Cross( toward, Vector3.Up ).Normal;
-		if ( Vector3.Dot( Animation.MoveVelocity, lateral ) < 0 ) lateral = -lateral;
-		SwimTo( center - toward * _distance + lateral * 32, _speed, target );
+		Circle( target );
+		return true;
+	}
+
+	void Circle( GameObject target )
+	{
+		var eye = TargetEyePosition( target );
+		var outward = (WorldPosition - eye).Normal;
+		var lateral = outward.Cross( Vector3.Up ).Normal;
+		if ( Animation.MoveVelocity.Dot( lateral ) < 0 ) lateral = -lateral;
+		var point = eye + outward * _distance + lateral * 32;
+		var hull = new BBox( new Vector3( -32 ), new Vector3( 32 ) );
+		var trace = Scene.Trace.Box( hull, eye, point ).IgnoreGameObjectHierarchy( target )
+			.WithoutTags( "npc", "player", "playercontroller", "trigger" ).Run();
+		if ( trace.Hit && trace.Fraction > 0.5f ) point = trace.EndPosition;
+
+		var offset = WorldPosition - target.WorldPosition;
+		var view = target.GetComponent<PlayerController>()?.EyeAngles.ToRotation() ?? target.WorldRotation;
+		var watched = target.GetComponent<Npc>() is { } npc ? npc.InViewCone( offset ) : view.Forward.Dot( offset.WithZ( 0 ).Normal ) > 0.5f;
+		if ( watched )
+		{
+			_distance = System.MathF.Min( 384, _distance + 4 );
+			_speed = _speed.Approach( _minSpeed, 2 );
+			_minSpeed = System.MathF.Min( 400, _minSpeed + 0.5f );
+			_nextAlert = (float)_nextAlert - 0.1f;
+		}
+		else
+		{
+			_distance = System.MathF.Max( 128, _distance - 4 );
+			_speed = System.MathF.Min( 400, _speed + 4 );
+			_nextAlert = (float)_nextAlert + 0.1f;
+		}
+		SwimTo( point, _speed, target );
 		if ( _nextAlert <= 0 )
 		{
 			SwimAlert();
 			_nextAlert = Game.Random.Float( 3, 5 );
 		}
-		return true;
 	}
 
 	internal override void HandleActionEvent( int id )
