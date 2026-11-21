@@ -21,7 +21,7 @@ public sealed class StudioWeaponView : BaseWeaponModel
 
 	internal void Play( string name )
 	{
-		_current = _clips?.FirstOrDefault( clip => clip.Name == name );
+		_current = _clips?.FirstOrDefault( clip => string.Equals( clip.Name, name, System.StringComparison.OrdinalIgnoreCase ) );
 		_elapsed = 0;
 		_sequenceEvents.Reset( _current, 0, true );
 	}

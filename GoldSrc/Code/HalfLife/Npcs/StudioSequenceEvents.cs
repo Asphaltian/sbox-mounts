@@ -65,6 +65,16 @@ internal sealed class StudioSequenceEvents
 			case 2010:
 				NpcAudio.Play( audio.Find( "zombie/claw_miss2.wav" ), position );
 				break;
+			case 5001:
+			case 5011:
+			case 5021:
+			case 5031:
+				if ( renderer.GetAttachment( $"attachment{1 + (e.Index - 5001) / 10}" ) is { } muzzle )
+				{
+					int.TryParse( e.Options, out var type );
+					ShowMuzzleFlash( renderer, muzzle, type );
+				}
+				break;
 			case 5002:
 				if ( int.TryParse( e.Options, out var count ) && renderer.GetAttachment( "attachment1" ) is { } attachment )
 					StudioSparks.Emit( attachment.Position, count );
@@ -76,5 +86,25 @@ internal sealed class StudioSequenceEvents
 				npc?.PlaySequenceSound( audio, e.Index );
 				break;
 		}
+	}
+
+	static void ShowMuzzleFlash( SkinnedModelRenderer model, Transform muzzle, int type )
+	{
+		var index = System.Math.Max( 0, type % 10 ) % 3;
+		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount ||
+			mount.GetIndexedSprite( $"muzzleflash{index + 1}" ) is not { } sprite ) return;
+		var texture = sprite.Animations[0].Frames[0].Texture;
+		var scale = type / 10 > 0 ? (type / 10) * 0.1f : 0.5f;
+		var go = new GameObject( false, "Muzzle flash" );
+		go.NetworkMode = NetworkMode.Never;
+		go.WorldPosition = muzzle.Position;
+		var flash = go.AddComponent<SpriteRenderer>();
+		flash.Sprite = sprite;
+		flash.Additive = true;
+		flash.Size = new Vector2( texture.Width, texture.Height ) * scale;
+		flash.RenderOptions.Game = model.RenderOptions.Game;
+		flash.RenderOptions.Overlay = model.RenderOptions.Overlay;
+		go.AddComponent<TemporaryEffect>().DestroyAfterSeconds = 0.02f;
+		go.Enabled = true;
 	}
 }
