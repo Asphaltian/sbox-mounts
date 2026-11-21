@@ -33,7 +33,7 @@ public abstract partial class GameMount : BaseGameMount
 		var weapons = registry is null ? [] : Game.TypeLibrary.GetTypes<StudioWeapon>()
 			.Select( type => (Type: type, Pickup: type.GetAttribute<WeaponPickupAttribute>()) )
 			.Where( entry => entry.Pickup is not null ).ToArray();
-		var viewModels = weapons.Select( entry => entry.Pickup.ViewModelPath ).ToHashSet( System.StringComparer.OrdinalIgnoreCase );
+		var viewModels = weapons.SelectMany( entry => entry.Pickup.ViewModelPaths ).ToHashSet( System.StringComparer.OrdinalIgnoreCase );
 		var npcModels = registry is not null ? new Dictionary<string, string>( System.StringComparer.OrdinalIgnoreCase ) : null;
 		var originalModels = new Dictionary<string, string>( System.StringComparer.OrdinalIgnoreCase );
 		foreach ( var dir in GameDirs )
