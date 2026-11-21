@@ -8,6 +8,7 @@ public sealed class GluonGun : StudioWeapon
 	SoundHandle _beamSound;
 	bool _firing, _running;
 	TimeUntil _nextPulseDeadline, _windupEnds;
+	RealTimeUntil _shutdownEnds;
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => new( 25, 2, 4 );
 
 	protected override void Think()
@@ -59,7 +60,15 @@ public sealed class GluonGun : StudioWeapon
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
-		if ( !_firing ) return;
+		if ( !_firing )
+		{
+			if ( _beamSound is not null && _shutdownEnds <= 0 )
+			{
+				_beamSound.Stop();
+				_beamSound = null;
+			}
+			return;
+		}
 		if ( _nextPulseDeadline <= 0 ) { StopBeam(); return; }
 		if ( !_running && _windupEnds <= 0 )
 		{
@@ -90,6 +99,8 @@ public sealed class GluonGun : StudioWeapon
 		_firing = _running = false;
 		_beamSound?.Stop();
 		_beamSound = PlaySample( "weapons/egon_off1.wav" );
+		// The shutdown WAV lasts 3.284 seconds. Retire the channel even if audio playback stalls.
+		_shutdownEnds = 3.3f;
 	}
 
 	internal override void DrawShotTrail( Vector3 start, Vector3 end ) =>
