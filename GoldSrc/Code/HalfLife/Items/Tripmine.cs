@@ -1,7 +1,7 @@
 namespace GoldSrc.HalfLife;
 
 [Title( "Laser Tripmine" ), Category( "Half-Life" )]
-[WeaponPickup( "tripmine", "tripmines", 5, PickupModel = "v_tripmine" )]
+[WeaponPickup( "tripmine", "tripmines", 5, PickupModel = "v_tripmine", PreviewModel = "p_tripmine" )]
 public sealed class Tripmine : ProjectileWeapon
 {
 	internal override string ShotSequence => "draw";

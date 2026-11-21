@@ -1,6 +1,6 @@
 namespace GoldSrc.HalfLife;
 
-internal sealed class WeaponPickupLoader( TypeDescription type, string modelPath, string iconPath ) : ResourceLoader<GameMount>
+internal sealed class WeaponPickupLoader( TypeDescription type, string modelPath, string previewPath, string iconPath ) : ResourceLoader<GameMount>
 {
 	PrefabFile _prefab;
 	string ModelPath => $"mount://{Host.Ident}/{modelPath}.vmdl";
@@ -19,7 +19,7 @@ internal sealed class WeaponPickupLoader( TypeDescription type, string modelPath
 
 	protected override object Load()
 	{
-		var builder = new PrefabBuilder().WithName( Path ).WithMetadata( "Title", type.Title ).WithMetadata( "PreviewModel", ModelPath );
+		var builder = new PrefabBuilder().WithName( Path ).WithMetadata( "Title", type.Title ).WithMetadata( "PreviewModel", $"mount://{Host.Ident}/{previewPath}.vmdl" );
 		using ( builder.Scope() )
 		{
 			Game.ActiveScene.Enabled = false;

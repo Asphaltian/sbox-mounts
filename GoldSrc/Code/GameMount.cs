@@ -113,7 +113,8 @@ public abstract partial class GameMount : BaseGameMount
 				var className = Path.GetFileNameWithoutExtension( pickup.PrefabPath );
 				var icon = new WeaponIconLoader( className );
 				context.Add( ResourceType.Texture, $"icons/{className}", icon );
-				var loader = new WeaponPickupLoader( type, model, icon.Path );
+				var preview = pickup.PreviewModel is null ? model : npcModels.GetValueOrDefault( $"models/{pickup.PreviewModel}.mdl", model );
+				var loader = new WeaponPickupLoader( type, model, preview, icon.Path );
 				loader.Tags.Add( "weapon" );
 				context.Add( ResourceType.PrefabFile, pickup.PrefabPath, loader );
 			}
