@@ -11,7 +11,8 @@ public sealed partial class Gargantua
 	[Sync( SyncFlags.FromHost )] bool Flaming { get; set; }
 	[Sync( SyncFlags.FromHost )] Vector3 LeftEnd { get; set; }
 	[Sync( SyncFlags.FromHost )] Vector3 RightEnd { get; set; }
-	TimeUntil _nextFlame, _endFlame, _nextBurn, _nextScorch;
+	TimeUntil _nextFlame, _endFlame, _nextBurn;
+	ParticleEffect _impactSparks;
 	readonly List<BeamEffect> _flames = [];
 	SoundHandle _flameSound;
 
@@ -62,15 +63,17 @@ public sealed partial class Gargantua
 			_nextFlame -= 0.5f;
 		}
 		FlameAim = new Angles( FlameAim.pitch.Approach( desired.pitch, 4 ), FlameAim.yaw.Approach( desired.yaw.Clamp( -45, 45 ), 8 ), 0 );
-		if ( _nextScorch <= 0 ) _nextScorch = 0.25f;
 	}
 
 	Vector3 BurnFrom( string hand, Vector3 aim )
 	{
 		var origin = Renderer.GetAttachment( hand )?.Position ?? WorldPosition + Vector3.Up * 64;
 		var trace = Scene.Trace.Ray( origin, origin + aim * 330 ).IgnoreGameObjectHierarchy( GameObject ).UseHitboxes().Run();
-		if ( trace.Hit && _nextScorch <= 0 && trace.GameObject?.GetComponentInParent<IDamageable>() is null )
-			Scorch( trace.EndPosition, trace.Normal, Game.Random.Int( 1, 3 ) );
+		if ( trace.Hit )
+		{
+			var decal = trace.GameObject?.GetComponentInParent<IDamageable>() is null ? Game.Random.Int( 1, 3 ) : 0;
+			FlameImpact( trace.EndPosition, trace.Normal, decal );
+		}
 
 		var length = trace.EndPosition.Distance( origin );
 		var center = (origin + trace.EndPosition) * 0.5f;
@@ -93,7 +96,18 @@ public sealed partial class Gargantua
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
-	static void Scorch( Vector3 position, Vector3 normal, int variant ) => ImpactDecal.Place( position, normal, $"smscorch{variant}", 24 );
+	void FlameImpact( Vector3 position, Vector3 normal, int decal )
+	{
+		if ( Application.IsDedicatedServer || Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount ) return;
+		if ( !_impactSparks.IsValid() )
+		{
+			var go = new GameObject( GameObject, false, "Gargantua flame impacts" ) { NetworkMode = NetworkMode.Never };
+			_impactSparks = StreakSplash.Create( go, mount );
+			go.Enabled = true;
+		}
+		StreakSplash.Emit( _impactSparks, position, normal * 50, new Color32( 255, 130, 90 ), 20 );
+		if ( decal > 0 ) ImpactDecal.Place( position, normal, $"smscorch{decal}", 24 );
+	}
 
 	protected override void OnUpdate()
 	{

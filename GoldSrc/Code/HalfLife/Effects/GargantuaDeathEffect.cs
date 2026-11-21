@@ -5,6 +5,8 @@ public sealed class GargantuaDeathEffect : Component
 {
 	TimeSince _age;
 	int _explosions, _streaks;
+	// GoldSrc tracer color indices 8 through 11.
+	static readonly Color32[] StreakColors = [new( 255, 130, 90 ), new( 255, 140, 90 ), new( 200, 130, 90 ), new( 255, 120, 70 )];
 	bool _burst;
 	ParticleEffect _sparks;
 	HalfLifeMount _mount;
@@ -24,15 +26,7 @@ public sealed class GargantuaDeathEffect : Component
 		_mount = Sandbox.Mounting.Directory.Get( "hl1" ) as HalfLifeMount;
 		if ( _mount is null ) { GameObject.Destroy(); return; }
 		_age = 0;
-		_sparks = GameObject.AddComponent<ParticleEffect>();
-		_sparks.InitialScale = 1.5f;
-		_sparks.Lifetime = 0.35f;
-		_sparks.ApplyColor = true;
-		var renderer = GameObject.AddComponent<ParticleSpriteRenderer>();
-		renderer.Sprite = _mount.GetIndexedSprite( "glow01" );
-		renderer.VelocityStretch = true;
-		renderer.StretchTime = 0.045f;
-		renderer.Additive = true;
+		_sparks = StreakSplash.Create( GameObject, _mount );
 	}
 
 	protected override void OnUpdate()
@@ -55,18 +49,8 @@ public sealed class GargantuaDeathEffect : Component
 		GameObject.Destroy();
 	}
 
-	void Streaks( Vector3 point, int count )
-	{
-		var tint = _mount.PaletteColor( Game.Random.Int( 8, 11 ) );
-		var speed = Game.Random.Float( 50, 150 );
-		for ( int i = 0; i < count; i++ )
-		{
-			var particle = _sparks.Emit( point, 0 );
-			if ( particle is null ) continue;
-			particle.Color = tint;
-			particle.Velocity = Vector3.Up * speed + new Vector3( Game.Random.Float( -400, 400 ), Game.Random.Float( -400, 400 ), Game.Random.Float( -400, 400 ) );
-		}
-	}
+	void Streaks( Vector3 point, int count ) =>
+		StreakSplash.Emit( _sparks, point, Vector3.Up * Game.Random.Float( 50, 150 ), StreakColors[Game.Random.Int( 0, StreakColors.Length - 1 )], count );
 
 	async void Explosion( int index )
 	{
