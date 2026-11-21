@@ -7,7 +7,7 @@ public sealed partial class Houndeye
 	TimeUntil _idleCheck, _closeEyes, _eyeTick;
 	int _shownEye;
 
-	internal override string[] ExtraActions => ["gotosleep", "sleep", "sleeptostand", "wakefast"];
+	internal override string[] ExtraActions => ["gotosleep", "sleep", "sleeptostand", "wakefast", "jumpback"];
 	internal override StudioSequence RestSequence => Sleeping ? Find( "sleep" ) : base.RestSequence;
 
 	protected override void Think()
@@ -38,7 +38,7 @@ public sealed partial class Houndeye
 				return;
 			}
 		}
-		base.Think();
+		if ( !ContinueRetreat() ) base.Think();
 	}
 
 	void Wake( bool startled )
@@ -51,8 +51,11 @@ public sealed partial class Houndeye
 
 	protected override void OnDamaged( Component.IDamageable.DamageEvent damage )
 	{
-		if ( Sleeping && Health > 0 ) Wake( true );
+		var wasSleeping = Sleeping;
+		if ( wasSleeping && Health > 0 ) Wake( true );
 		base.OnDamaged( damage );
+		if ( !wasSleeping && Health > 0 && damage.AcceptedDamage > 0 && InCombat && !_retreatFrom.IsValid() )
+			StartRetreat( LastHostile );
 	}
 
 	protected override void OnUpdate()
