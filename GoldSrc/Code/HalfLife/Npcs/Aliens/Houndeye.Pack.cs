@@ -25,6 +25,6 @@ public sealed partial class Houndeye
 
 	internal override void OnEnemySpotted( GameObject target )
 	{
-		if ( !IsPackFollower ) EmitSound( Sounds.Alert, WorldPosition );
+		if ( !IsPackFollower ) Call( Sounds.Alert );
 	}
 }

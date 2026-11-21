@@ -67,7 +67,7 @@ public sealed partial class Houndeye
 			_nextStudioThink = 0.1f;
 			if ( InCombat && !Sleeping && Action is null && !PhysicsCarrier.IsValid() &&
 				MovementSequence( Animation.MoveVelocity.Length )?.Description.Activity == Run && Game.Random.Float() < 0.2f )
-				EmitSound( HuntSample(), WorldPosition );
+				Call( HuntSample() );
 			if ( Sleeping && _closeEyes <= 0 ) EyeFrame = System.Math.Min( EyeFrame + 1, 3 );
 			else if ( EyeFrame > 0 ) EyeFrame--;
 			else if ( Game.Random.Int( 0, 127 ) == 0 ) EyeFrame = 3;

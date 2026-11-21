@@ -3,7 +3,7 @@ namespace GoldSrc.HalfLife;
 [Title( "Houndeye" ), Category( "Half-Life" )]
 [Alias( "GoldSrc.HalfLifeHoundeye" )]
 [NpcDefinition( "monster_houndeye", "houndeye", MonsterClass.AlienMonster, 20, 16, 36, 130, Attack = NpcAttack.Shock, Damage = 15, Range = 192, Gibs = GibSet.Alien, Blood = BloodColor.Yellow )]
-public sealed partial class Houndeye : Npc
+public sealed partial class Houndeye : VoicedNpc
 {
 	internal override NpcSounds Sounds { get; } = new( "houndeye/he_idle", "houndeye/he_alert", "houndeye/he_pain", "houndeye/he_die", "houndeye/he_blast" );
 
@@ -53,8 +53,14 @@ public sealed partial class Houndeye : Npc
 			5 => "houndeye/he_pain1.wav",
 			_ => null
 		};
-		if ( sound is not null ) EmitSound( sound, WorldPosition, volume: id == 2 ? 0.7f : 1 );
+		if ( id == 2 ) EmitSound( sound, WorldPosition, volume: 0.7f );
+		else if ( sound is not null ) Call( sound );
 	}
+
+	void Call( string sample ) => EmitSound( sample, WorldPosition, speaker: this );
+	internal override void PainSound() => Call( $"houndeye/he_pain{Game.Random.Int( 3, 5 )}.wav" );
+	internal override void IdleSound() => Call( $"houndeye/he_idle{Game.Random.Int( 1, 3 )}.wav" );
+	internal override void DeathSound() => Call( Sounds.Death );
 
 	static string HuntSample() => $"houndeye/he_hunt{Game.Random.Int( 1, 3 )}.wav";
 
