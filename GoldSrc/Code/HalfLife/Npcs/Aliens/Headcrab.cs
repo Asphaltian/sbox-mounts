@@ -13,7 +13,8 @@ public class Headcrab : Npc
 	internal virtual float FacingThreshold => 0.65f;
 	internal virtual bool PerchedOnActor => false;
 	int _pounceAction = -1;
-	GameObject _prey;
+	GameObject _prey, _turnTarget;
+	internal virtual float LeapTurnSpeed => 120;
 	TimeUntil _nextJump, _nextCooCheck;
 	bool _biting;
 
@@ -34,6 +35,15 @@ public class Headcrab : Npc
 
 	protected override void Think()
 	{
+		if ( _turnTarget.IsValid() )
+		{
+			if ( Action is null && IsOnGround && IsLiveTarget( _turnTarget ) && CanHit( _turnTarget, AimAt( _turnTarget ) ) )
+			{
+				FaceForLeap();
+				return;
+			}
+			_turnTarget = null;
+		}
 		base.Think();
 		if ( !InCombat || _nextCooCheck > 0 ) return;
 		_nextCooCheck = 0.1f;
@@ -46,10 +56,37 @@ public class Headcrab : Npc
 	internal override void BeginAttack( GameObject target )
 	{
 		var towards = (target.WorldPosition - WorldPosition).WithZ( 0 ).Normal;
-		if ( _nextJump > 0 || !IsOnGround || (!PerchedOnActor && WorldRotation.Forward.Dot( towards ) < FacingThreshold) ) return;
-		if ( WeightedActivity( Ranged ) is not { } jump ) return;
+		if ( !PerchedOnActor && WorldRotation.Forward.Dot( towards ) < FacingThreshold ) return;
+		PrepareLeap( target );
+	}
+
+	internal void PrepareLeap( GameObject target )
+	{
+		if ( _nextJump > 0 || !IsOnGround ) return;
 		Movement?.Stop();
-		_prey = target;
+		_turnTarget = target;
+		FaceForLeap();
+	}
+
+	void FaceForLeap()
+	{
+		var direction = (_turnTarget.WorldPosition - WorldPosition).WithZ( 0 );
+		if ( !direction.IsNearlyZero() )
+		{
+			var facing = Rotation.LookAt( direction.Normal );
+			var angle = WorldRotation.Distance( facing );
+			var step = LeapTurnSpeed * Time.Delta;
+			if ( angle > step )
+			{
+				WorldRotation = Rotation.Slerp( WorldRotation, facing, step / angle );
+				return;
+			}
+			WorldRotation = facing;
+		}
+
+		_prey = _turnTarget;
+		_turnTarget = null;
+		if ( WeightedActivity( Ranged ) is not { } jump ) return;
 		EmitSound( "headcrab/hc_attack1.wav", WorldPosition, VoiceVolume, VoicePitch );
 		PlayAction( jump );
 		_pounceAction = ActionSerial;

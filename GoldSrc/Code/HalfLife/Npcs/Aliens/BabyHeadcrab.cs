@@ -17,7 +17,8 @@ public sealed class BabyHeadcrab : Headcrab
 	internal override float VoiceVolume => 0.8f;
 	internal override bool PerchedOnActor => GroundObject.IsValid() &&
 		(GroundObject.GetComponentInParent<PlayerController>().IsValid() || GroundObject.GetComponentInParent<Sandbox.Npcs.BaseNpc>().IsValid());
+	internal override float LeapTurnSpeed => 240;
 	internal override float FacingThreshold => 0.55f;
-	internal override void OnPursuitFailed( GameObject target ) => BeginAttack( target );
+	internal override void OnPursuitFailed( GameObject target ) => PrepareLeap( target );
 	internal override void ApplyEquipment() => Renderer.Tint = Renderer.Tint.WithAlpha( 192f / 255f );
 }
