@@ -43,6 +43,7 @@ internal static class GoldSrcSoundEvents
 			Volume = volume,
 			DistanceAttenuation = attenuated,
 			Distance = Range( attenuation ),
+			FalloffMode = SoundFalloffMode.Curve,
 			Falloff = LinearFalloff,
 			OcclusionEnabled = false,
 			ReverbEnabled = false,
