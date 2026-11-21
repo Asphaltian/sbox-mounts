@@ -107,8 +107,14 @@ public abstract partial class GameMount
 	{
 		if ( surface?.Tags == "goldsrc" ) return surface.SoundCollection.Bullet;
 		if ( flesh ) return GetSurfaceSound( 'F', "bullet" );
-		var type = GoldSrcSurfaces.Definitions.FirstOrDefault( x => x.EngineSurface == surface?.ResourceName )?.Type ?? 'C';
-		return GetSurfaceSound( type, "bullet" );
+		return GetSurfaceSound( GetMaterialType( surface ), "bullet" );
+	}
+
+	internal char GetMaterialType( Surface surface )
+	{
+		if ( surface?.Tags == "goldsrc" && GetByPath( surface.ResourcePath ) is GoldSrcSurfaceLoader loader )
+			return loader.MaterialType;
+		return GoldSrcSurfaces.Definitions.FirstOrDefault( x => x.EngineSurface == surface?.ResourceName )?.Type ?? 'C';
 	}
 
 	internal Surface GetAudioBase()

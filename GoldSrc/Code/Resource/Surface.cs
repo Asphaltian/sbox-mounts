@@ -15,6 +15,8 @@ internal sealed class GoldSrcAudioBaseLoader : ResourceLoader<GameMount>
 
 internal sealed class GoldSrcSurfaceLoader( GoldSrcSurfaceDefinition definition ) : ResourceLoader<GameMount>
 {
+	internal char MaterialType => definition.Type;
+
 	protected override object Load()
 	{
 		var original = GameResource.Load<Surface>( $"surfaces/{definition.EngineSurface}.surface" )

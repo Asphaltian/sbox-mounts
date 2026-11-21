@@ -91,10 +91,34 @@ public sealed class Crowbar : StudioWeapon
 			PlaySample( $"weapons/cbar_hitbod{Game.Random.Int( 1, 3 )}.wav" );
 			return;
 		}
-		PlaySample( $"weapons/cbar_hit{Game.Random.Int( 1, 2 )}.wav", pitch: Game.Random.Int( 98, 101 ) / 100f );
+		var volume = PlaySurfaceImpact( shot );
+		if ( volume > 0 )
+			PlaySample( $"weapons/cbar_hit{Game.Random.Int( 1, 2 )}.wav", volume, Game.Random.Int( 98, 101 ) / 100f );
 		_decalPoint = shot.HitPosition;
 		_decalNormal = shot.Normal;
 		_decalDelay = 0.2f;
+	}
+
+	static float PlaySurfaceImpact( ShotEffect shot )
+	{
+		if ( Networking.MaxPlayers > 1 || Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount ) return 1;
+		var material = mount.GetMaterialType( shot.Surface );
+		if ( material == 'F' ) return 0;
+		if ( mount.GetSurfaceSound( material, "bullet" ) is { } impact ) Sound.Play( impact, shot.HitPosition );
+		if ( material == 'P' && Game.Random.Int( 0, 1 ) == 1 )
+		{
+			StudioSparks.Emit( shot.HitPosition, 6 );
+			NpcAudio.Play( mount.NpcAudio.Find( $"buttons/spark{Game.Random.Int( 5, 6 )}.wav" ), shot.HitPosition, Game.Random.Float( 0.7f, 1 ) );
+		}
+		return material switch
+		{
+			'M' or 'V' => 0.3f,
+			'D' => 0.1f,
+			'G' => 0.5f,
+			'T' or 'W' or 'P' or 'Y' or 'U' => 0.2f,
+			'S' => 0,
+			_ => 0.6f
+		};
 	}
 
 	protected override void OnUpdate()
