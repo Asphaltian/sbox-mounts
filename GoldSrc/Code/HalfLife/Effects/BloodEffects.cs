@@ -1,14 +1,14 @@
 namespace GoldSrc.HalfLife;
 
 [Library]
-internal static class BloodEffects
+internal static partial class BloodEffects
 {
 	internal static void Wound( GameObject victim, Npc.BloodColor color, DamageInfo info, float damage )
 	{
 		if ( color == Npc.BloodColor.None || !Npc.HitStudioModel( info ) || damage < 1 ) return;
 
 		var direction = (info.Position - info.Origin).Normal;
-		Spray( color, info.Position, direction, (int)damage );
+		Spray( color, info.Position, (int)damage );
 		var tags = info.Tags;
 		if ( !(tags.Has( "bullet" ) || tags.Has( "slash" ) || tags.Has( "melee" ) || tags.Has( "club" )
 			|| tags.Has( "crush" ) || tags.Has( "blast" ) || tags.Has( "explosion" ) || tags.Has( "mortar" )) ) return;
@@ -28,27 +28,6 @@ internal static class BloodEffects
 	{
 		var prefix = color == Npc.BloodColor.Red ? "blood" : "yblood";
 		ImpactDecal.Place( point, normal, $"{prefix}{variant}", 0 );
-	}
-
-	[Rpc.Broadcast( NetFlags.HostOnly )]
-	internal static void Spray( Npc.BloodColor color, Vector3 point, Vector3 direction, int damage )
-	{
-		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount ) return;
-		var size = System.Math.Clamp( damage * (Connection.All.Count > 1 ? 2 : 1) / 10, 3, 16 );
-		var tint = mount.PaletteColor( (int)color );
-		if ( mount.GetIndexedSprite( "bloodspray" ) is { } mist )
-		{
-			var go = new GameObject( false, "Blood spray" );
-			go.NetworkMode = NetworkMode.Never;
-			go.WorldPosition = point;
-			var sprite = go.AddComponent<SpriteRenderer>();
-			sprite.Sprite = mist;
-			sprite.Color = tint;
-			sprite.Size = size * 6.4f;
-			go.AddComponent<TemporaryEffect>().DestroyAfterSeconds = 0.5f;
-			go.Enabled = true;
-		}
-		Droplets( mount, point, direction, tint, size * 2, size );
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]

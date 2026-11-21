@@ -119,7 +119,7 @@ public sealed class Snark : Npc, Component.ICollisionListener
 
 	protected override void OnDeath( Component.IDamageable.DeathEvent death )
 	{
-		BloodEffects.Spray( Definition.Blood, WorldPosition, Vector3.Up, 80 );
+		BloodEffects.Spray( Definition.Blood, WorldPosition, 80 );
 		EmitSound( "common/bodysplat.wav", WorldPosition, 0.75f, 2 );
 		Blast.DamageInRadius( GameObject, DamageAttacker, WorldPosition + Vector3.Up, BlastDamage, BlastDamage * 2.5f, "blast" );
 		base.OnDeath( death );

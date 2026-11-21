@@ -70,7 +70,7 @@ public sealed partial class AlienGrunt : VoicedNpc
 			PunchPlayer( player, WorldRotation.Right * (id == 12 ? 250 : -250), new Angles( 8, id == 12 ? -25 : 25, 0 ) );
 
 		var blood = victim is Npc npc ? npc.Definition.Blood : player.IsValid() || victim is Sandbox.Npcs.BaseNpc ? BloodColor.Red : BloodColor.None;
-		if ( blood != BloodColor.None ) BloodEffects.Spray( blood, AttackOrigin, WorldRotation.Forward, 25 );
+		if ( blood != BloodColor.None ) BloodEffects.Spray( blood, AttackOrigin, 25 );
 	}
 
 	static bool ShellHit( DamageInfo info ) => HitGroups( info ).Has( "hitgroup_10" )
