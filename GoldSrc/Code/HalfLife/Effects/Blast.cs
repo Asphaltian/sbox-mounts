@@ -3,7 +3,7 @@ namespace GoldSrc.HalfLife;
 [Library]
 internal static partial class Blast
 {
-	internal static void DamageInRadius( GameObject inflictor, GameObject attacker, Vector3 origin, float damage, float radius, string tag )
+	internal static void DamageInRadius( GameObject inflictor, GameObject attacker, Vector3 origin, float damage, float radius, string tag, string extraTag = null )
 	{
 		var scene = inflictor.Scene;
 		scene.GetSystem<Sandbox.Npcs.NpcSystem>()?.EmitStimulus( "explosion", origin, inflictor, 1024, 1 );
@@ -21,6 +21,7 @@ internal static partial class Blast
 			if ( amount <= 0 ) continue;
 			var info = new DamageInfo { Attacker = attacker, Weapon = inflictor, Damage = amount, Origin = origin, Position = hit.EndPosition };
 			info.Tags.Add( tag );
+			if ( extraTag is not null ) info.Tags.Add( extraTag );
 			((Component.IDamageable)victim).OnDamage( info );
 		}
 	}

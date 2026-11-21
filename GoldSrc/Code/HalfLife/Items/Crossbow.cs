@@ -36,9 +36,34 @@ public sealed class Crossbow : ProjectileWeapon
 	void PlayBoltSound() =>
 		PlaySample( "weapons/xbow_reload1.wav", Game.Random.Float( 0.95f, 1 ), Game.Random.Int( 93, 108 ) / 100f );
 
+	public override void PrimaryAttack()
+	{
+		if ( Zoomed ) FireScoped( AimRay );
+		else
+		{
+			SetNextSecondaryFire( PrimaryDelay );
+			base.PrimaryAttack();
+		}
+	}
+
+	[Rpc.Host( NetFlags.OwnerOnly )]
+	void FireScoped( Ray ray ) => TryLaunch( ray, ReleaseScoped );
+
+	bool ReleaseScoped( Ray ray )
+	{
+		var hit = BulletTrace( ray, 8192, 0 ).Run();
+		if ( !hit.Hit ) return true;
+		var victim = hit.GameObject?.GetComponentInParent<IDamageable>();
+		if ( victim is not null ) ShootBullet( hit, 120, 0, new TagSet { "bullet", "nevergib" } );
+		var stick = victim is null && hit.Body?.BodyType != PhysicsBodyType.Dynamic && !hit.HasTag( "glass" );
+		CrossbowBolt.ImpactEffects( hit.EndPosition, ray.Forward, victim is not null, stick );
+		return true;
+	}
+
 	internal override bool Release( Ray ray )
 	{
-		NpcProjectile.Fire<CrossbowBolt>( Owner.GameObject, "mount://hl1/valve/models/crossbow_bolt.mdl.vmdl", 50, null, ray.Position, ray.Forward,
+		GoldSrc.HalfLife.Npc.PunchPlayer( Owner, Vector3.Zero, new Angles( -2, 0, 0 ) );
+		NpcProjectile.Fire<CrossbowBolt>( Owner.GameObject, CrossbowBolt.ModelAsset, 50, null, ray.Position, ray.Forward,
 			WaterBody.Find( Scene, Owner.EyePosition ).IsValid() ? 1000 : 2000 );
 		return true;
 	}

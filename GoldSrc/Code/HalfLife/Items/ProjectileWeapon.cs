@@ -8,11 +8,13 @@ public abstract class ProjectileWeapon : StudioWeapon
 	public override void PrimaryAttack() => Launch( AimRay );
 
 	[Rpc.Host( NetFlags.OwnerOnly )]
-	void Launch( Ray ray )
+	void Launch( Ray ray ) => TryLaunch( ray, Release );
+
+	protected void TryLaunch( Ray ray, System.Func<Ray, bool> release )
 	{
 		if ( !IsActive || !Owner.IsValid() || _nextLaunch > 0 || !ray.Position.IsFinite || !ray.Forward.IsFinite ||
 			ray.Position.Distance( Owner.EyePosition ) > 96 || !HasPrimaryAmmo() ) return;
-		if ( !Release( ray ) ) return;
+		if ( !release( ray ) ) return;
 		TakePrimaryAmmo();
 		_nextLaunch = PrimaryDelay;
 		ShowLaunch();

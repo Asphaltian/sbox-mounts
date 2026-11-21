@@ -84,6 +84,11 @@ public class NpcProjectile : Component
 			return;
 		}
 
+		HandleContact( hit );
+	}
+
+	internal virtual void HandleContact( SceneTraceResult hit )
+	{
 		if ( Bounce( hit ) ) return;
 		var victim = hit.GameObject?.GetComponentInParent<Component.IDamageable>();
 		OnImpact( victim, hit.EndPosition, hit.Normal );
