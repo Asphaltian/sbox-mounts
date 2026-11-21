@@ -108,7 +108,8 @@ public sealed class Zombie : Npc
 		var info = damage.DamageInfo;
 		if ( damage.AcceptedDamage <= 0 || !IsPlainBullet( info ) ) return;
 		var force = System.MathF.Min( damage.AcceptedDamage / BulletDamageScale * 5, 1000 );
-		var origin = info.Weapon.IsValid() ? info.Weapon.GetBounds().Center : info.Origin;
+		var inflictor = info.Weapon.IsValid() ? info.Weapon : damage.Instigator;
+		var origin = inflictor.IsValid() ? inflictor.GetBounds().Center : info.Origin;
 		PushVictim( this, (WorldPosition - origin).Normal * force );
 	}
 }
