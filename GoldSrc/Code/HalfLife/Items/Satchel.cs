@@ -4,17 +4,17 @@ namespace GoldSrc.HalfLife;
 [WeaponPickup( "satchel", "satchels", 5, AlternateModel = "satchel_radio" )]
 public sealed class Satchel : ProjectileWeapon
 {
-	enum SatchelState { Charge, Radio, Detonating }
-	[Sync( SyncFlags.FromHost ), Change( nameof( OnStateChanged ) )] SatchelState State { get; set; }
+	const byte Charge = 0, Radio = 1, Detonating = 2;
+	[Sync( SyncFlags.FromHost ), Change( nameof( OnStateChanged ) )] byte State { get; set; }
 	TimeUntil _radioReady, _redraw;
 
-	internal override string HeldModelName => State == SatchelState.Charge ? Definition.Model : Definition.AlternateModel;
+	internal override string HeldModelName => State == Charge ? Definition.Model : Definition.AlternateModel;
 	internal override string ShotSequence => "draw";
-	public override bool ShouldAvoid => State == SatchelState.Charge && base.ShouldAvoid;
+	public override bool ShouldAvoid => State == Charge && base.ShouldAvoid;
 
-	void OnStateChanged( SatchelState before, SatchelState after )
+	void OnStateChanged( byte before, byte after )
 	{
-		if ( after == SatchelState.Detonating )
+		if ( after == Detonating )
 		{
 			ViewModel?.GetComponent<StudioWeaponView>()?.Play( "fire" );
 			return;
@@ -37,14 +37,14 @@ public sealed class Satchel : ProjectileWeapon
 		StartingAmmo = 1;
 	}
 
-	public override bool CanPrimaryAttack() => State != SatchelState.Detonating && base.CanPrimaryAttack();
-	public override bool CanSecondaryAttack() => State == SatchelState.Radio && base.CanSecondaryAttack();
+	public override bool CanPrimaryAttack() => State != Detonating && base.CanPrimaryAttack();
+	public override bool CanSecondaryAttack() => State == Radio && base.CanSecondaryAttack();
 
 	internal override bool Release( Ray ray )
 	{
-		if ( State == SatchelState.Detonating || _redraw > 0 ) return false;
+		if ( State == Detonating || _redraw > 0 ) return false;
 		PlacedCharge.Throw( Owner, ray );
-		State = SatchelState.Radio;
+		State = Radio;
 		_radioReady = 0.5f;
 		return true;
 	}
@@ -54,8 +54,8 @@ public sealed class Satchel : ProjectileWeapon
 	[Rpc.Host( NetFlags.OwnerOnly )]
 	void DetonateCharges()
 	{
-		if ( !IsActive || !Owner.IsValid() || State != SatchelState.Radio || _radioReady > 0 ) return;
-		State = SatchelState.Detonating;
+		if ( !IsActive || !Owner.IsValid() || State != Radio || _radioReady > 0 ) return;
+		State = Detonating;
 		_redraw = 0.5f;
 		foreach ( var charge in Scene.GetAllComponents<PlacedCharge>().Where( x => !x.IsMine && x.Thrower == Owner.GameObject &&
 			x.WorldPosition.DistanceSquared( Owner.WorldPosition ) <= 4096 * 4096 ).ToArray() )
@@ -65,8 +65,8 @@ public sealed class Satchel : ProjectileWeapon
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
-		if ( !Networking.IsHost || State != SatchelState.Detonating || _redraw > 0 ) return;
-		State = SatchelState.Charge;
+		if ( !Networking.IsHost || State != Detonating || _redraw > 0 ) return;
+		State = Charge;
 		_redraw = 0.5f;
 		if ( IsHeld && !HasPrimaryAmmo() ) Inventory.Remove( this );
 	}
