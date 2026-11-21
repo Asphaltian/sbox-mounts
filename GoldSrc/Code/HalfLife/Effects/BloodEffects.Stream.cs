@@ -2,8 +2,6 @@ namespace GoldSrc.HalfLife;
 
 internal static partial class BloodEffects
 {
-	static Sprite _streamParticle;
-
 	[Rpc.Broadcast( NetFlags.HostOnly )]
 	internal static void Stream( Npc.BloodColor color, Vector3 point, Vector3 direction, float damage )
 	{
@@ -57,22 +55,9 @@ internal static partial class BloodEffects
 			CurveA = new Curve( new Curve.Frame( 0, 1 ), new Curve.Frame( 1 - 1 / (16 * lifetime), 1 ) { Mode = Curve.HandleMode.Linear }, new Curve.Frame( 1, 0 ) )
 		};
 		var sprite = go.AddComponent<ParticleSpriteRenderer>();
-		sprite.Sprite = _streamParticle ??= CreateParticleSprite();
+		sprite.Sprite = PaletteParticle.Sprite;
 		go.AddComponent<TemporaryEffect>().DestroyAfterSeconds = 0;
 		go.Enabled = true;
 		return effect;
-	}
-
-	static Sprite CreateParticleSprite()
-	{
-		var pixels = new byte[8 * 8 * 4];
-		for ( int y = 0; y < 8; y++ )
-		for ( int x = 0; x < 8; x++ )
-		{
-			int i = (y * 8 + x) * 4;
-			pixels[i] = pixels[i + 1] = pixels[i + 2] = 255;
-			if ( x < 4 && y < 4 && !((x == 0 || x == 3) && (y == 0 || y == 3)) ) pixels[i + 3] = 255;
-		}
-		return Sprite.FromTexture( Texture.Create( 8, 8 ).WithData( pixels ).Finish() );
 	}
 }

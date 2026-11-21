@@ -32,16 +32,11 @@ internal static partial class Blast
 		else SmokePuff( "Explosion smoke", origin, (damage - 50) * 0.08f );
 	}
 
-	internal static async void ExplosionFlash( string name, Vector3 origin, float scale, bool underwater )
+	internal static void ExplosionFlash( string name, Vector3 origin, float scale, bool underwater )
 	{
-		var flash = SpriteEffect( name, underwater ? "wxplo1" : "zerogxplode", origin, scale, 15 );
-		if ( !flash.IsValid() ) return;
-		var light = flash.AddComponent<PointLight>();
-		light.LightColor = new Color( 1, 0.72f, 0.36f );
-		light.Radius = 200;
-		light.Shadows = false;
-		await GameTask.DelaySeconds( 0.1f );
-		if ( light.IsValid() ) light.Destroy();
+		var flash = SpriteEffect( name, underwater ? "wxplo1" : "zerogxplode", origin + Vector3.Up * 10, scale, 15 );
+		if ( flash.IsValid() ) flash.GetComponent<SpriteRenderer>().Color = Color.White.WithAlpha( 180f / 255 );
+		ExplosionParticles.Spawn( origin, flash );
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
