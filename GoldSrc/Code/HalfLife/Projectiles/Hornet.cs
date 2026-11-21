@@ -1,11 +1,11 @@
 namespace GoldSrc.HalfLife;
 
 [Hide]
-public sealed class Hornet : NpcProjectile, Component.IDamageable
+public class Hornet : NpcProjectile, Component.IDamageable
 {
 	internal override float LaunchSpeed => 300;
 	internal override string HitTag => "bullet";
-	internal override float Lifetime => _dashEndsAt > 0 ? _dashEndsAt : Connection.All.Count > 1 ? 3.5f : 5f;
+	internal override float Lifetime => _dashEndsAt > 0 ? _dashEndsAt : Networking.MaxPlayers > 1 ? 3.5f : 5f;
 	float _dashEndsAt;
 	bool PlayerFired => Shooter.IsValid() && Shooter.GetComponent<PlayerController>().IsValid();
 	internal MonsterClass Classification => PlayerFired ? MonsterClass.PlayerWeapon : MonsterClass.AlienWeapon;
@@ -63,7 +63,7 @@ public sealed class Hornet : NpcProjectile, Component.IDamageable
 		Velocity = heading * speed;
 		WorldRotation = Rotation.LookAt( Velocity );
 
-		if ( Connection.All.Count <= 1 && Target.IsValid() && alignment >= 0.4f && WorldPosition.DistanceSquared( _lastKnown ) <= 300 * 300 )
+		if ( Networking.MaxPlayers <= 1 && Target.IsValid() && alignment >= 0.4f && WorldPosition.DistanceSquared( _lastKnown ) <= 300 * 300 )
 		{
 			Velocity *= 2;
 			_dashEndsAt = (float)Age + 1;
@@ -136,4 +136,12 @@ public sealed class Hornet : NpcProjectile, Component.IDamageable
 	{
 		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount ) mount.NpcAudio.Emit( sample, position, volume );
 	}
+}
+
+[Hide]
+public sealed class HornetDart : Hornet
+{
+	internal override float Lifetime => 4.1f;
+	internal override void Guide() { }
+	internal override bool Bounce( SceneTraceResult hit ) => false;
 }

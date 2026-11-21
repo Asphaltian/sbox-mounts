@@ -3,20 +3,21 @@ namespace GoldSrc.HalfLife;
 [Hide]
 public abstract class ProjectileWeapon : StudioWeapon
 {
-	TimeUntil _nextLaunch;
+	TimeUntil _nextLaunch, _nextSecondary;
 
 	public override void PrimaryAttack() => Launch( AimRay );
 
 	[Rpc.Host( NetFlags.OwnerOnly )]
 	void Launch( Ray ray ) => TryLaunch( ray, Release );
 
-	protected void TryLaunch( Ray ray, System.Func<Ray, bool> release )
+	protected void TryLaunch( Ray ray, System.Func<Ray, bool> release, bool secondary = false, float extraDelay = 0 )
 	{
-		if ( !IsActive || !Owner.IsValid() || _nextLaunch > 0 || !ray.Position.IsFinite || !ray.Forward.IsFinite ||
+		if ( !IsActive || !Owner.IsValid() || (secondary ? _nextSecondary : _nextLaunch) > 0 || !ray.Position.IsFinite || !ray.Forward.IsFinite ||
 			ray.Position.Distance( Owner.EyePosition ) > 96 || !HasPrimaryAmmo() ) return;
 		if ( !release( ray ) ) return;
 		TakePrimaryAmmo();
-		_nextLaunch = PrimaryDelay;
+		_nextLaunch = (secondary ? SecondaryDelay : PrimaryDelay) + extraDelay;
+		if ( secondary ) _nextSecondary = _nextLaunch;
 		ShowLaunch();
 	}
 
