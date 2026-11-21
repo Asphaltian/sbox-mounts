@@ -1,7 +1,7 @@
 namespace GoldSrc.HalfLife;
 
 [Title( "Snarks" ), Category( "Half-Life" )]
-[WeaponPickup( "squeak", "snarks", 15, ClassName = "snark", PickupModel = "w_sqknest" )]
+[WeaponPickup( "squeak", "snarks", 15, ClassName = "snark", PickupModel = "w_sqknest", Bucket = 4, Weight = 5 )]
 public sealed class SnarkWeapon : ProjectileWeapon
 {
 	TimeUntil? _redraw;

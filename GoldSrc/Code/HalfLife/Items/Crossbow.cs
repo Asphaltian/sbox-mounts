@@ -1,7 +1,7 @@
 namespace GoldSrc.HalfLife;
 
 [Title( "Crossbow" ), Category( "Half-Life" )]
-[WeaponPickup( "crossbow", "bolts", 50 )]
+[WeaponPickup( "crossbow", "bolts", 50, Bucket = 2, Weight = 10 )]
 public sealed class Crossbow : ProjectileWeapon
 {
 	internal override float ZoomFieldOfView => 20;

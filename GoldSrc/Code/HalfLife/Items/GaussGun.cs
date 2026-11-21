@@ -1,7 +1,7 @@
 namespace GoldSrc.HalfLife;
 
 [Title( "Tau Cannon" ), Category( "Half-Life" )]
-[WeaponPickup( "gauss", "uranium", 100 )]
+[WeaponPickup( "gauss", "uranium", 100, Bucket = 3, Weight = 20 )]
 public sealed partial class GaussGun : StudioWeapon
 {
 	static float FullChargeTime => Networking.MaxPlayers > 1 ? 1.5f : 4;
@@ -13,6 +13,7 @@ public sealed partial class GaussGun : StudioWeapon
 	SoundHandle _spinSound;
 
 	internal override string ShotSequence => "fire";
+	internal override bool SwitchWhenSpent => !_triggerHeld && !_charging && !_spinning;
 	internal override (string Name, float? Delay) IdleAnimation => (_spinning ? "spin" : "idle", null);
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => new( 28.4f, 2.8f, hd ? 4.6f : 4.1f );
 

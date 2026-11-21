@@ -1,7 +1,7 @@
 namespace GoldSrc.HalfLife;
 
 [Title( "Rocket Launcher" ), Category( "Half-Life" )]
-[WeaponPickup( "rpg", "rockets", 5 )]
+[WeaponPickup( "rpg", "rockets", 5, Bucket = 3, Weight = 20, SkipAutoSelect = true )]
 public sealed partial class RocketLauncher : ProjectileWeapon
 {
 	internal override string DeploySequence => Clip1 > 0 ? "draw1" : "draw2";

@@ -1,7 +1,7 @@
 namespace GoldSrc.HalfLife;
 
 [Title( "9mm Assault Rifle" ), Category( "Half-Life" )]
-[WeaponPickup( "9mmar", "9mm", 250 )]
+[WeaponPickup( "9mmar", "9mm", 250, Bucket = 2, Weight = 15 )]
 public sealed class Rifle : BulletWeapon
 {
 	internal override int PlayerMuzzleFlash => 40;

@@ -1,7 +1,7 @@
 namespace GoldSrc.HalfLife;
 
 [Title( ".357 Magnum" ), Category( "Half-Life" )]
-[WeaponPickup( "357", "357", 36 )]
+[WeaponPickup( "357", "357", 36, Bucket = 1, Weight = 15 )]
 public sealed class Revolver : BulletWeapon
 {
 	internal override int PlayerMuzzleFlash => 31;

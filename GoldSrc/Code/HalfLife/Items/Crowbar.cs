@@ -1,7 +1,7 @@
 namespace GoldSrc.HalfLife;
 
 [Title( "Crowbar" ), Category( "Half-Life" )]
-[WeaponPickup( "crowbar", null, 0 )]
+[WeaponPickup( "crowbar", null, 0, Bucket = 0, Weight = 0 )]
 public sealed class Crowbar : StudioWeapon
 {
 	static readonly BBox HeadHull = new( new Vector3( -16, -16, -18 ), new Vector3( 16, 16, 18 ) );

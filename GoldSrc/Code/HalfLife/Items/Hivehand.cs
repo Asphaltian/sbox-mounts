@@ -1,7 +1,7 @@
 namespace GoldSrc.HalfLife;
 
 [Title( "Hivehand" ), Category( "Half-Life" )]
-[WeaponPickup( "hgun", "hornets", 8, ClassName = "hornetgun" )]
+[WeaponPickup( "hgun", "hornets", 8, ClassName = "hornetgun", Bucket = 3, Weight = 15 )]
 public sealed class Hivehand : ProjectileWeapon
 {
 	internal override string DeploySequence => "up";

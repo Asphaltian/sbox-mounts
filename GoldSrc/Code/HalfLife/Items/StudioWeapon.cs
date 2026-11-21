@@ -6,6 +6,9 @@ internal sealed class WeaponPickupAttribute( string model, string ammo, int limi
 	internal string Model => model;
 	internal string Ammo => ammo;
 	internal int Limit => limit;
+	public int Bucket { get; set; }
+	public int Weight { get; set; } = -1;
+	public bool SkipAutoSelect { get; set; }
 	public string AlternateModel { get; set; }
 	internal IEnumerable<string> ViewModelPaths
 	{

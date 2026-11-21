@@ -1,7 +1,7 @@
 namespace GoldSrc.HalfLife;
 
 [Title( "Shotgun" ), Category( "Half-Life" )]
-[WeaponPickup( "shotgun", "buckshot", 125 )]
+[WeaponPickup( "shotgun", "buckshot", 125, Bucket = 2, Weight = 15 )]
 public sealed class Shotgun : BulletWeapon
 {
 	internal override int PlayerMuzzleFlash => 51;

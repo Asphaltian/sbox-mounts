@@ -1,7 +1,7 @@
 namespace GoldSrc.HalfLife;
 
 [Title( "Hand Grenade" ), Category( "Half-Life" )]
-[WeaponPickup( "grenade", "grenades", 10, ClassName = "handgrenade" )]
+[WeaponPickup( "grenade", "grenades", 10, ClassName = "handgrenade", Bucket = 4, Weight = 5 )]
 public sealed class HandGrenade : StudioWeapon
 {
 	internal override (string Name, float? Delay) IdleAnimation => Game.Random.Float( 0, 1 ) <= 0.75f

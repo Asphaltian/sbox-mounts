@@ -1,11 +1,12 @@
 namespace GoldSrc.HalfLife;
 
 [Title( "Gluon Gun" ), Category( "Half-Life" )]
-[WeaponPickup( "egon", "uranium", 100 )]
+[WeaponPickup( "egon", "uranium", 100, Bucket = 3, Weight = 20 )]
 public sealed partial class GluonGun : StudioWeapon
 {
 	internal override string ShotSequence => $"fire{Game.Random.Int( 1, 4 )}";
 	internal override bool CanIdle => !_firing && _idleAfterShutdown <= 0;
+	internal override bool SwitchWhenSpent => !_firing;
 	internal override (string Name, float? Delay) IdleAnimation =>
 		Game.Random.Int( 0, 1 ) == 0 ? ("idle1", Game.Random.Float( 10, 15 )) : ("fidget1", 3);
 	SoundHandle _beamSound;
