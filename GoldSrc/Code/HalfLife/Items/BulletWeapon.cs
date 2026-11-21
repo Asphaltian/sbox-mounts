@@ -12,6 +12,8 @@ public abstract class BulletWeapon : StudioWeapon
 	protected override void OnShootEffects( ShotEffect shot )
 	{
 		base.OnShootEffects( shot );
+		if ( !Application.IsDedicatedServer && (shot.Hit || shot.HitPosition != default) )
+			Blast.BulletBubbles( Scene, GetMuzzleTransform().Position, shot.HitPosition );
 		if ( !shot.NoEvents ) ShowPlayerMuzzleFlash();
 	}
 
