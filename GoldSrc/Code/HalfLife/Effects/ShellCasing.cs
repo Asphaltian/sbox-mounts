@@ -5,7 +5,7 @@ public sealed class ShellCasing : Component, Component.ICollisionListener
 {
 	bool _shotgun;
 
-	internal static void Eject( Vector3 origin, Rotation facing, bool shotgun, Vector3 inherited = default )
+	internal static void Eject( Vector3 origin, Rotation facing, bool shotgun, Vector3 velocity )
 	{
 		if ( Application.IsDedicatedServer ) return;
 		var shell = new GameObject( false, shotgun ? "Shotgun shell" : "Brass casing" );
@@ -27,7 +27,7 @@ public sealed class ShellCasing : Component, Component.ICollisionListener
 		shell.AddComponent<ShellCasing>()._shotgun = shotgun;
 		shell.Enabled = true;
 		body.AngularVelocity = facing.Forward * Game.Random.Float( -14, 14 );
-		body.Velocity = inherited + facing.Right * Game.Random.Float( 40, 90 ) + Vector3.Up * Game.Random.Float( 75, 200 ) + facing.Forward * Game.Random.Float( -40, 40 );
+		body.Velocity = velocity;
 	}
 
 	void ICollisionListener.OnCollisionStart( Collision collision )

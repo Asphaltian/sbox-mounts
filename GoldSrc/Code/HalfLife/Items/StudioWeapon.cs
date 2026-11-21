@@ -143,7 +143,12 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 		if ( Application.IsDedicatedServer || !Owner.IsValid() ) return;
 		var pose = Owner.EyeTransform;
 		var origin = pose.PointToWorld( shotgun ? new Vector3( 32, -6, -12 ) : new Vector3( 20, -4, -12 ) );
-		for ( int i = 0; i < count; i++ ) ShellCasing.Eject( origin, pose.Rotation, shotgun, Owner.Velocity );
+		for ( int i = 0; i < count; i++ )
+		{
+			var velocity = Owner.Velocity + pose.Rotation.Right * Game.Random.Float( 50, 70 )
+				+ pose.Rotation.Up * Game.Random.Float( 100, 150 ) + pose.Rotation.Forward * 25;
+			ShellCasing.Eject( origin, pose.Rotation, shotgun, velocity );
+		}
 	}
 
 	protected SoundHandle PlaySample( string sample, float volume = 1, float pitch = 1 )
