@@ -120,13 +120,32 @@ public sealed partial class Bullsquid : Npc
 		if ( id == 2 )
 			PushVictim( TraceMelee( 70, 25, "slash", out _ ), -WorldRotation.Forward * 100 + Vector3.Up * 100 );
 		if ( id == 4 )
-			PushVictim( TraceMelee( 70, 35, "club", out _, "alwaysgib" ), WorldRotation.Right * 200 + Vector3.Up * 100 );
+		{
+			var victim = TraceMelee( 70, 35, "club", out _, "alwaysgib" );
+			var push = WorldRotation.Right * 200 + Vector3.Up * 100;
+			if ( victim.IsValid() && victim.GameObject.GetComponent<PlayerController>() is { } player )
+				PunchPlayer( player, push, new Angles( 20, 0, -20 ) );
+			else
+				PushVictim( victim, push );
+		}
 		if ( id == 6 && TraceMelee( 70, 0, null, out _ ) is { } prey )
 		{
 			EmitSound( $"bullchicken/bc_bite{Game.Random.Int( 2, 3 )}.wav", WorldPosition, pitch: Game.Random.Float( 0.9f, 1.1f ) );
-			if ( prey.GameObject.GetComponent<PlayerController>() is not null )
-				PushVictim( prey, (WorldRotation.Forward + Vector3.Up) * 300 );
+			if ( prey.GameObject.GetComponent<PlayerController>() is { } player )
+			{
+				using ( Rpc.FilterInclude( player.Network.Owner ?? Connection.Local ) )
+					ThrowPlayer( player, (WorldRotation.Forward + Vector3.Up) * 300 );
+			}
 		}
+	}
+
+	[Rpc.Broadcast( NetFlags.HostOnly )]
+	static void ThrowPlayer( PlayerController player, Vector3 impulse )
+	{
+		if ( !player.IsValid() || player.IsProxy || !player.Body.IsValid() ) return;
+		if ( player.IsOnGround && player.Scene.Camera is { } camera )
+			player.Scene.GetSystem<CameraEffectSystem>().AddShake( camera, 25, 1.5f, 0.7f );
+		player.Body.Velocity += impulse;
 	}
 
 	internal override void FireProjectile( GameObject target, Vector3 origin, Vector3 direction )

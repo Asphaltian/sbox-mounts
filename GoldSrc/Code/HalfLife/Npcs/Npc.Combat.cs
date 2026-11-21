@@ -242,7 +242,7 @@ public partial class Npc
 	{
 		if ( !player.IsValid() || player.IsProxy ) return;
 		if ( player.Body.IsValid() ) player.Body.Velocity += push;
-		if ( !player.ThirdPerson ) MeleeViewPunch.Apply( player.Scene.Camera, punch );
+		if ( !player.ThirdPerson && punch != Angles.Zero ) MeleeViewPunch.Apply( player.Scene.Camera, punch );
 	}
 
 	internal static void PushVictim( Component victim, Vector3 impulse )
@@ -250,7 +250,7 @@ public partial class Npc
 		if ( victim is Sandbox.Npcs.BaseNpc npc && npc.GetComponent<Rigidbody>() is { } body )
 			npc.Launch( body.Velocity + impulse );
 		else if ( victim?.GameObject.GetComponent<PlayerController>() is { } player && player.Body.IsValid() )
-			player.Body.Velocity += impulse;
+			PunchPlayer( player, impulse, Angles.Zero );
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
