@@ -32,9 +32,29 @@ public sealed class Zombie : Npc
 	internal override void BeginAttack( GameObject target )
 	{
 		var offset = (target.WorldPosition - WorldPosition).WithZ( 0 ).Normal;
-		if ( WorldRotation.Forward.Dot( offset ) < 0.7f ) return;
+		if ( !offset.IsNearlyZero() && Vector3.GetAngle( WorldRotation.Forward, offset ) > 0.1f ) return;
 		if ( target.GetComponent<Sandbox.Npcs.BaseNpc>() is { IsOnGround: false } || target.GetComponent<PlayerController>() is { IsOnGround: false } ) return;
 		if ( WeightedActivity( Melee ) is { } attack ) PlayAction( attack );
+	}
+
+	protected override void OnUpdate()
+	{
+		base.OnUpdate();
+		if ( !Networking.IsHost || Health <= 0 || !LastHostile.IsValid() ) return;
+		if ( Action is null )
+		{
+			if ( !InAttackRange( LastHostile, LastHostile.WorldPosition ) ) return;
+		}
+		else if ( Find( Action )?.Description.Activity != Melee ) return;
+		var direction = (LastHostile.WorldPosition - WorldPosition).WithZ( 0 );
+		if ( direction.IsNearlyZero() ) return;
+		var facing = Rotation.LookAt( direction.Normal );
+		var remaining = WorldRotation.Distance( facing );
+		if ( remaining > 0.01f )
+		{
+			// GoldSrc ChangeYaw advances twice the monster's yaw speed per second.
+			WorldRotation = Rotation.Slerp( WorldRotation, facing, System.MathF.Min( 1, 240 * Time.Delta / remaining ) );
+		}
 	}
 
 	internal override StudioSequence SelectFlinch( Component.IDamageable.DamageEvent damage )
