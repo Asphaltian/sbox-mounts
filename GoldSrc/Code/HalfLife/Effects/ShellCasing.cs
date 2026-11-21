@@ -12,6 +12,7 @@ public sealed class ShellCasing : Component, Component.ICollisionListener
 		shell.NetworkMode = NetworkMode.Never;
 		shell.Tags.Add( "debris" );
 		shell.WorldPosition = origin;
+		shell.WorldRotation = Rotation.FromYaw( facing.Angles().yaw );
 		shell.AddComponent<ModelRenderer>().Model = Model.Load( shotgun ? "mount://hl1/valve/models/shotgunshell.mdl.vmdl" : "mount://hl1/valve/models/shell.mdl.vmdl" );
 		var collider = shell.AddComponent<SphereCollider>();
 		collider.Radius = 0.5f;
