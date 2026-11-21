@@ -45,7 +45,7 @@ public sealed class GargantuaDeathEffect : Component
 			BreakModel();
 		}
 		if ( _age < 2.5f ) return;
-		Blast.SpriteEffect( "Gargantua smoke", "steam1", WorldPosition, 4.6f, 12 );
+		Blast.SmokePuff( "Gargantua smoke", WorldPosition, 4.6f );
 		GameObject.Destroy();
 	}
 
@@ -67,7 +67,7 @@ public sealed class GargantuaDeathEffect : Component
 		NpcAudio.Play( _mount.NpcAudio.Find( $"weapons/explode{Game.Random.Int( 3, 5 )}.wav" ), point, attenuation: 0.3f );
 		Streaks( point, Game.Random.Int( 0, 3 ) );
 		await GameTask.DelaySeconds( 0.3f );
-		if ( IsValid ) Blast.SpriteEffect( "Gargantua explosion smoke", "steam1", point, scale, 12 );
+		if ( IsValid ) Blast.SmokePuff( "Gargantua explosion smoke", point, scale );
 	}
 
 	void BreakModel()

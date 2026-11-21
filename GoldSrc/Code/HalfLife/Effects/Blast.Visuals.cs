@@ -29,7 +29,7 @@ internal static partial class Blast
 		await GameTask.DelaySeconds( 0.3f );
 		if ( !scene.IsValid() ) return;
 		if ( underwater ) Bubbles( origin, 64, 100, "Explosion bubbles" );
-		else SpriteEffect( "Explosion smoke", "steam1", origin, (damage - 50) * 0.08f, 12 );
+		else SmokePuff( "Explosion smoke", origin, (damage - 50) * 0.08f );
 	}
 
 	internal static async void ExplosionFlash( string name, Vector3 origin, float scale, bool underwater )
@@ -45,9 +45,18 @@ internal static partial class Blast
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
-	internal static void Smoke( Vector3 origin, float scale ) => SpriteEffect( "Aircraft smoke", "steam1", origin, scale, 12 );
+	internal static void Smoke( Vector3 origin, float scale ) => SmokePuff( "Aircraft smoke", origin, scale );
 
-	internal static GameObject SpriteEffect( string name, string asset, Vector3 origin, float scale, float fps )
+	internal static void SmokePuff( string name, Vector3 origin, float scale )
+	{
+		var shade = (byte)Game.Random.Int( 20, 35 );
+		var puff = SpriteEffect( name, "steam1", origin + Vector3.Up * 20, scale, 12, additive: false );
+		if ( !puff.IsValid() ) return;
+		puff.GetComponent<SpriteRenderer>().Color = new Color32( shade, shade, shade, 255 );
+		puff.AddComponent<RisingSmoke>();
+	}
+
+	internal static GameObject SpriteEffect( string name, string asset, Vector3 origin, float scale, float fps, bool additive = true )
 	{
 		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount || mount.GetIndexedSprite( asset ) is not { } sprite ) return null;
 		var animation = sprite.Animations[0];
@@ -59,7 +68,7 @@ internal static partial class Blast
 		renderer.Sprite = sprite;
 		renderer.Size = new Vector2( image.Width, image.Height ) * scale;
 		renderer.PlaybackSpeed = fps / animation.FrameRate;
-		renderer.Additive = true;
+		renderer.Additive = additive;
 		go.AddComponent<TemporaryEffect>().DestroyAfterSeconds = animation.Frames.Count / fps;
 		go.Enabled = true;
 		return go;
