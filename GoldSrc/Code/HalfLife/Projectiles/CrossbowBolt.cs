@@ -12,11 +12,11 @@ public sealed class CrossbowBolt : NpcProjectile
 		WorldRotation *= Rotation.FromRoll( 10 * Time.Delta );
 		if ( Age < _nextBubble ) return;
 		_nextBubble = Age + 0.1f;
-		if ( WaterBody.Find( Scene, WorldPosition ).IsValid() ) Bubble( WorldPosition - Velocity * 0.05f );
+		if ( WaterBody.Find( Scene, WorldPosition ).IsValid() ) Bubble( WorldPosition - Velocity * 0.1f, WorldPosition );
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
-	static void Bubble( Vector3 position ) => Blast.Bubbles( position, 1, 1, "Crossbow bubble" );
+	static void Bubble( Vector3 start, Vector3 end ) => Blast.BubbleTrail( Game.ActiveScene, start, end, 1, "Crossbow bubble" );
 
 	internal override void HandleContact( SceneTraceResult hit )
 	{

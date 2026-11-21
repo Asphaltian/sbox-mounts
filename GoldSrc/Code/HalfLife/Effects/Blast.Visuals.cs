@@ -69,49 +69,4 @@ internal static partial class Blast
 		return go;
 	}
 
-	internal static void Bubbles( Vector3 origin, float radius, int count, string name )
-	{
-		var effect = CreateBubbles( origin, name );
-		if ( !effect.IsValid() ) return;
-		for ( int i = 0; i < count; i++ )
-		{
-			var bubble = effect.Emit( origin + Vector3.Random * radius, 0 );
-			if ( bubble is not null ) bubble.Velocity = Vector3.Up * Game.Random.Float( 32, 64 ) + Vector3.Random * 8;
-		}
-	}
-
-	internal static void BulletBubbles( Scene scene, Vector3 start, Vector3 end )
-	{
-		var count = System.Math.Min( 255, (int)(start.Distance( end ) / 64) );
-		if ( count < 1 ) return;
-		var water = WaterBody.Find( scene, start );
-		if ( !water.IsValid() || !water.Contains( start + Vector3.Up * 8 ) )
-		{
-			water = WaterBody.Find( scene, end );
-			if ( !water.IsValid() || !water.Contains( end + Vector3.Up * 8 ) ) return;
-		}
-		var effect = CreateBubbles( start, "Bullet bubbles" );
-		if ( !effect.IsValid() ) return;
-		for ( int i = 0; i < count; i++ )
-		{
-			var point = Vector3.Lerp( start, end, (i + Game.Random.Float( 0, 1 )) / count );
-			if ( water.Contains( point ) && effect.Emit( point, 0 ) is { } bubble )
-				bubble.Velocity = Vector3.Up * Game.Random.Float( 8, 16 );
-		}
-	}
-
-	static ParticleEffect CreateBubbles( Vector3 origin, string name )
-	{
-		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount || mount.GetIndexedSprite( "bubble" ) is not { } sprite ) return null;
-		var go = new GameObject( false, name );
-		go.NetworkMode = NetworkMode.Never;
-		go.WorldPosition = origin;
-		var effect = go.AddComponent<ParticleEffect>();
-		effect.Lifetime = 1;
-		effect.InitialScale = 2;
-		go.AddComponent<ParticleSpriteRenderer>().Sprite = sprite;
-		go.AddComponent<TemporaryEffect>().DestroyAfterSeconds = 1.1f;
-		go.Enabled = true;
-		return effect;
-	}
 }

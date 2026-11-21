@@ -38,7 +38,7 @@ public sealed class PlayerRocket : RocketProjectile
 			Velocity = Velocity * 0.2f + desired * (Velocity.Length * 0.8f + 400);
 			var limit = underwater ? 300 : 2000;
 			if ( Velocity.Length > limit ) Velocity = Velocity.Normal * limit;
-			if ( underwater ) ShowBubbles();
+			if ( underwater ) ShowBubbles( WorldPosition - Velocity * 0.1f, WorldPosition );
 		}
 		else
 		{
@@ -87,7 +87,7 @@ public sealed class PlayerRocket : RocketProjectile
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
-	void ShowBubbles() => Blast.Bubbles( WorldPosition - Velocity * 0.05f, 10, 4, "Rocket bubbles" );
+	static void ShowBubbles( Vector3 start, Vector3 end ) => Blast.BubbleTrail( Game.ActiveScene, start, end, 4, "Rocket bubbles" );
 
 	internal override void OnImpact( IDamageable victim, Vector3 position, Vector3 normal )
 		=> Blast.Detonate( GameObject, Shooter, position, normal, Damage, true );
