@@ -13,16 +13,18 @@ public sealed class ShellCasing : Component, Component.ICollisionListener
 		shell.Tags.Add( "debris" );
 		shell.WorldPosition = origin;
 		shell.WorldRotation = Rotation.FromYaw( facing.Angles().yaw );
-		shell.AddComponent<ModelRenderer>().Model = Model.Load( shotgun ? "mount://hl1/valve/models/shotgunshell.mdl.vmdl" : "mount://hl1/valve/models/shell.mdl.vmdl" );
-		var collider = shell.AddComponent<SphereCollider>();
-		collider.Radius = 0.5f;
-		collider.Elasticity = 0.5f;
+		var model = Model.Load( shotgun ? "mount://hl1/valve/models/shotgunshell.mdl.vmdl" : "mount://hl1/valve/models/shell.mdl.vmdl" );
+		shell.AddComponent<ModelRenderer>().Model = model;
+		var collider = shell.AddComponent<ModelCollider>();
+		collider.Model = model;
+		collider.Elasticity = 0.35f;
 		var body = shell.AddComponent<Rigidbody>();
 		body.RigidbodyFlags |= RigidbodyFlags.DisableCollisionSounds;
 		body.EnhancedCcd = true;
 		shell.AddComponent<TemporaryEffect>().DestroyAfterSeconds = 2.5f;
 		shell.AddComponent<ShellCasing>()._shotgun = shotgun;
 		shell.Enabled = true;
+		body.AngularVelocity = facing.Forward * Game.Random.Float( -14, 14 );
 		body.Velocity = inherited + facing.Right * Game.Random.Float( 40, 90 ) + Vector3.Up * Game.Random.Float( 75, 200 ) + facing.Forward * Game.Random.Float( -40, 40 );
 	}
 
