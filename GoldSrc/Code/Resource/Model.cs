@@ -184,7 +184,7 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 			boneIndex++;
 		}
 
-		BBox? rigidBounds = null;
+		var boneBounds = new BBox?[bones.Count];
 		var collisionVertices = new List<Vector3>();
 		var collisionIndices = new List<int>();
 		var materialCache = new Dictionary<int, Material>();
@@ -213,7 +213,8 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 					var boneVertex = boneVertices[i];
 					var position = boneTransforms[boneVertex].PointToWorld( vertices[i] );
 					collisionVertices.Add( position );
-					if ( bones.Count == 1 ) rigidBounds = (rigidBounds ?? new BBox( vertices[i], vertices[i] )).AddPoint( vertices[i] );
+					ref var bounds = ref boneBounds[boneVertex];
+					bounds = bounds?.AddPoint( vertices[i] ) ?? new BBox( vertices[i], vertices[i] );
 				}
 
 				if ( bodyPartModel.NumMesh == 0 )
@@ -298,7 +299,8 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 			}
 		}
 
-		if ( rigidBounds.HasValue ) bones[0] = bones[0] with { Bounds = rigidBounds };
+		for ( int i = 0; i < bones.Count; i++ )
+			bones[i] = bones[i] with { Bounds = boneBounds[i] };
 		if ( bones.Count > 0 ) builder.AddBones( [.. bones] );
 
 		var sequences = new List<StudioSequence>();
