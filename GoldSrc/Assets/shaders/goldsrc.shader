@@ -29,6 +29,7 @@ COMMON
 struct VertexInput
 {
 	#include "common/vertexinput.hlsl"
+	float4 vChromeBone : TEXCOORD4 < Semantic( None ); >;
 };
 
 struct PixelInput
@@ -38,11 +39,31 @@ struct PixelInput
 
 VS
 {
+	StaticCombo( S_CHROME, F_CHROME, Sys( ALL ) );
 	#include "common/vertex.hlsl"
+	float2 g_vChromeUvScale < Default2( 0.5, 0.5 ); >;
 
 	PixelInput MainVs( VertexInput v )
 	{
 		PixelInput i = ProcessVertex( v );
+		#if S_CHROME
+			// Studio chrome is projected per normal, using the camera and its animated bone pivot.
+			float3x4 bone = GetTransformMatrix( v.nInstanceTransformID, (uint)v.vChromeBone.w );
+			float3 pivot = mul( bone, float4( v.vChromeBone.xyz, 1 ) );
+			float3 view = pivot - g_vCameraPositionWs;
+			view = dot( view, view ) > 1e-8 ? normalize( view ) : g_vCameraDirWs;
+			float3 right = cross( g_vCameraDirWs, g_vCameraUpDirWs );
+			float3 up = cross( view, right );
+			up = dot( up, up ) > 1e-8 ? normalize( up ) : normalize( cross( view, g_vCameraUpDirWs ) );
+			right = normalize( cross( view, up ) );
+
+			float3 bindNormal;
+			float4 tangent;
+			VS_DecodeObjectSpaceNormalAndTangent( v, bindNormal, tangent );
+			float sign;
+			float3 normal = TransformNormalInverseTranspose( bindNormal, (float3x3)bone, sign );
+			i.vTextureCoords.xy = (float2( dot( normal, right ), dot( normal, up ) ) + 1) * g_vChromeUvScale;
+		#endif
 		return FinalizeVertex( i );
 	}
 }
@@ -55,7 +76,6 @@ PS
 	CreateInputTexture2D( Color, Srgb, 8, "None", "_color", ",0/,0/0", Default4( 1.00, 1.00, 1.00, 1.00 ) );
 	Texture2D g_tColor < Channel( RGBA, Box( Color ), Srgb ); OutputFormat( DXT5 ); SrgbRead( true ); >;
 	
-	StaticCombo( S_CHROME, F_CHROME, Sys( ALL ) )
 	StaticCombo( S_FULLBRIGHT, F_FULLBRIGHT, Sys( ALL ) )
 	StaticCombo( S_ADDITIVE, F_ADDITIVE, Sys( ALL ) )
 
@@ -94,12 +114,6 @@ PS
 		{
 			m.Emission = m.Albedo;
 			m.Albedo = 0;
-		}
-		else if ( S_CHROME )
-		{
-			m.Roughness = length( m.Albedo ) * 0.5; // Use brightness for roughness
-			m.Albedo = m.Albedo.x > 0.0f ? normalize(m.Albedo) : 0.04; // Just get hue from albedo, fix overdark areas
-			m.Metalness = 1.0f;
 		}
 
 		return ShadingModelStandard::Shade( i, m );

@@ -205,6 +205,14 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 					var t = 1.0f / textureHeight;
 
 					var uniqueVertices = new List<SkinnedVertex>( triVerts.Length );
+					List<ChromeVertex> chromeVertices = null;
+					for ( int skin = 0; skin < textureMdl.Header.NumSkinFamilies; skin++ )
+					{
+						textureMdl.GetTextureData( textureMdl.GetTextureIndex( modelMesh.SkinRef, skin ), out _, out _, out _, out var flags );
+						if ( !flags.HasFlag( Mdl.LightingFlags.Chrome ) ) continue;
+						chromeVertices = new( triVerts.Length );
+						break;
+					}
 					var vertexMap = new Dictionary<GoldSrc.Mdl.TriVert, int>();
 					var indices = new int[triVerts.Length];
 					var indexCount = 0;
@@ -224,7 +232,10 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 							var blendIndices = new Color32( boneVertex, 0, 0, 0 );
 							var blendWeights = new Color32( 255, 0, 0, 0 );
 
-							uniqueVertices.Add( new SkinnedVertex( position, normal, new Vector2( triVert.S * s, triVert.T * t ), blendIndices, blendWeights ) );
+							var vertex = new SkinnedVertex( position, normal, new Vector2( triVert.S * s, triVert.T * t ), blendIndices, blendWeights );
+							uniqueVertices.Add( vertex );
+							var normalBone = normalBones[triVert.NormIndex];
+							chromeVertices?.Add( new ChromeVertex( vertex, boneTransforms[normalBone].Position, normalBone ) );
 							vertexMap[triVert] = index;
 						}
 
@@ -243,7 +254,8 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 					}
 
 					var mesh = new Mesh( bodyPartModel.Name, material );
-					mesh.CreateVertexBuffer( uniqueVertices.Count, uniqueVertices );
+					if ( chromeVertices is not null ) mesh.CreateVertexBuffer( chromeVertices.Count, chromeVertices );
+					else mesh.CreateVertexBuffer( uniqueVertices.Count, uniqueVertices );
 					mesh.CreateIndexBuffer( indices.Length, indices );
 					mesh.Bounds = BBox.FromPoints( uniqueVertices.Select( x => x.Position ) );
 					builder.AddMesh( mesh, bodyPart.Name, modelIndex );
@@ -343,9 +355,11 @@ class ModelLoader( string fullPath, bool npcAnimations = false, HalfLife.NpcDefi
 
 	Material CreateMaterial( Mdl.File studio, int textureIndex )
 	{
-		studio.GetTextureData( textureIndex, out var name, out _, out _, out var flags );
+		studio.GetTextureData( textureIndex, out var name, out var width, out var height, out var flags );
 		var material = Material.Create( $"{Path}/{name}.vmat", "goldsrc", false );
 		material?.Set( "Color", studio.GetTexture( textureIndex ) );
+		if ( flags.HasFlag( Mdl.LightingFlags.Chrome ) )
+			material?.Set( "g_vChromeUvScale", new Vector2( 32f / width, 32f / height ) );
 		material?.SetFeature( "F_CHROME", flags.HasFlag( Mdl.LightingFlags.Chrome ) ? 1 : 0 );
 		material?.SetFeature( "F_FULLBRIGHT", flags.HasFlag( Mdl.LightingFlags.FullBright ) ? 1 : 0 );
 		material?.SetFeature( "F_ADDITIVE", flags.HasFlag( Mdl.LightingFlags.Additive ) ? 1 : 0 );
@@ -387,4 +401,15 @@ public struct SkinnedVertex( Vector3 position, Vector3 normal, Vector2 texcoord,
 
 	[VertexLayout.BlendWeight]
 	public Color32 BlendWeights = blendWeights;
+}
+
+[StructLayout( LayoutKind.Sequential )]
+internal struct ChromeVertex( SkinnedVertex vertex, Vector3 pivot, int bone )
+{
+	[VertexLayout.Position] public Vector3 Position = vertex.Position;
+	[VertexLayout.Normal] public Vector3 Normal = vertex.Normal;
+	[VertexLayout.TexCoord] public Vector2 Texcoord = vertex.Texcoord;
+	[VertexLayout.BlendIndices] public Color32 BlendIndices = vertex.BlendIndices;
+	[VertexLayout.BlendWeight] public Color32 BlendWeights = vertex.BlendWeights;
+	[VertexLayout.TexCoord( 4 )] public Vector4 NormalBone = new( pivot, bone );
 }
