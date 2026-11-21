@@ -22,12 +22,7 @@ public abstract class RocketProjectile : NpcProjectile
 			trail.Width = 5;
 			trail.Color = new Color( 0.88f, 0.88f, 1 );
 			trail.Opaque = false;
-			if ( mount.GetIndexedSprite( "smoke" ) is { } smoke )
-			{
-				var material = Material.Load( "materials/default/default_line.vmat" ).CreateCopy();
-				material.Set( "g_tColor", smoke.Animations[0].Frames[0].Texture );
-				trail.Texturing = TrailTextureConfig.Default with { Material = material };
-			}
+			trail.Texturing = TrailTextureConfig.Default with { Material = mount.GetTrailMaterial( "smoke" ) };
 			_lamp = exhaust.AddComponent<PointLight>();
 			_lamp.Radius = 96;
 			_lamp.Shadows = false;

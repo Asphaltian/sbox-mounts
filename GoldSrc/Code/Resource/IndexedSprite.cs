@@ -6,6 +6,17 @@ public partial class HalfLifeMount
 
 	readonly Dictionary<string, Sprite[]> _indexedSpriteFrames = new();
 
+	readonly Dictionary<string, Material> _trailMaterials = new();
+
+	internal Material GetTrailMaterial( string name )
+	{
+		if ( _trailMaterials.TryGetValue( name, out var material ) ) return material;
+		if ( GetIndexedSprite( name ) is not { } sprite ) return null;
+		material = Material.Load( "materials/default/default_line.vmat" ).CreateCopy();
+		material.Set( "g_tColor", sprite.Animations[0].Frames[0].Texture );
+		return _trailMaterials[name] = material;
+	}
+
 	internal Sprite[] GetIndexedSpriteFrames( string name )
 	{
 		if ( _indexedSpriteFrames.TryGetValue( name, out var frames ) ) return frames;

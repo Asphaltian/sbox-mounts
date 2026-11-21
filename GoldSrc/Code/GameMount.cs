@@ -135,6 +135,7 @@ public partial class HalfLifeMount : GameMount
 	protected override void Shutdown()
 	{
 		_indexedSpriteFrames.Clear();
+		_trailMaterials.Clear();
 		_indexedSprites.Clear();
 		_npcAudio = null;
 		base.Shutdown();

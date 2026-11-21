@@ -11,6 +11,7 @@ public sealed class Hornet : NpcProjectile, Component.IDamageable
 	internal MonsterClass Classification => PlayerFired ? MonsterClass.PlayerWeapon : MonsterClass.AlienWeapon;
 
 	[Property] public bool Red { get; set; }
+	bool _trailStarted;
 	float _health = 1;
 	TimeUntil _nextTurn;
 	Vector3 _lastKnown;
@@ -23,13 +24,23 @@ public sealed class Hornet : NpcProjectile, Component.IDamageable
 		Red = Game.Random.Int( 1, 5 ) <= 2;
 		_nextTurn = 0.2f;
 		_lastKnown = WorldPosition + WorldRotation.Forward * 512;
-		var trail = GameObject.AddComponent<TrailRenderer>();
+	}
+
+	protected override void OnUpdate()
+	{
+		if ( _trailStarted || Age < 0.1f || Application.IsDedicatedServer ) return;
+		_trailStarted = true;
+		var exhaust = new GameObject( GameObject, false, "Hornet trail" ) { NetworkMode = NetworkMode.Never };
+		var trail = exhaust.AddComponent<TrailRenderer>();
+		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount )
+			trail.Texturing = TrailTextureConfig.Default with { Material = mount.GetTrailMaterial( "laserbeam" ) };
 		trail.LifeTime = 1;
 		trail.Width = 2;
 		trail.Opaque = false;
 		trail.BlendMode = BlendMode.Lighten;
 		Color tint = Red ? new Color32( 179, 39, 14, 128 ) : new Color32( 255, 128, 0, 128 );
 		trail.Color = tint;
+		exhaust.Enabled = true;
 	}
 
 	internal override void Guide()
