@@ -39,6 +39,9 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 	internal virtual float IdleAfterReloadStart => 3;
 
 	internal abstract void Configure();
+	protected override bool WantsReload() => base.WantsReload() ||
+		(AutoReload && UsesPrimaryClip && Clip1 == 0 && NextPrimaryFire <= 0 &&
+		!Input.Down( "attack1" ) && !Input.Down( "attack2" ));
 	internal virtual void PosePickup( SkinnedModelRenderer renderer ) { }
 
 	// The p_ models have no attachments. These are barrel-tip positions in their right-hand bone space.
@@ -142,6 +145,7 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 		UsesAmmo = UsesClips = true;
 		BindAmmoTypes();
 		Configure();
+		CanCancelReload = IncrementalReloading;
 	}
 
 	internal virtual void BindAmmoTypes()

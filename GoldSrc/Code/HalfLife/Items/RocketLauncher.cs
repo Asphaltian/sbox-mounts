@@ -28,7 +28,6 @@ public sealed partial class RocketLauncher : ProjectileWeapon
 		HoldType = WeaponHolds.Shoulder;
 		PrimaryDelay = 1.5f;
 		SecondaryDelay = 0.2f;
-		CanCancelReload = false;
 		ClipMaxSize = 1;
 		StartingAmmo = 1;
 	}

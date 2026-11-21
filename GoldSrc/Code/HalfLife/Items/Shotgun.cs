@@ -7,7 +7,6 @@ public sealed class Shotgun : BulletWeapon
 	internal override int PlayerMuzzleFlash => 51;
 
 	bool _double;
-	bool _reloadWhenReady;
 	TimeUntil _pump, _insert;
 	bool _pumpPending, _insertPending;
 
@@ -58,14 +57,6 @@ public sealed class Shotgun : BulletWeapon
 		: Vector2.One * 0.08716f;
 	internal override void DrawShotTrail( Vector3 start, Vector3 end ) { }
 
-	protected override void Think()
-	{
-		base.Think();
-		if ( !_reloadWhenReady || NextPrimaryFire > 0 ) return;
-		_reloadWhenReady = false;
-		if ( Clip1 == 0 && AutoReload && CanReload() ) Reload();
-	}
-
 	public override void DryFire()
 	{
 		if ( CanReload() ) Reload();
@@ -89,7 +80,6 @@ public sealed class Shotgun : BulletWeapon
 		Ballistics = Ballistics with { Damage = Deathmatch ? 20 : 5, Pellets = (Deathmatch ? 4 : 6) * (both ? 2 : 1) };
 		base.PrimaryAttack();
 		SetNextFire( both ? SecondaryDelay : PrimaryDelay );
-		_reloadWhenReady = Clip1 == 0;
 		ReportShot( both );
 	}
 

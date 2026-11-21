@@ -31,7 +31,6 @@ public sealed class Rifle : BulletWeapon
 		SecondaryDelay = 1;
 		SecondaryAutomatic = true;
 		ReloadTime = 1.5f;
-		CanCancelReload = false;
 		AttackDamageTags = ["bullet"];
 		Ballistics = new() { Damage = 5, Range = 8192, Radius = 0 };
 	}
