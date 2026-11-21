@@ -57,9 +57,11 @@ public partial class Npc
 		_nextMove = 0.18f;
 		var goal = Definition.Movement == NpcMovement.Ground ? target.WorldPosition : targetPoint;
 		var failed = Movement?.Status == Sandbox.Npcs.Layers.MovementLayer.MovementStatus.Failed;
-		if ( !MoveToward( goal, Math.Clamp( AttackRange * 0.5f, 9, 130 ) ) || failed )
+		if ( !Pursue( goal ) || failed )
 			OnPursuitFailed( target );
 	}
+
+	internal virtual bool Pursue( Vector3 goal ) => MoveToward( goal, Math.Clamp( AttackRange * 0.5f, 9, 130 ) );
 
 	internal virtual void OnPursuitFailed( GameObject target ) { }
 

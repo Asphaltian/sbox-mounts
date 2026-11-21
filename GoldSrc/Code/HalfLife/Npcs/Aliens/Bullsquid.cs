@@ -88,6 +88,13 @@ public sealed partial class Bullsquid : Npc
 			&& (distance < 512 || Movement?.IsMoving != true) && System.MathF.Abs( offset.z ) <= 256;
 	}
 
+	internal override bool Pursue( Vector3 goal )
+	{
+		var speed = Find( "run" )?.GroundSpeed ?? Definition.Speed;
+		if ( (goal - WorldPosition).WithZ( 0 ).LengthSquared < 256 * 256 ) speed *= 1.25f;
+		return MoveToward( goal, 32, speed / Definition.Speed );
+	}
+
 	internal override bool InAttackRange( GameObject target, Vector3 aim )
 	{
 		var offset = target.WorldPosition - WorldPosition;
