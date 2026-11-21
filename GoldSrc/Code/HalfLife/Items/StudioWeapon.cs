@@ -142,7 +142,7 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 	{
 		if ( Application.IsDedicatedServer || !Owner.IsValid() ) return;
 		var pose = Owner.EyeTransform;
-		var origin = pose.PointToWorld( new Vector3( 32, -6, -12 ) );
+		var origin = pose.PointToWorld( shotgun ? new Vector3( 32, -6, -12 ) : new Vector3( 20, -4, -12 ) );
 		for ( int i = 0; i < count; i++ ) ShellCasing.Eject( origin, pose.Rotation, shotgun, Owner.Velocity );
 	}
 

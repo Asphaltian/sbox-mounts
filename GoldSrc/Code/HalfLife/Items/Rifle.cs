@@ -6,8 +6,16 @@ public sealed class Rifle : BulletWeapon
 {
 	internal const string GrenadeAmmoPath = "ammo/argrenades.ammo";
 	TimeUntil _nextLaunch;
+	bool _tracer;
 
 	internal override string DeploySequence => "deploy";
+	internal override string IdleSequence => Game.Random.Int( 0, 1 ) == 0 ? "longidle" : "idle1";
+	internal override string ShotSequence => Game.Random.Int( 0, 2 ) switch
+	{
+		1 => "shoot_1",
+		2 => "shoot_2",
+		_ => "shoot"
+	};
 	int FreshRounds => Deathmatch ? 50 : 25;
 
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => hd ? new( 30, 2.7f, 5.4f ) : new( 17.8f, 1.65f, 4.9f );
@@ -21,6 +29,7 @@ public sealed class Rifle : BulletWeapon
 		SecondaryAutomatic = true;
 		SecondaryAmmoType = GameResource.Load<BaseAmmoResource>( $"mount://hl1/{GrenadeAmmoPath}" );
 		ReloadTime = 1.5f;
+		CanCancelReload = false;
 		AttackDamageTags = ["bullet"];
 		Ballistics = new() { Damage = 5, Range = 8192, Radius = 0 };
 	}
@@ -50,26 +59,38 @@ public sealed class Rifle : BulletWeapon
 
 	protected override void OnShootEffects( ShotEffect shot )
 	{
+		_tracer = !_tracer;
 		base.OnShootEffects( shot );
 		if ( shot.NoEvents ) return;
+		if ( !IsProxy && Owner is { ThirdPerson: false } )
+			MeleeViewPunch.Apply( Scene.Camera, new Angles( Game.Random.Float( -2, 2 ), 0, 0 ) );
 		EjectShells( 1, false );
 		PlaySample( Game.Random.Int( 0, 1 ) == 0 ? "weapons/hks1.wav" : "weapons/hks2.wav", 1, Game.Random.Float( 0.94f, 1.09f ) );
+	}
+
+	internal override void DrawShotTrail( Vector3 start, Vector3 end )
+	{
+		if ( _tracer ) base.DrawShotTrail( start, end );
+	}
+
+	protected override void OnShootImpact( in ShotEffect shot )
+	{
+		if ( !_tracer ) base.OnShootImpact( shot );
 	}
 
 	public override void SecondaryAttack()
 	{
 		if ( Underwater() ) return;
 		SetNextFire( SecondaryDelay );
-		LaunchGrenade();
+		LaunchGrenade( AimRay );
 	}
 
 	[Rpc.Host( NetFlags.OwnerOnly )]
-	void LaunchGrenade()
+	void LaunchGrenade( Ray aim )
 	{
 		if ( !IsActive || !Owner.IsValid() || _nextLaunch > 0 || WaterBody.Find( Scene, Owner.EyePosition ).IsValid() ) return;
 		if ( !TakeSecondaryAmmo() ) return;
 		_nextLaunch = SecondaryDelay;
-		var aim = AimRay;
 		NpcProjectile.Fire<ContactGrenade>( Owner.GameObject, "mount://hl1/valve/models/grenade.mdl.vmdl", 100,
 			null, aim.Position, aim.Forward, 800 );
 		LaunchEffects();
@@ -78,6 +99,8 @@ public sealed class Rifle : BulletWeapon
 	[Rpc.Broadcast( NetFlags.HostOnly )]
 	void LaunchEffects()
 	{
+		if ( !IsProxy && Owner is { ThirdPerson: false } )
+			MeleeViewPunch.Apply( Scene.Camera, new Angles( -10, 0, 0 ) );
 		ViewModel?.GetComponent<StudioWeaponView>()?.Play( "grenade" );
 		PlaySample( Game.Random.Int( 0, 1 ) == 0 ? "weapons/glauncher.wav" : "weapons/glauncher2.wav", 1, Game.Random.Float( 0.94f, 1.09f ) );
 		PostWeaponEvent( WeaponEvents.Attack );
