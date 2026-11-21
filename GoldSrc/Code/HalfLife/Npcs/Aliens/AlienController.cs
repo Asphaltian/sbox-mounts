@@ -108,7 +108,7 @@ public sealed partial class AlienController : VoicedNpc
 	{
 		const float speed = 800;
 		var source = Attachment( 3 ) - GetVelocity( GameObject ) * overdue;
-		var offset = _enemy.GetBounds().Center - source;
+		var offset = TargetBodyPosition( _enemy ) - source;
 		_estimatedVelocity = Senses.VisibleHostiles.Contains( _enemy )
 			? Vector3.Lerp( _estimatedVelocity, GetVelocity( _enemy ), 0.5f ) : _estimatedVelocity * 0.8f;
 		var closingSpeed = System.MathF.Sqrt( System.MathF.Max( 1, speed * speed - _estimatedVelocity.LengthSquared ) );
