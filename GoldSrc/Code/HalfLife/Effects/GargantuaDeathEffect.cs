@@ -99,8 +99,15 @@ public sealed class GargantuaDeathEffect : Component
 		var hull = new BBox( -extent, extent ) + WorldPosition;
 		for ( int i = 0; i < 50; i++ )
 		{
-			var velocity = Vector3.Random * Game.Random.Float( 100, 200 );
-			Gib.Spawn( model, part.Name, Game.Random.Int( 0, part.Choices.Count - 1 ), hull.RandomPointInside, velocity, Npc.BloodColor.None, 2f );
+			for ( int attempt = 0; attempt < 32; attempt++ )
+			{
+				var point = hull.RandomPointInside;
+				if ( Scene.Trace.Ray( point, point + Vector3.Up ).WithoutTags( "npc", "player", "trigger", "debris", "ragdoll" ).Run().StartedSolid ) continue;
+				// TE_BREAKMODEL encodes random velocity in tens of units per second.
+				var velocity = new Vector3( Game.Random.Float( -2000, 2000 ), Game.Random.Float( -2000, 2000 ), Game.Random.Float( 0, 2000 ) );
+				Gib.Spawn( model, part.Name, Game.Random.Int( 0, part.Choices.Count - 1 ), point, velocity, Npc.BloodColor.None, Game.Random.Float( 2, 3 ), fleshShard: true );
+				break;
+			}
 		}
 	}
 }

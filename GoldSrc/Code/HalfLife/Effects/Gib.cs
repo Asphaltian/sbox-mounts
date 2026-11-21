@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.CompilerServices;
 
 namespace GoldSrc.HalfLife;
@@ -13,6 +14,7 @@ public sealed class Gib : Component, Component.ICollisionListener
 	TimeUntil _fade;
 	bool _landed;
 	bool _fading;
+	bool _fleshShard;
 	static readonly ConditionalWeakTable<Material, Material> FadeMaterials = new();
 
 	internal static void Scatter( BBox hull, Vector3 eye, Vector3 direction, float health, bool human, Npc.BloodColor blood, int pieces = 4, bool skull = true, string sourceModel = null )
@@ -51,7 +53,7 @@ public sealed class Gib : Component, Component.ICollisionListener
 		}
 	}
 
-	internal static void Spawn( Model model, string group, int variant, Vector3 point, Vector3 velocity, Npc.BloodColor blood, float fadeAfter = 0, System.Random random = null )
+	internal static void Spawn( Model model, string group, int variant, Vector3 point, Vector3 velocity, Npc.BloodColor blood, float fadeAfter = 0, System.Random random = null, bool fleshShard = false )
 	{
 		var go = new GameObject( false, "Gib" );
 		go.NetworkMode = NetworkMode.Never;
@@ -59,6 +61,7 @@ public sealed class Gib : Component, Component.ICollisionListener
 		go.WorldPosition = point;
 		var gib = go.AddComponent<Gib>();
 		gib._blood = blood;
+		gib._fleshShard = fleshShard;
 		gib._renderer = go.AddComponent<ModelRenderer>();
 		gib._renderer.Model = model;
 		gib._renderer.SetBodyGroup( group, variant );
@@ -71,10 +74,16 @@ public sealed class Gib : Component, Component.ICollisionListener
 		gib._body.RigidbodyFlags |= RigidbodyFlags.DisableCollisionSounds;
 		gib._body.EnhancedCcd = true;
 		gib._body.EnableImpactDamage = false;
+		if ( fleshShard ) gib._body.GravityScale = 0.5f;
 		go.Enabled = true;
-		gib._body.Velocity = velocity.ClampLength( 1500 );
+		gib._body.Velocity = fleshShard ? velocity : velocity.ClampLength( 1500 );
 		random ??= Game.Random;
-		gib._body.AngularVelocity = new Vector3( 0, random.Float( 100, 200 ).DegreeToRadian(), random.Float( 100, 300 ).DegreeToRadian() );
+		if ( fleshShard )
+		{
+			if ( random.Int( 0, 255 ) < 200 ) gib._body.AngularVelocity = random.VectorInCube( 256 ) * (MathF.PI / 180);
+		}
+		else if ( fadeAfter == 0 )
+			gib._body.AngularVelocity = new Vector3( 0, random.Float( 100, 200 ).DegreeToRadian(), random.Float( 100, 300 ).DegreeToRadian() );
 		gib._age = 0;
 		if ( fadeAfter > 0 )
 		{
@@ -85,7 +94,14 @@ public sealed class Gib : Component, Component.ICollisionListener
 
 	void ICollisionListener.OnCollisionStart( Collision collision )
 	{
-		if ( _decals <= 0 || _blood == Npc.BloodColor.None || collision.Other.IsTrigger || collision.Other.Body?.BodyType != PhysicsBodyType.Static ) return;
+		if ( collision.Other.IsTrigger || collision.Other.Body?.BodyType != PhysicsBodyType.Static ) return;
+		if ( _fleshShard && Game.Random.Int( 0, 5 ) == 0 && Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount )
+		{
+			var volume = 0.8f * MathF.Min( 1, MathF.Abs( collision.Contact.Speed.z ) / 450 );
+			var pitch = Game.Random.Int( 0, 3 ) == 0 ? Game.Random.Float( 0.95f, 1.05f ) : 1;
+			if ( volume > 0 ) NpcAudio.Play( mount.NpcAudio.Find( "debris/flesh" ), collision.Contact.Point, volume, pitch );
+		}
+		if ( _decals <= 0 || _blood == Npc.BloodColor.None ) return;
 		var normal = collision.Contact.Normal;
 		if ( normal.Dot( collision.Self.Body.MassCenter - collision.Contact.Point ) < 0 ) normal = -normal;
 		var prefix = _blood == Npc.BloodColor.Red ? "blood" : "yblood";
@@ -114,7 +130,7 @@ public sealed class Gib : Component, Component.ICollisionListener
 				if ( material.IsValid() ) _renderer.Materials.SetOverride( i, FadeMaterials.GetValue( material, CreateFadeMaterial ) );
 			}
 		}
-		var alpha = 1 + (float)_fade * (70f / 255f);
+		var alpha = 1 + (float)_fade * (_fleshShard ? 0.5f : 70f / 255f);
 		if ( alpha <= 0 ) GameObject.Destroy();
 		else _renderer.Attributes.Set( "StudioOpacity", alpha );
 	}
