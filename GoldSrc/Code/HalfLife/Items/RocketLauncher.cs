@@ -2,11 +2,11 @@ namespace GoldSrc.HalfLife;
 
 [Title( "Rocket Launcher" ), Category( "Half-Life" )]
 [WeaponPickup( "rpg", "rockets", 5 )]
-public sealed class RocketLauncher : ProjectileWeapon
+public sealed partial class RocketLauncher : ProjectileWeapon
 {
-	internal override string DeploySequence => "draw1";
+	internal override string DeploySequence => Clip1 > 0 ? "draw1" : "draw2";
 	internal override string ShotSequence => "fire";
-	internal override string IdleSequence => "idle";
+	internal override string IdleSequence => Clip1 > 0 ? "idle" : "idle2";
 	internal override void PlayLaunchSound()
 	{
 		PlaySample( "weapons/rocketfire1.wav", 0.9f );
@@ -18,13 +18,17 @@ public sealed class RocketLauncher : ProjectileWeapon
 	{
 		HoldType = WeaponHolds.Shoulder;
 		PrimaryDelay = 1.5f;
+		SecondaryDelay = 0.2f;
+		CanCancelReload = false;
 		ClipMaxSize = 1;
 		StartingAmmo = 1;
 	}
 
 	internal override bool Release( Ray ray )
 	{
-		NpcProjectile.Fire<PlayerRocket>( Owner.GameObject, "mount://hl1/valve/models/rpgrocket.mdl.vmdl", 100, null, ray.Position, ray.Forward, 1000 );
+		var rocket = NpcProjectile.Fire<PlayerRocket>( Owner.GameObject, "mount://hl1/valve/models/rpgrocket.mdl.vmdl", 100, null, ray.Position, ray.Forward, 250 );
+		rocket.Launcher = this;
+		ActiveRockets++;
 		return true;
 	}
 }
