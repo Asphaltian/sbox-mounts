@@ -155,7 +155,7 @@ public partial class Npc : BaseNpc
 
 	internal StudioSequence Find( string name ) => name is null ? null : _sequences?.GetValueOrDefault( name );
 
-	StudioSequence Activity( int activity ) => _sequences.Values
+	internal StudioSequence Activity( int activity ) => _sequences.Values
 		.Where( x => x.Description.Activity == activity )
 		.OrderByDescending( x => x.Description.ActWeight )
 		.FirstOrDefault();

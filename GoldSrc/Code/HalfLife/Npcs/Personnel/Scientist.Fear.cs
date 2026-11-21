@@ -64,7 +64,7 @@ public sealed partial class Scientist
 			}
 			if ( IsLiveTarget( Leader ) )
 			{
-				if ( WorldPosition.DistanceSquared( Leader.WorldPosition ) > 128 * 128 ) MoveToward( Leader.WorldPosition, 128 );
+				if ( WorldPosition.DistanceSquared( Leader.WorldPosition ) > 128 * 128 ) ApproachLeader( 128, true );
 				else Movement.Stop();
 			}
 			else Flee( TargetEyePosition( enemy ), enemy, false );
@@ -91,9 +91,11 @@ public sealed partial class Scientist
 			return;
 		}
 		Animation.ClearLookTarget();
-		Movement.MoveTo( cover, 8, Definition.Speed );
-		CoverRun = WeightedActivity( RunScared )?.Name ?? "run2";
-		_coverDeadline = WorldPosition.Distance( cover ) / Definition.Speed * 2 + 1;
+		var run = WeightedActivity( RunScared ) ?? Find( "run2" );
+		var speed = run is { GroundSpeed: > 0 } ? run.GroundSpeed : Definition.Speed;
+		Movement.MoveTo( cover, 8, speed );
+		CoverRun = run?.Name;
+		_coverDeadline = WorldPosition.Distance( cover ) / speed * 2 + 1;
 	}
 
 	void Panic()

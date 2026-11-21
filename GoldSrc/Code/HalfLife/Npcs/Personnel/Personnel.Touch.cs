@@ -61,9 +61,6 @@ public abstract partial class Personnel : Component.ICollisionListener
 			_pushExpires = 0.5f;
 		}
 		Animation.SetLookTarget( _pushingPlayer );
-		var facing = (_pushingPlayer.WorldPosition - WorldPosition).WithZ( 0 );
-		if ( !facing.IsNearlyZero() )
-			WorldRotation = Rotation.Slerp( WorldRotation, Rotation.LookAt( facing.Normal, Vector3.Up ), 0.8f );
 		return true;
 	}
 }

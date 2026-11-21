@@ -22,7 +22,7 @@ public sealed partial class Scientist
 		if ( offset.LengthSquared > 128 * 128 ) return false;
 		if ( offset.WithZ( 0 ).LengthSquared >= 50 * 50 )
 		{
-			MoveToward( Leader.WorldPosition, 50 );
+			ApproachLeader( 50 );
 			return true;
 		}
 
@@ -66,21 +66,9 @@ public sealed partial class Scientist
 		}
 	}
 
-	bool FacePatient( float turnSpeed )
-	{
-		var direction = (_patient.WorldPosition - WorldPosition).WithZ( 0 );
-		if ( direction.IsNearZeroLength ) return true;
-		var facing = Rotation.LookAt( direction, Vector3.Up );
-		var angle = WorldRotation.Distance( facing );
-		var step = 2 * turnSpeed * Time.Delta;
-		if ( angle <= step )
-		{
-			WorldRotation = facing;
-			return true;
-		}
-		WorldRotation = Rotation.Slerp( WorldRotation, facing, step / angle );
-		return false;
-	}
+	protected override float StandingYawSpeed => 120;
+	protected override bool HasSpecialFacing => _patient.IsValid();
+	bool FacePatient( float turnSpeed ) => FaceStandingTarget( _patient.WorldPosition, turnSpeed, Time.Delta );
 
 	internal override void HandleActionEvent( int id )
 	{

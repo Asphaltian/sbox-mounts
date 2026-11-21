@@ -11,6 +11,16 @@ public abstract partial class Personnel : TalkingNpc, Component.IPressable
 	[Property] public bool PreDisaster { get; set; }
 
 	[Sync( SyncFlags.FromHost )] protected GameObject Leader { get; set; }
+	bool _runningToLeader;
+
+	protected void ApproachLeader( float stop, bool scared = false )
+	{
+		var distance = WorldPosition.Distance( Leader.WorldPosition );
+		if ( distance >= 270 ) _runningToLeader = true;
+		else if ( distance < 190 ) _runningToLeader = false;
+		var gait = Activity( scared ? (_runningToLeader ? 64 : 63) : (_runningToLeader ? Run : Walk) );
+		MoveToward( Leader.WorldPosition, stop, gait is { GroundSpeed: > 0 } ? gait.GroundSpeed / Definition.Speed : 1 );
+	}
 
 	internal override void IdleMovement()
 	{
@@ -25,7 +35,7 @@ public abstract partial class Personnel : TalkingNpc, Component.IPressable
 		if ( GivePlayerRoom() ) return true;
 		if ( !IsLiveTarget( Leader ) ) return false;
 		if ( WorldPosition.DistanceSquared( Leader.WorldPosition ) > 128 * 128 )
-			MoveToward( Leader.WorldPosition, 128 );
+			ApproachLeader( 128 );
 		else
 		{
 			if ( Movement?.MoveTarget.HasValue == true ) Movement.Stop();

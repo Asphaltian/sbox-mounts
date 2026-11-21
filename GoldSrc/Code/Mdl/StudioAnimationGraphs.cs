@@ -66,7 +66,7 @@ internal sealed class StudioAnimationGraphs( Skeleton skeleton, string modelPath
 			for ( var source = 0; source < states.Length; source++ )
 			{
 				if ( source != target )
-					machine.AddTransition( states[source], states[target], condition, new GraphBuilder.TransitionSettings { Duration = 0.12f } );
+					machine.AddTransition( states[source], states[target], condition, new GraphBuilder.TransitionSettings { Duration = 0.2f } );
 			}
 		}
 
