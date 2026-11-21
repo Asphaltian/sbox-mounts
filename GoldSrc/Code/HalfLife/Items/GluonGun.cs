@@ -4,30 +4,65 @@ namespace GoldSrc.HalfLife;
 [WeaponPickup( "egon", "uranium", 100 )]
 public sealed partial class GluonGun : StudioWeapon
 {
-	internal override string ShotSequence => "fire1";
+	internal override string ShotSequence => $"fire{Game.Random.Int( 1, 4 )}";
+	internal override string IdleSequence => Game.Random.Int( 0, 1 ) == 0 ? "idle1" : "fidget1";
 	SoundHandle _beamSound;
 	bool _firing, _running;
 	TimeUntil _nextPulseDeadline, _windupEnds;
+	TimeUntil _burstExpires, _nextCell, _nextShake;
 	RealTimeUntil _shutdownEnds;
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => hd ? new( 29, -5.2f, 0.5f ) : new( 28.4f, -5.1f, 0 );
 
 	protected override void Think()
 	{
 		base.Think();
-		if ( _firing && Input.Released( "attack1" ) ) EndAttack( 0.5f );
+		if ( _burstExpires > 0 && Input.Released( "attack1" ) ) EndAttack( 0.5f );
 	}
 
 	public override void PrimaryAttack()
 	{
 		if ( Owner.IsValid() && WaterBody.Find( Scene, Owner.EyePosition ).IsValid() )
 		{
-			if ( _firing ) EndAttack( 0.5f );
+			if ( _burstExpires > 0 ) EndAttack( 0.5f );
 			else DryFire();
 			return;
 		}
 
-		base.PrimaryAttack();
+		var start = _burstExpires <= 0;
+		_burstExpires = PrimaryDelay + 0.15f;
+		var hit = BulletTrace( AimRay, Ballistics.Range, 0 ).Run();
+		var multiplayer = Networking.MaxPlayers > 1;
+		if ( start )
+		{
+			_nextCell = 0;
+		}
+		else if ( !hit.StartedSolid )
+		{
+			var damage = multiplayer ? 20 : 14;
+			if ( hit.Hit )
+			{
+				ShootBullet( hit, damage, 0 );
+				ImpactPulse( hit.EndPosition );
+			}
+			if ( IsHeld && _nextCell <= 0 )
+			{
+				TakePrimaryAmmo();
+				_nextCell = multiplayer ? 0.2f : 0.1f;
+			}
+		}
+		ShootEffects( new ShotEffect( hit.EndPosition, hit.Hit, hit.Normal, hit.GameObject, hit.Surface, NoEvents: !start ) );
 		if ( IsHeld && !HasPrimaryAmmo() ) EndAttack( 1 );
+	}
+
+	[Rpc.Host( NetFlags.OwnerOnly )]
+	void ImpactPulse( Vector3 point )
+	{
+		if ( !Owner.IsValid() || !IsActive ) return;
+		if ( Networking.MaxPlayers > 1 )
+			Blast.DamageInRadius( GameObject, Owner.GameObject, point, 5, 128, "energybeam", "blast", "alwaysgib" );
+		if ( _nextShake > 0 ) return;
+		GroundShake.Emit( Scene, point, 5, 150, 0.75f, 250 );
+		_nextShake = 1.5f;
 	}
 
 	public override void DryFire()
@@ -38,6 +73,7 @@ public sealed partial class GluonGun : StudioWeapon
 
 	void EndAttack( float delay )
 	{
+		_burstExpires = 0;
 		SetNextFire( delay );
 		EndBeamEffects();
 	}
@@ -48,7 +84,7 @@ public sealed partial class GluonGun : StudioWeapon
 	protected override void OnShootEffects( ShotEffect shot )
 	{
 		base.OnShootEffects( shot );
-		if ( shot.NoEvents || Application.IsDedicatedServer ) return;
+		if ( Application.IsDedicatedServer ) return;
 		_nextPulseDeadline = PrimaryDelay + 0.15f;
 		if ( _firing ) return;
 		_firing = true;
@@ -75,18 +111,21 @@ public sealed partial class GluonGun : StudioWeapon
 			_beamSound?.Stop();
 			_running = true;
 			_beamSound = PlaySample( "weapons/egon_run3.wav", 0.98f, 1.25f );
+			ViewModel?.GetComponent<StudioWeaponView>()?.Play( ShotSequence );
 		}
 		if ( _beamSound.IsValid() ) _beamSound.Position = GetMuzzleTransform().Position;
 	}
 
 	protected override void OnHolstered()
 	{
+		_burstExpires = 0;
 		StopBeam();
 		base.OnHolstered();
 	}
 
 	protected override void OnDisabled()
 	{
+		_burstExpires = 0;
 		_firing = _running = false;
 		_beamSound?.Stop();
 		_beamSound = null;
@@ -119,6 +158,6 @@ public sealed partial class GluonGun : StudioWeapon
 		UsesClips = false;
 		StartingAmmo = 20;
 		Ballistics = new() { Damage = 14, Range = 2048 };
-		AttackDamageTags = ["energybeam"];
+		AttackDamageTags = ["energybeam", "alwaysgib"];
 	}
 }
