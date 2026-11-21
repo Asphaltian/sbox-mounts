@@ -71,7 +71,7 @@ public sealed class Gonarch : Npc
 		{
 			_nextMortar = Game.Random.Float( 2, 15 );
 			EmitSound( "gonarch/gon_sack", WorldPosition, pitch: SoundPitch );
-			NpcProjectile.Fire<AcidMortar>( this, _enemy, MortarOrigin, _throw.Normal, _throw.Length );
+			NpcProjectile.Fire<AcidMortar>( GameObject, ProjectilePath, Definition.Damage, _enemy, MortarOrigin, _throw.Normal, _throw.Length );
 		}
 		else if ( id == 12 ) LayCrab();
 		else if ( id == 13 )
