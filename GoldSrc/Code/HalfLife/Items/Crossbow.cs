@@ -38,7 +38,7 @@ public sealed class Crossbow : ProjectileWeapon
 
 	public override void PrimaryAttack()
 	{
-		if ( Zoomed ) FireScoped( AimRay );
+		if ( Zoomed && Networking.MaxPlayers > 1 ) FireScoped( AimRay );
 		else
 		{
 			SetNextSecondaryFire( PrimaryDelay );

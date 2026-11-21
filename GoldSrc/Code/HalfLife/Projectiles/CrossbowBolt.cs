@@ -27,12 +27,27 @@ public sealed class CrossbowBolt : NpcProjectile
 			var player = hit.GameObject.GetComponentInParent<PlayerController>().IsValid();
 			var tags = new TagSet { "nevergib" };
 			if ( !player ) tags.Add( "bullet" );
-			BaseCombatWeapon.ShootBullet( hit, player ? 20 : Damage, 0, Shooter, GameObject, tags );
+			var damage = player ? (Networking.MaxPlayers > 1 ? 20 : 10) : Damage;
+			BaseCombatWeapon.ShootBullet( hit, damage, 0, Shooter, GameObject, tags );
 		}
 		WorldPosition = hit.EndPosition + (victim is null ? -direction * 12 : hit.Normal * 2);
 		Velocity = Vector3.Zero;
-		_detonateAt = 0.1f;
 		ImpactEffects( hit.EndPosition, direction, victim is not null, false );
+		if ( Networking.MaxPlayers > 1 )
+		{
+			_detonateAt = 0.1f;
+			return;
+		}
+
+		if ( victim is null && (hit.Body is null || hit.Body.BodyType == PhysicsBodyType.Static) )
+		{
+			WorldRotation = Rotation.LookAt( direction ) * Rotation.FromRoll( Game.Random.Float( 0, 360 ) );
+			GameObject.AddComponent<TemporaryEffect>().DestroyAfterSeconds = 10;
+			Enabled = false;
+			return;
+		}
+
+		GameObject.Destroy();
 	}
 
 	protected override void OnFixedUpdate()
