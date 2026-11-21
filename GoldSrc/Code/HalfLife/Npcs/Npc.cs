@@ -138,6 +138,7 @@ public partial class Npc : BaseNpc
 	internal IEnumerable<StudioSequence> Activities( int activity ) => _sequences.Values.Where( sequence => sequence.Description.Activity == activity );
 	internal virtual bool FollowLeader() => false;
 	internal virtual void FinishAction( string name ) { }
+	internal virtual void FinishMovementCycle() { }
 	internal virtual void PlaySequenceSound( NpcAudio audio, int id ) { }
 	internal virtual void HandleActionEvent( Mdl.Event e ) => HandleActionEvent( e.Index );
 	internal virtual void HandleActionEvent( int id ) { }
@@ -296,8 +297,10 @@ public partial class Npc : BaseNpc
 
 		var changed = _shownSequence != sequence || _shownAction != ActionSerial;
 		var rate = loop ? MovementPlaybackRate( sequence, speed ) : 1f;
+		var nextTime = _clipTime + Time.Delta * rate;
+		if ( loop && !changed && Networking.IsHost && nextTime >= sequence.Duration ) FinishMovementCycle();
 		_clipTime = loop
-			? changed ? 0f : (_clipTime + Time.Delta * rate) % sequence.Duration
+			? changed ? 0f : nextTime % sequence.Duration
 			: Math.Clamp( captured is null ? ActionTime : captureTime, 0, sequence.Duration );
 
 		if ( changed )

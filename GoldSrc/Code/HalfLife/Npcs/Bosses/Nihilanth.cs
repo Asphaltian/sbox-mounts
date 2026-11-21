@@ -13,13 +13,29 @@ public sealed partial class Nihilanth : Npc
 	internal override NpcSounds Sounds { get; } = new( Death: "x/x_die1.wav" );
 	static readonly string[] Clips = ["float_open", "attack1", "attack1_open", "attack2", "walk_r", "walk_l", "walk_u", "walk_d"];
 	internal override string[] ExtraActions => Clips;
-	bool Open => ActiveSpheres < SphereCount / 2 && Health < Definition.Health / 2;
-	internal override StudioSequence RestSequence => Open ? Find( "float_open" ) : base.RestSequence;
+	// The original encounter checks recharger levels 1 through 9 on successive activities.
+	[Sync( SyncFlags.FromHost )] int ExhaustedRechargers { get; set; }
+	bool BrainExposed => ExhaustedRechargers >= 9;
+	internal override void FinishAction( string name ) => CheckRecharger();
+	internal override void FinishMovementCycle() => CheckRecharger();
+
+	void CheckRecharger()
+	{
+		if ( !BrainExposed && (Health < Definition.Health / 2 || ActiveSpheres < SphereCount / 2) )
+			ExhaustedRechargers++;
+	}
+
+	bool IsBrainHit( DamageInfo info ) => BrainExposed && HitStudioModel( info ) && info.Damage > 2 && HitGroups( info ).Has( "hitgroup_2" );
+
+	internal override StudioSequence RestSequence => BrainExposed ? Find( "float_open" ) : base.RestSequence;
 	internal override float PlaybackRate => 2 - (Health / Definition.Health).Clamp( 0, 1 );
 	internal override float HoverClearance => System.MathF.Max( 64, -(Find( "float" )?.Description.Min.z ?? 0) );
 
+	internal override float MovementPlaybackRate( StudioSequence sequence, float speed ) => PlaybackRate;
+
 	internal override StudioSequence MovementSequence( float speed )
 	{
+		if ( BrainExposed ) return RestSequence;
 		var velocity = WorldRotation.Inverse * Animation.MoveVelocity;
 		if ( velocity.y < -30 ) return Find( "walk_r" );
 		if ( velocity.y > 30 ) return Find( "walk_l" );
@@ -45,7 +61,7 @@ public sealed partial class Nihilanth : Npc
 	internal override void BeginAttack( GameObject target )
 	{
 		_enemy = target;
-		var sequence = Open ? "attack1_open" : CanTeleport && Game.Random.Int( 0, 1 ) == 1 ? "attack2" : "attack1";
+		var sequence = BrainExposed && Health < Definition.Health / 2 ? "attack1_open" : CanTeleport && Game.Random.Int( 0, 1 ) == 1 ? "attack2" : "attack1";
 		if ( Find( sequence ) is { } attack ) PlayAction( attack );
 	}
 
@@ -110,15 +126,14 @@ public sealed partial class Nihilanth : Npc
 			damage.AcceptedDamage = 0;
 			return;
 		}
-		var brainHit = ActiveSpheres < SphereCount / 2 && damage.AcceptedDamage > 2 && HitGroups( damage.DamageInfo ).Has( "hitgroup_2" );
-		if ( !brainHit ) damage.AcceptedDamage = System.MathF.Min( damage.AcceptedDamage, System.MathF.Max( 0, Health - 1 ) );
+		if ( !IsBrainHit( damage.DamageInfo ) ) damage.AcceptedDamage = System.MathF.Min( damage.AcceptedDamage, System.MathF.Max( 0, Health - 1 ) );
 	}
 
 	internal override void ShowWound( Component.IDamageable.DamageEvent hit )
 	{
 		var info = hit.DamageInfo;
 		if ( !HitStudioModel( info ) || hit.Instigator == GameObject || Health <= 0 ) return;
-		if ( ActiveSpheres < SphereCount / 2 && HitGroups( info ).Has( "hitgroup_2" ) && info.Damage > 2 ) return;
+		if ( IsBrainHit( info ) ) return;
 		BloodEffects.Stream( Definition.Blood, info.Position, (info.Position - WorldPosition).Normal,
 			info.Damage + 100 * (1 - (Health + hit.AcceptedDamage) / Definition.Health) );
 	}
@@ -131,7 +146,7 @@ public sealed partial class Nihilanth : Npc
 		if ( Health <= 0 || _nextPain > 0 ) return;
 		if ( Health > Definition.Health / 2 )
 			EmitSound( "x/x_laugh", WorldPosition );
-		else if ( ActiveSpheres < SphereCount / 2 )
+		else if ( BrainExposed )
 			EmitSound( $"x/x_pain{Game.Random.Int( 1, 2 )}.wav", WorldPosition );
 		_nextPain = Game.Random.Float( 2, 5 );
 	}

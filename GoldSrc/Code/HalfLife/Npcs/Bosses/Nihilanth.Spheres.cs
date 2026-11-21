@@ -44,7 +44,7 @@ public sealed partial class Nihilanth
 				beam.Additive = true;
 			}
 		}
-		if ( ActiveSpheres < SphereCount / 2 && !_headGlow.IsValid() ) ShowBrain();
+		if ( BrainExposed && !_headGlow.IsValid() ) ShowBrain();
 		var age = (float)_orbitAge;
 		var radius = System.MathF.Min( age * 200, 360 );
 		var altitude = System.MathF.Min( age * 120, 240 );
