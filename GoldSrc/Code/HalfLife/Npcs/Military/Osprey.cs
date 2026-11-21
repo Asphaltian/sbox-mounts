@@ -7,6 +7,7 @@ public sealed class Osprey : Aircraft
 {
 	internal override float ViewDot => 0;
 
+	internal override float SpeedPerPitchStep => 75;
 	internal override float RotorAttenuation => 0.15f;
 	internal override string RotorSample => "apache/ap_rotor4.wav";
 	internal override string DebrisModel => "osprey_bodygibs";

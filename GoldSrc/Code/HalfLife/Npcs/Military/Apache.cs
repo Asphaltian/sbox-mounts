@@ -10,6 +10,7 @@ public sealed class Apache : Aircraft
 	internal override float ViewDot => -0.707f;
 	internal override float SightRange => 4092;
 
+	internal override float SpeedPerPitchStep => 50;
 	internal override float RotorAttenuation => 0.3f;
 	internal override string RotorSample => "apache/ap_rotor2.wav";
 	internal override string DebrisModel => "metalplategibs_green";
