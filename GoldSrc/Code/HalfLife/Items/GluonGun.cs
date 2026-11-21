@@ -11,7 +11,7 @@ public sealed partial class GluonGun : StudioWeapon
 		Game.Random.Int( 0, 1 ) == 0 ? ("idle1", Game.Random.Float( 10, 15 )) : ("fidget1", 3);
 	SoundHandle _beamSound;
 	GluonBeam _beam;
-	bool _firing, _running;
+	bool _firing, _running, _firstImpact;
 	TimeUntil _nextPulseDeadline, _windupEnds, _idleAfterShutdown;
 	TimeUntil _burstExpires, _nextCell, _nextShake;
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => hd ? new( 29, -5.2f, 0.5f ) : new( 28.4f, -5.1f, 0 );
@@ -38,6 +38,7 @@ public sealed partial class GluonGun : StudioWeapon
 		if ( start )
 		{
 			_nextCell = 0;
+			_firstImpact = true;
 		}
 		else if ( !hit.StartedSolid )
 		{
@@ -46,7 +47,8 @@ public sealed partial class GluonGun : StudioWeapon
 			{
 				ShootBullet( hit, damage, 0 );
 				// Keep the blast's visibility traces outside the surface, including sloped ceilings.
-				ImpactPulse( hit.EndPosition + hit.Normal * 2 );
+				ImpactPulse( hit.EndPosition + hit.Normal * 2, _firstImpact );
+				_firstImpact = false;
 			}
 			if ( IsHeld && _nextCell <= 0 )
 			{
@@ -59,12 +61,12 @@ public sealed partial class GluonGun : StudioWeapon
 	}
 
 	[Rpc.Host( NetFlags.OwnerOnly )]
-	void ImpactPulse( Vector3 point )
+	void ImpactPulse( Vector3 point, bool firstImpact )
 	{
 		if ( !Owner.IsValid() || !IsActive ) return;
 		if ( Networking.MaxPlayers > 1 )
 			Blast.DamageInRadius( GameObject, Owner.GameObject, point, 5, 128, "energybeam", "blast", "alwaysgib" );
-		if ( _nextShake > 0 ) return;
+		if ( !firstImpact && _nextShake > 0 ) return;
 		GroundShake.Emit( Scene, point, 5, 150, 0.75f, 250 );
 		_nextShake = 1.5f;
 	}
