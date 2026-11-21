@@ -21,11 +21,11 @@ public class NpcCorpse : Component
 	int _nextEvent;
 	[Sync( SyncFlags.FromHost )] float FinalStart { get; set; } = -1;
 	NpcAudio _audio;
-	Vector3 _velocity;
+	protected Vector3 Velocity { get; set; }
 	BBox _hull;
 	[Sync( SyncFlags.FromHost )] protected bool Landed { get; private set; }
 
-	internal static GameObject Spawn( Npc npc, StudioSequence sequence, bool anchored = false )
+	internal static GameObject Spawn( Npc npc, StudioSequence sequence, bool anchored = false, Vector3? velocity = null )
 	{
 		var source = npc.Renderer;
 		var go = new GameObject( false, $"{npc.GameObject.Name} Corpse" );
@@ -54,7 +54,7 @@ public class NpcCorpse : Component
 		}
 		var radius = npc.Definition.Radius;
 		corpse._hull = new BBox( new Vector3( -radius, -radius, 0 ), new Vector3( radius, radius, npc.Definition.Height ) );
-		corpse._velocity = npc.GetComponent<Rigidbody>() is { MotionEnabled: true } body ? body.Velocity : Sandbox.Npcs.BaseNpc.GetVelocity( npc.GameObject );
+		corpse.Velocity = velocity ?? (npc.GetComponent<Rigidbody>() is { MotionEnabled: true } body ? body.Velocity : Sandbox.Npcs.BaseNpc.GetVelocity( npc.GameObject ));
 		corpse.Landed = anchored;
 		go.Enabled = true;
 		go.NetworkSpawn( true, null );
@@ -150,10 +150,10 @@ public class NpcCorpse : Component
 		if ( IsProxy || Landed )
 			return;
 
-		_velocity += Scene.PhysicsWorld.Gravity * (GravityScale * Time.Delta);
+		Velocity += Scene.PhysicsWorld.Gravity * (GravityScale * Time.Delta);
 		var offset = Vector3.Up * ModelOriginHeight;
 		var feet = WorldPosition - offset;
-		var next = feet + _velocity * Time.Delta;
+		var next = feet + Velocity * Time.Delta;
 		var hit = Scene.Trace.Box( _hull, feet, next )
 			.IgnoreGameObjectHierarchy( GameObject )
 			.WithoutTags( "npc", "player", "playercontroller", "ragdoll", "trigger" )
@@ -168,11 +168,11 @@ public class NpcCorpse : Component
 		if ( Landed )
 		{
 			WorldPosition = hit.EndPosition + offset;
-			_velocity = Vector3.Zero;
+			Velocity = Vector3.Zero;
 			return;
 		}
 
 		WorldPosition = hit.EndPosition + offset + hit.Normal * 0.03125f;
-		_velocity -= hit.Normal * MathF.Min( 0, _velocity.Dot( hit.Normal ) );
+		Velocity -= hit.Normal * MathF.Min( 0, Velocity.Dot( hit.Normal ) );
 	}
 }

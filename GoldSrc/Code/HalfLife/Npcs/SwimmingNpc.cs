@@ -14,6 +14,18 @@ public abstract class SwimmingNpc : Npc
 	bool _ready;
 	[Sync( SyncFlags.FromHost )] protected bool Stranded { get; private set; }
 
+	protected Vector3 SwimVelocity
+	{
+		get => GetComponent<Rigidbody>() is { MotionEnabled: true } body ? body.Velocity
+			: !Stranded && Movement is FlyingLayer swimmer ? swimmer.Velocity : _dryVelocity;
+		set
+		{
+			if ( GetComponent<Rigidbody>() is { MotionEnabled: true } body ) body.Velocity = value;
+			else if ( !Stranded && Movement is FlyingLayer swimmer ) swimmer.Velocity = value;
+			else _dryVelocity = value;
+		}
+	}
+
 	public override Relationship GetRelationship( GameObject other )
 	{
 		var relationship = base.GetRelationship( other );

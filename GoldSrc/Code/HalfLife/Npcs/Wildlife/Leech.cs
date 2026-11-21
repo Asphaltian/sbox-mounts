@@ -92,6 +92,17 @@ public sealed class Leech : SwimmingNpc
 			DealDamage( Prey, WorldPosition, Prey.WorldPosition, "slash" );
 	}
 
+	protected override void OnDamaged( Component.IDamageable.DamageEvent damage )
+	{
+		var inflictor = damage.DamageInfo.Weapon.IsValid() ? damage.DamageInfo.Weapon : damage.Instigator;
+		SwimVelocity = inflictor.IsValid() ? (WorldPosition - inflictor.WorldPosition).Normal * 25 : Vector3.Zero;
+		base.OnDamaged( damage );
+	}
+
 	internal override NpcCorpse AddCorpseComponent( GameObject go ) => go.AddComponent<DeadLeech>();
-	protected override GameObject CreateCorpse() => NpcCorpse.Spawn( this, Find( Stranded ? "death_end" : "death" ) );
+	protected override GameObject CreateCorpse()
+	{
+		var underwater = WaterBody.Find( Scene, WorldPosition ).IsValid();
+		return Find( underwater ? "death" : "death_end" ) is { } death ? NpcCorpse.Spawn( this, death, velocity: SwimVelocity ) : base.CreateCorpse();
+	}
 }
