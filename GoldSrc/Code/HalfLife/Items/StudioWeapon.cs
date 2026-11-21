@@ -27,6 +27,7 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 	WeaponPickupAttribute _definition;
 	internal WeaponPickupAttribute Definition => _definition ??= Game.TypeLibrary.GetType( GetType() ).GetAttribute<WeaponPickupAttribute>();
 	internal virtual string DeploySequence => "draw";
+	internal virtual bool CanIdle => true;
 	internal virtual string IdleSequence => "idle1";
 	internal virtual string ShotSequence => "shoot";
 	internal virtual string ReloadSequence => "reload";

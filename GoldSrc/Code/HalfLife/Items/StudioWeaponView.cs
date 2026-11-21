@@ -41,7 +41,7 @@ public sealed class StudioWeaponView : BaseWeaponModel
 		if ( Scene.Camera.IsValid() ) WorldTransform = Scene.Camera.WorldTransform;
 		if ( _current is null || !Renderer.Animation.IsValid ) return;
 		_sequenceEvents.Update( _audio, Renderer, _elapsed, false );
-		if ( !_holdLastFrame && _elapsed >= _current.Duration ) Play( _weapon.IdleSequence );
+		if ( !_holdLastFrame && _elapsed >= _current.Duration && _weapon.CanIdle ) Play( _weapon.IdleSequence );
 		if ( _current is null ) return;
 		Renderer.Animation.Parameters.Set( StudioAnimationGraphs.StateParameter, _current.Name );
 		Renderer.Animation.Parameters.Set( _current.TimeParameter, System.MathF.Min( 1, (float)_elapsed / _current.Duration ) );
