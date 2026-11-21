@@ -4,6 +4,8 @@ public sealed partial class PlacedCharge
 {
 	TimeUntil _arm, _nextCheck;
 	TimeUntil? _detonateAt;
+	float _mineHealth = 1;
+	bool _disarmed;
 
 	[Sync( SyncFlags.FromHost )] float BeamFraction { get; set; } = -1;
 	bool Armed => BeamFraction >= 0;
@@ -48,6 +50,9 @@ public sealed partial class PlacedCharge
 		}
 	}
 
+	[Rpc.Broadcast( NetFlags.HostOnly )]
+	void StopChargeSound() => _chargeSound?.Stop();
+
 	protected override void OnDisabled() => _chargeSound?.Stop();
 
 	internal static void PoseMine( SkinnedModelRenderer renderer, string pose )
@@ -67,7 +72,9 @@ public sealed partial class PlacedCharge
 	{
 		if ( _detonateAt is { } delay )
 		{
-			if ( delay <= 0 ) Detonate();
+			if ( delay > 0 ) return;
+			if ( _disarmed ) GameObject.Destroy();
+			else Detonate();
 			return;
 		}
 		if ( _nextCheck > 0 ) return;

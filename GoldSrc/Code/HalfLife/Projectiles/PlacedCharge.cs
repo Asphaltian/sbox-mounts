@@ -75,12 +75,24 @@ public sealed partial class PlacedCharge : Component, Component.IDamageable, Com
 	{
 		if ( !Networking.IsHost || !IsMine || _spent || _detonateAt.HasValue || damage.Damage <= 0 ) return;
 
-		if ( !Armed && damage.Damage < 1 ) { GameObject.Destroy(); return; }
+		if ( _arm > 0 && damage.Damage < _mineHealth )
+		{
+			_disarmed = true;
+			_detonateAt = 0.1f;
+			StopChargeSound();
+			return;
+		}
+		_mineHealth -= damage.Damage;
+		if ( _mineHealth > 0 ) return;
 		if ( damage.Attacker?.GetComponentInParent<PlayerController>() is { } attacker ) Thrower = attacker.GameObject;
 		TriggerMine();
 	}
 
-	void TriggerMine() => _detonateAt = Game.Random.Float( 0.1f, 0.3f );
+	void TriggerMine()
+	{
+		StopChargeSound();
+		_detonateAt = Game.Random.Float( 0.1f, 0.3f );
+	}
 
 	internal void Detonate()
 	{
