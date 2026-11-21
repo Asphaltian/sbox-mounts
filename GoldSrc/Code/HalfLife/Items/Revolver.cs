@@ -29,10 +29,12 @@ public sealed class Revolver : BulletWeapon
 
 	internal override Vector2 PelletSpread => Vector2.One * 0.00873f;
 
+	public override bool CanSecondaryAttack() => Deathmatch && base.CanSecondaryAttack();
+
 	protected override void CreateViewModel()
 	{
 		base.CreateViewModel();
-		ViewModel?.GetComponent<SkinnedModelRenderer>()?.SetBodyGroup( "scope", 1 );
+		ViewModel?.GetComponent<SkinnedModelRenderer>()?.SetBodyGroup( "scope", Deathmatch ? 1 : 0 );
 	}
 
 	public override void PrimaryAttack()
