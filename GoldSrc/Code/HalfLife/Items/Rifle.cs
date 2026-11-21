@@ -11,7 +11,8 @@ public sealed class Rifle : BulletWeapon
 	bool _tracer;
 
 	internal override string DeploySequence => "deploy";
-	internal override string IdleSequence => Game.Random.Int( 0, 1 ) == 0 ? "longidle" : "idle1";
+	internal override (string Name, float? Delay) IdleAnimation =>
+		(Game.Random.Int( 0, 1 ) == 0 ? "longidle" : "idle1", Game.Random.Float( 10, 15 ));
 	internal override string ShotSequence => Game.Random.Int( 0, 2 ) switch
 	{
 		1 => "shoot_1",

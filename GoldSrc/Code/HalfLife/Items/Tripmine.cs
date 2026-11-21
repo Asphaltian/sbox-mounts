@@ -5,11 +5,11 @@ namespace GoldSrc.HalfLife;
 public sealed class Tripmine : ProjectileWeapon
 {
 	internal override string ShotSequence => "draw";
-	internal override string IdleSequence => Game.Random.Float( 0, 1 ) switch
+	internal override (string Name, float? Delay) IdleAnimation => Game.Random.Float( 0, 1 ) switch
 	{
-		<= 0.25f => "idle1",
-		<= 0.75f => "idle2",
-		_ => "fidget"
+		<= 0.25f => ("idle1", 3),
+		<= 0.75f => ("idle2", 2),
+		_ => ("fidget", 100f / 30)
 	};
 	public override Ray AimRay => Owner.IsValid() ? Owner.EyeTransform.ForwardRay : base.AimRay;
 

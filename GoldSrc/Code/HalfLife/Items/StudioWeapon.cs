@@ -28,8 +28,12 @@ public abstract partial class StudioWeapon : BaseCombatWeapon
 	internal WeaponPickupAttribute Definition => _definition ??= Game.TypeLibrary.GetType( GetType() ).GetAttribute<WeaponPickupAttribute>();
 	internal virtual string DeploySequence => "draw";
 	internal virtual bool CanIdle => true;
-	internal virtual string IdleSequence => "idle1";
-	internal virtual void PlayIdle( StudioWeaponView view ) => view.Play( IdleSequence );
+	internal virtual (string Name, float? Delay) IdleAnimation => ("idle1", null);
+	internal virtual void PlayIdle( StudioWeaponView view )
+	{
+		var (name, delay) = IdleAnimation;
+		view.Play( name, idleAfter: delay );
+	}
 	internal virtual string ShotSequence => "shoot";
 	internal virtual string ReloadSequence => "reload";
 

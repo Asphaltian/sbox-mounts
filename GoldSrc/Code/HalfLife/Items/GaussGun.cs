@@ -13,7 +13,7 @@ public sealed partial class GaussGun : StudioWeapon
 	SoundHandle _spinSound;
 
 	internal override string ShotSequence => "fire";
-	internal override string IdleSequence => _spinning ? "spin" : "idle";
+	internal override (string Name, float? Delay) IdleAnimation => (_spinning ? "spin" : "idle", null);
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => new( 28.4f, 2.8f, hd ? 4.6f : 4.1f );
 
 	internal override void Configure()

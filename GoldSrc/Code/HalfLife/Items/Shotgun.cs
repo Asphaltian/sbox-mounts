@@ -11,11 +11,11 @@ public sealed class Shotgun : BulletWeapon
 	TimeUntil _pump, _insert;
 	bool _pumpPending, _insertPending;
 
-	internal override string IdleSequence => Game.Random.Float( 0, 1 ) switch
+	internal override (string Name, float? Delay) IdleAnimation => Game.Random.Float( 0, 1 ) switch
 	{
-		<= 0.8f => "deepidle",
-		<= 0.95f => "sm_idle",
-		_ => "idle4"
+		<= 0.8f => ("deepidle", 5),
+		<= 0.95f => ("sm_idle", 20f / 9),
+		_ => ("idle4", 20f / 9)
 	};
 	internal override string ShotSequence => _double ? "shoot_big" : "shoot";
 	internal override string ReloadSequence => "start_reload";

@@ -9,11 +9,11 @@ public sealed class Pistol : BulletWeapon
 	bool _rapidFire;
 
 	internal override bool CanIdle => Clip1 > 0;
-	internal override string IdleSequence => Game.Random.Float( 0, 1 ) switch
+	internal override (string Name, float? Delay) IdleAnimation => Game.Random.Float( 0, 1 ) switch
 	{
-		<= 0.3f => "idle3",
-		<= 0.6f => "idle1",
-		_ => "idle2"
+		<= 0.3f => ("idle3", 49f / 16),
+		<= 0.6f => ("idle1", 60f / 16),
+		_ => ("idle2", 40f / 16)
 	};
 	internal override string ShotSequence => !_rapidFire && Clip1 == 0 ? "shoot_empty" : "shoot";
 	internal override string ReloadSequence => Clip1 > 0 ? "reload_noshot" : "reload";

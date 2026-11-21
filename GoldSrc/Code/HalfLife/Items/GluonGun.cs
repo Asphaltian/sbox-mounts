@@ -5,11 +5,13 @@ namespace GoldSrc.HalfLife;
 public sealed partial class GluonGun : StudioWeapon
 {
 	internal override string ShotSequence => $"fire{Game.Random.Int( 1, 4 )}";
-	internal override string IdleSequence => Game.Random.Int( 0, 1 ) == 0 ? "idle1" : "fidget1";
+	internal override bool CanIdle => !_firing && _idleAfterShutdown <= 0;
+	internal override (string Name, float? Delay) IdleAnimation =>
+		Game.Random.Int( 0, 1 ) == 0 ? ("idle1", Game.Random.Float( 10, 15 )) : ("fidget1", 3);
 	SoundHandle _beamSound;
 	GluonBeam _beam;
 	bool _firing, _running;
-	TimeUntil _nextPulseDeadline, _windupEnds;
+	TimeUntil _nextPulseDeadline, _windupEnds, _idleAfterShutdown;
 	TimeUntil _burstExpires, _nextCell, _nextShake;
 	internal override Vector3 WorldMuzzleOffset( bool hd ) => hd ? new( 29, -5.2f, 0.5f ) : new( 28.4f, -5.1f, 0 );
 
@@ -134,6 +136,7 @@ public sealed partial class GluonGun : StudioWeapon
 		StopBeamVisual();
 		if ( !_firing ) return;
 		_firing = _running = false;
+		_idleAfterShutdown = 2;
 		_beamSound?.Stop();
 		if ( GameObject.IsDestroyed || Scene.IsDestroyed ) return;
 		var shutdown = _beamSound = PlaySample( "weapons/egon_off1.wav", 0.98f );

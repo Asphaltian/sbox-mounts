@@ -6,11 +6,11 @@ public sealed class SnarkWeapon : ProjectileWeapon
 {
 	TimeUntil? _redraw;
 	internal override string DeploySequence => "up";
-	internal override string IdleSequence => Game.Random.Float( 0, 1 ) switch
+	internal override (string Name, float? Delay) IdleAnimation => Game.Random.Float( 0, 1 ) switch
 	{
-		<= 0.75f => "idle1",
-		<= 0.875f => "fidgetfit",
-		_ => "fidgetnip"
+		<= 0.75f => ("idle1", 60f / 16),
+		<= 0.875f => ("fidgetfit", 70f / 16),
+		_ => ("fidgetnip", 80f / 16)
 	};
 	internal override string ShotSequence => "throw";
 	internal override string ShotSound => $"squeek/sqk_hunt{Game.Random.Int( 2, 3 )}.wav";
@@ -64,5 +64,5 @@ public sealed class SnarkWeapon : ProjectileWeapon
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
-	void Redraw() => ViewModel?.GetComponent<StudioWeaponView>()?.Play( DeploySequence );
+	void Redraw() => ViewModel?.GetComponent<StudioWeaponView>()?.Play( DeploySequence, idleAfter: Game.Random.Float( 10, 15 ) );
 }

@@ -7,12 +7,12 @@ public sealed class Revolver : BulletWeapon
 	internal override int PlayerMuzzleFlash => 31;
 
 	internal override float ZoomFieldOfView => 40;
-	internal override string IdleSequence => Game.Random.Float( 0, 1 ) switch
+	internal override (string Name, float? Delay) IdleAnimation => Game.Random.Float( 0, 1 ) switch
 	{
-		<= 0.5f => "idle1",
-		<= 0.7f => "idle2",
-		<= 0.9f => "idle3",
-		_ => "fidget1"
+		<= 0.5f => ("idle1", 70f / 30),
+		<= 0.7f => ("idle2", 2),
+		<= 0.9f => ("idle3", 88f / 30),
+		_ => ("fidget1", 170f / 30)
 	};
 	internal override string ShotSequence => "fire1";
 	internal override void PlayShotSound() => PlaySample( $"weapons/357_shot{Game.Random.Int( 1, 2 )}.wav", Game.Random.Float( 0.8f, 0.9f ) );

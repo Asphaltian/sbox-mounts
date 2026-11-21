@@ -7,11 +7,11 @@ public sealed class Hivehand : ProjectileWeapon
 	internal override string DeploySequence => "up";
 	internal override string ShotSequence => "Shoot";
 	internal override string ShotSound => $"agrunt/ag_fire{Game.Random.Int( 1, 3 )}.wav";
-	internal override string IdleSequence => Game.Random.Float( 0, 1 ) switch
+	internal override (string Name, float? Delay) IdleAnimation => Game.Random.Float( 0, 1 ) switch
 	{
-		<= 0.75f => "idle1",
-		<= 0.875f => "fidgetSway",
-		_ => "fidgetShake"
+		<= 0.75f => ("idle1", 60f / 16),
+		<= 0.875f => ("fidgetSway", 40f / 16),
+		_ => ("fidgetShake", 35f / 16)
 	};
 	static float RechargeTime => Networking.MaxPlayers > 1 ? 0.3f : 0.5f;
 	static float HornetDamage => Networking.MaxPlayers > 1 ? 10 : 7;
