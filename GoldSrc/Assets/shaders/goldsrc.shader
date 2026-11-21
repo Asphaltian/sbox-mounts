@@ -9,6 +9,8 @@ FEATURES
 	#include "common/features.hlsl"
 	
 	Feature( F_CHROME, 0..1, "Chrome" );
+	Feature( F_FULLBRIGHT, 0..1, "Fullbright" );
+	Feature( F_ADDITIVE, 0..1, "Additive" );
 }
 
 MODES
@@ -54,6 +56,17 @@ PS
 	Texture2D g_tColor < Channel( RGBA, Box( Color ), Srgb ); OutputFormat( DXT5 ); SrgbRead( true ); >;
 	
 	StaticCombo( S_CHROME, F_CHROME, Sys( ALL ) )
+	StaticCombo( S_FULLBRIGHT, F_FULLBRIGHT, Sys( ALL ) )
+	StaticCombo( S_ADDITIVE, F_ADDITIVE, Sys( ALL ) )
+
+	#if S_ADDITIVE
+		BoolAttribute( translucent, true );
+		RenderState( BlendEnable, true );
+		RenderState( SrcBlend, ONE );
+		RenderState( DstBlend, ONE );
+		RenderState( BlendOp, ADD );
+		RenderState( DepthWriteEnable, false );
+	#endif
 
 	// Keep the pixel shader in depth/shadow passes so masked textures clip there too
 	BoolAttribute( alphatest, true );
@@ -65,8 +78,9 @@ PS
 		float4 color = Tex2DS( g_tColor, g_sSampler0, i.vTextureCoords.xy );
 		clip( color.a - 0.5 );
 
-		m.Albedo = color.rgb;
-		m.Normal = i.vNormalWs;
+		// Match the GoldSrc texture and display gamma used for studio models.
+		m.Albedo = SrgbGammaToLinear( pow( SrgbLinearToGamma( color.rgb ), 0.8 ) );
+		m.Normal = normalize( i.vNormalWs );
 		m.TextureCoords = i.vTextureCoords.xy;
 		m.Roughness = 1;
 		m.Metalness = 0;
@@ -76,7 +90,12 @@ PS
 		m.Emission = 0;
 		m.Transmission = 0;
 
-		if ( S_CHROME )
+		if ( S_FULLBRIGHT || S_ADDITIVE )
+		{
+			m.Emission = m.Albedo;
+			m.Albedo = 0;
+		}
+		else if ( S_CHROME )
 		{
 			m.Roughness = length( m.Albedo ) * 0.5; // Use brightness for roughness
 			m.Albedo = m.Albedo.x > 0.0f ? normalize(m.Albedo) : 0.04; // Just get hue from albedo, fix overdark areas

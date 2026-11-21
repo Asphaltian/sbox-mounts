@@ -1,0 +1,140 @@
+using Sandbox.Npcs;
+
+namespace GoldSrc.HalfLife;
+
+[Title( "Bullsquid" ), Category( "Half-Life" )]
+[Alias( "GoldSrc.HalfLifeBullsquid" )]
+[NpcDefinition( "monster_bullchicken", "bullsquid", MonsterClass.AlienPredator, 40, 32, 64, 130, Attack = NpcAttack.Projectile, Damage = 10, Range = 784, StrikeEvents = new[] { 1 }, Gibs = GibSet.Alien, Blood = BloodColor.Yellow )]
+public sealed partial class Bullsquid : Npc
+{
+	internal override float ViewDot => 0.2f;
+
+	internal override NpcSounds Sounds { get; } = new( "bullchicken/bc_idle", Alert: "bullchicken/bc_idle", Pain: "bullchicken/bc_pain", Death: "bullchicken/bc_die", Attack: "bullchicken/bc_attack" );
+
+	static readonly string[] MeleeActions = ["bite", "whip", "seecrab", "suprisedhop", "sniff", "eat", "inspectdown"];
+	internal override string[] ExtraActions => MeleeActions;
+	TimeUntil _nextSpit, _ignoreCrabs;
+	bool _displayedThreat;
+	[Sync( SyncFlags.FromHost )] bool EyeClosed { get; set; }
+	TimeUntil _nextBlinkTick;
+	bool _shownClosed;
+
+	static bool IsAdultHeadcrab( GameObject other ) => other?.GetComponent<Headcrab>() is Headcrab and not BabyHeadcrab;
+
+	protected override void OnUpdate()
+	{
+		base.OnUpdate();
+		if ( !Renderer.IsValid() || !Renderer.Animation.IsValid || Health <= 0 ) return;
+		if ( Networking.IsHost && _nextBlinkTick <= 0 )
+		{
+			_nextBlinkTick = 0.1f;
+			EyeClosed = Game.Random.Int( 0, 39 ) == 0;
+		}
+		if ( _shownClosed == EyeClosed ) return;
+		_shownClosed = EyeClosed;
+		Renderer.MaterialGroup = EyeClosed ? "Skin 1" : "Skin 0";
+	}
+
+	internal override void OnModelLoaded( ModelLoader loader )
+	{
+		EyeHeight = loader.EyePosition.z;
+	}
+
+	internal override void OnEnemySpotted( GameObject target )
+	{
+		EmitSound( $"bullchicken/bc_idle{Game.Random.Int( 1, 2 )}.wav", WorldPosition, pitch: Game.Random.Int( 140, 160 ) / 100f );
+		if ( _displayedThreat || target.GetComponent<Headcrab>() is null || Find( "seecrab" ) is not { } display ) return;
+		_displayedThreat = true;
+		Movement?.Stop();
+		PlayAction( display );
+	}
+
+	internal override void PainSound() =>
+		EmitSound( Sounds.Pain, WorldPosition, pitch: Game.Random.Int( 85, 120 ) / 100f );
+
+	internal override void PlayAttackSound( Vector3 origin ) =>
+		EmitSound( $"bullchicken/bc_attack{Game.Random.Int( 2, 3 )}.wav", origin );
+
+	protected override Relationship GetFallbackRelationship( GameObject other )
+	{
+		if ( _ignoreCrabs > 0 && other.GetComponent<Headcrab>() is Headcrab and not BabyHeadcrab ) return new( Disposition.Neutral );
+		return base.GetFallbackRelationship( other );
+	}
+
+	protected override void OnDamaged( Component.IDamageable.DamageEvent damage )
+	{
+		if ( _feeding != Feeding.None ) StopFeeding();
+		if ( Action == "seecrab" ) InterruptAction();
+		var hop = Health > 0 && Action is null && !FindVisibleEnemy().IsValid();
+		base.OnDamaged( damage );
+		if ( !IsAdultHeadcrab( damage.Instigator ) )
+		{
+			_ignoreCrabs = 5;
+			_nextMeal = System.MathF.Max( _nextMeal, 20 );
+		}
+		if ( hop && Find( "suprisedhop" ) is { } reaction )
+		{
+			if ( damage.Instigator.IsValid() ) Animation.SetLookTarget( damage.Instigator );
+			PlayAction( reaction );
+		}
+	}
+
+	bool CanSpit( Vector3 offset )
+	{
+		var distance = offset.Length;
+		return _nextSpit <= 0 && distance > 64 && distance <= Definition.Range
+			&& (distance < 512 || Movement?.IsMoving != true) && System.MathF.Abs( offset.z ) <= 256;
+	}
+
+	internal override bool InAttackRange( GameObject target, Vector3 aim )
+	{
+		var offset = target.WorldPosition - WorldPosition;
+		return offset.Length <= 85 || CanSpit( offset );
+	}
+
+	internal override void BeginAttack( GameObject target )
+	{
+		var delta = target.WorldPosition - WorldPosition;
+		var facing = Vector3.Dot( WorldRotation.Forward, delta.Normal );
+		if ( CanSpit( delta ) && facing >= 0.5f )
+		{
+			_nextSpit = Movement?.IsMoving == true ? 5 : 0.5f;
+			base.BeginAttack( target );
+			return;
+		}
+		if ( delta.Length > 85 || facing < 0.7f ) return;
+		var weak = target.GetComponent<Component.IDamageable>() is { Health: <= 35 };
+		if ( Find( weak ? "whip" : "bite" ) is not { } melee ) return;
+		if ( !weak ) EmitSound( "bullchicken/bc_attackgrowl", WorldPosition );
+		PlayAction( melee );
+	}
+
+	internal override void HandleActionEvent( int id )
+	{
+		if ( id == 3 )
+		{
+			EyeClosed = true;
+			_nextBlinkTick = 0.1f;
+		}
+		if ( id == 5 ) Launch( (GetComponent<Rigidbody>()?.Velocity ?? Vector3.Zero) + Vector3.Up * (-Scene.PhysicsWorld.Gravity.z * 0.3125f) );
+		if ( id == 2 )
+			PushVictim( TraceMelee( 70, 25, "slash", out _ ), -WorldRotation.Forward * 100 + Vector3.Up * 100 );
+		if ( id == 4 )
+			PushVictim( TraceMelee( 70, 35, "club", out _, "alwaysgib" ), WorldRotation.Right * 200 + Vector3.Up * 100 );
+		if ( id == 6 && TraceMelee( 70, 0, null, out _ ) is { } prey )
+		{
+			EmitSound( $"bullchicken/bc_bite{Game.Random.Int( 2, 3 )}.wav", WorldPosition, pitch: Game.Random.Float( 0.9f, 1.1f ) );
+			if ( prey.GameObject.GetComponent<PlayerController>() is not null )
+				PushVictim( prey, (WorldRotation.Forward + Vector3.Up) * 300 );
+		}
+	}
+
+	internal override void FireProjectile( GameObject target, Vector3 origin, Vector3 direction )
+	{
+		var mouth = WorldPosition + WorldRotation.Forward * 37 + WorldRotation.Right * 8 + Vector3.Up * 23;
+		var aim = (TargetEyePosition( target ) - mouth).Normal;
+		aim += new Vector3( Game.Random.Float( -0.05f, 0.05f ), Game.Random.Float( -0.05f, 0.05f ), Game.Random.Float( -0.05f, 0 ) );
+		Spit.Spray( mouth, aim, 15, 210, 0.25f );
+		NpcProjectile.Fire<Spit>( GameObject, null, Definition.Damage, target, mouth, aim, null );
+	}
+}

@@ -1,0 +1,185 @@
+using Sandbox.Npcs;
+
+namespace GoldSrc.HalfLife;
+
+[Title( "Barnacle" ), Category( "Half-Life" )]
+[Alias( "GoldSrc.HalfLifeBarnacle" )]
+[NpcDefinition( "monster_barnacle", "barnacle", MonsterClass.AlienMonster, 25, 16, 32, 0, Attack = NpcAttack.Melee, Damage = 35, Range = 2048, Movement = NpcMovement.Stationary, AttackSequence = "attack1", StrikeEvents = new[] { 1 }, Blood = BloodColor.Red )]
+public sealed class Barnacle : Npc
+{
+	internal override NpcSounds Sounds { get; } = new( Alert: "barnacle/bcl_alert", Death: "barnacle/bcl_die", Attack: "barnacle/bcl_bite" );
+
+	internal override bool UsesStudioControllers => true;
+	StudioController _tongue;
+
+	internal override void OnModelLoaded( ModelLoader loader )
+	{
+		_tongue = loader.Controllers.FirstOrDefault();
+		if ( GetComponentInChildren<BoxCollider>() is { } hull ) hull.Center = Vector3.Down * (Definition.Height * 0.5f);
+	}
+
+	internal override void ModifyDamage( Component.IDamageable.DamageEvent hit )
+	{
+		if ( hit.DamageInfo.Tags.Has( "club" ) ) hit.AcceptedDamage = Health;
+		else base.ModifyDamage( hit );
+	}
+
+	protected override void OnDeath( Component.IDamageable.DeathEvent death )
+	{
+		Release();
+		base.OnDeath( death );
+	}
+
+	internal override bool AnchoredCorpse => true;
+	public enum FeedingState { Waiting, Lifting, Chewing }
+
+	[Sync( SyncFlags.FromHost )] FeedingState State { get; set; }
+	[Sync( SyncFlags.FromHost )] float TongueLength { get; set; }
+	GameObject _prey;
+	Rigidbody _heldBody;
+	TimeUntil _bite, _nextChew;
+	TimeUntil _scan;
+	bool _placed;
+	int _storedGibs;
+
+	static readonly string[] FeedingActions = ["attack1", "chewcycle"];
+	internal override string[] ExtraActions => FeedingActions;
+	internal override StudioSequence RestSequence => State switch
+	{
+		FeedingState.Lifting => Find( "attack1" ),
+		FeedingState.Chewing => Find( "chewcycle" ),
+		_ => base.RestSequence
+	};
+
+	internal override void PlaceAtSpawn()
+	{
+		var ceiling = Scene.Trace.Ray( WorldPosition + Vector3.Up * 4, WorldPosition + Vector3.Up * 2048 )
+			.IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "npc", "player", "trigger" ).Run();
+		if ( ceiling.Hit ) WorldPosition = ceiling.EndPosition - Vector3.Up;
+		_placed = true;
+	}
+
+	protected override void Think()
+	{
+		if ( !_placed ) return;
+		if ( State != FeedingState.Waiting )
+		{
+			if ( IsLiveTarget( _prey ) ) LiftPrey();
+			else Release();
+			return;
+		}
+		if ( _scan > 0 ) return;
+		_scan = 0.1f;
+		if ( _storedGibs > 0 && Game.Random.Int( 0, 99 ) == 1 )
+		{
+			_storedGibs--;
+			CoughGib( WorldPosition );
+			EmitSound( "barnacle/bcl_chew", WorldPosition );
+		}
+		var end = WorldPosition + Vector3.Down * 2048;
+		var floor = Scene.Trace.Ray( WorldPosition, end ).IgnoreGameObjectHierarchy( GameObject )
+			.WithoutTags( "npc", "player", "playercontroller", "trigger" ).Run();
+		var length = WorldPosition.Distance( floor.EndPosition );
+		var extended = TongueLength >= length;
+		TongueLength = System.MathF.Min( TongueLength + 8, length );
+		if ( !extended ) return;
+
+		var box = new BBox( WorldPosition - new Vector3( 8, 8, length ), WorldPosition + new Vector3( 8, 8, 0 ) );
+		foreach ( var body in Scene.FindInPhysics( box ) )
+		{
+			var target = body.GetComponentInParent<BaseNpc>()?.GameObject ?? body.GetComponentInParent<PlayerController>()?.GameObject;
+			if ( !IsLiveTarget( target ) || GetDisposition( target ) != Disposition.Hostile ) continue;
+			var npc = target.GetComponent<BaseNpc>();
+			if ( npc.IsValid() && npc.PhysicsCarrier.IsValid() ) continue;
+			_prey = target;
+			npc?.StartCarry( GameObject );
+			if ( target.GetComponent<PlayerController>()?.Body is { MotionEnabled: true } bodyToHold )
+			{
+				bodyToHold.Velocity = Vector3.Zero;
+				bodyToHold.MotionEnabled = false;
+				_heldBody = bodyToHold;
+			}
+			if ( npc is Npc mounted ) mounted.SetCaptured( false );
+			TongueLength = WorldPosition.z - TargetEyePosition( target ).z;
+			State = FeedingState.Lifting;
+			EmitSound( "barnacle/bcl_alert2.wav", WorldPosition );
+			break;
+		}
+	}
+
+	void LiftPrey()
+	{
+		var eyeHeight = TargetEyePosition( _prey ).z - _prey.WorldPosition.z;
+		var top = WorldPosition.z - 36 - eyeHeight;
+		var next = System.MathF.Min( _prey.WorldPosition.z + 80 * Time.Delta, top );
+		var neck = WorldPosition - _prey.WorldRotation.Forward.WithZ( 0 ) * 6;
+		_prey.WorldPosition = neck.WithZ( next );
+		if ( _prey.GetComponent<Rigidbody>() is { } body && body.MotionEnabled )
+			body.Velocity = Vector3.Zero;
+		TongueLength = WorldPosition.z - next - eyeHeight;
+		if ( next < top ) return;
+
+		if ( State == FeedingState.Lifting )
+		{
+			State = FeedingState.Chewing;
+			_prey.GetComponent<Npc>()?.SetCaptured( true );
+			EmitSound( "barnacle/bcl_bite3.wav", WorldPosition );
+			_bite = 10;
+		}
+		else if ( _bite <= 0 )
+		{
+			var victim = _prey.GetComponent<IDamageable>();
+			if ( victim is null ) { Release(); return; }
+			var damage = new DamageInfo { Damage = victim.Health, Attacker = GameObject, Weapon = GameObject, Origin = WorldPosition, Position = TargetEyePosition( _prey ) };
+			damage.Tags.Add( "slash" );
+			damage.Tags.Add( "alwaysgib" );
+			victim.OnDamage( damage );
+			if ( !_prey.IsValid() || victim.Health <= 0 )
+			{
+				_storedGibs = 3;
+				Release();
+			}
+			else _bite = 0.1f;
+		}
+		else if ( _nextChew <= 0 )
+		{
+			_nextChew = 0.1f;
+			if ( Game.Random.Int( 0, 49 ) == 0 )
+			{
+				EmitSound( "barnacle/bcl_chew", WorldPosition );
+				_prey.GetComponent<Npc>()?.SetCaptured( true );
+			}
+		}
+	}
+
+	protected override void OnUpdate()
+	{
+		base.OnUpdate();
+		if ( _tongue is null || !Renderer.IsValid() || !Renderer.Animation.IsValid ) return;
+		var adjustment = State == FeedingState.Waiting ? 100 : 20;
+		Renderer.Animation.Parameters.TrySet( StudioAnimationGraphs.ExtensionParameter, _tongue.Fraction( adjustment - TongueLength ) );
+	}
+
+	internal static void CoughGib( Vector3 position )
+	{
+		var hull = new BBox( new Vector3( -16, -16, -32 ), new Vector3( 16, 16, 0 ) );
+		Gib.Scatter( hull + position, position, Vector3.Zero, 0, true, BloodColor.Red, 1, false );
+	}
+
+	internal override NpcCorpse AddCorpseComponent( GameObject go ) => go.AddComponent<DeadBarnacle>();
+
+	void Release()
+	{
+		if ( _heldBody.IsValid() ) _heldBody.MotionEnabled = true;
+		_heldBody = null;
+		if ( _prey.IsValid() ) _prey.GetComponent<BaseNpc>()?.StopCarry( GameObject );
+		_prey = null;
+		State = FeedingState.Waiting;
+	}
+
+	protected override void OnDisabled()
+	{
+		if ( Networking.IsHost ) Release();
+		base.OnDisabled();
+	}
+}

@@ -1,0 +1,111 @@
+using Sandbox.Npcs;
+
+namespace GoldSrc.HalfLife;
+
+[Hide]
+public abstract partial class Personnel : TalkingNpc, Component.IPressable
+{
+	internal override float ViewDot => -0.7f;
+
+	[Sync( SyncFlags.FromHost )] protected GameObject Leader { get; set; }
+
+	internal override void IdleMovement()
+	{
+		if ( Movement?.MoveTarget.HasValue == true ) Movement.Stop();
+	}
+
+	internal virtual bool AssistLeader() => false;
+
+	internal override bool FollowLeader()
+	{
+		if ( AssistLeader() ) return true;
+		if ( GivePlayerRoom() ) return true;
+		if ( !IsLiveTarget( Leader ) ) return false;
+		if ( WorldPosition.DistanceSquared( Leader.WorldPosition ) > 128 * 128 )
+			MoveToward( Leader.WorldPosition, 128 );
+		else
+		{
+			if ( Movement?.MoveTarget.HasValue == true ) Movement.Stop();
+			Animation.SetLookTarget( Leader );
+		}
+		return true;
+	}
+
+	internal abstract string SentencePrefix { get; }
+
+	protected void StopFollowing( bool speak )
+	{
+		Leader = null;
+		Movement?.Stop();
+		if ( speak ) Say( "WAIT" );
+	}
+
+	bool CanSeeColleague( Personnel colleague, Vector3 start )
+	{
+		var end = colleague.WorldPosition + Vector3.Up * colleague.Definition.Height;
+		return !Scene.Trace.Ray( start, end ).IgnoreGameObjectHierarchy( GameObject )
+			.WithoutTags( "npc", "player", "playercontroller", "trigger", "ragdoll", "debris" ).Run().Hit;
+	}
+
+	internal Personnel NearestColleague()
+	{
+		var start = WorldPosition + Vector3.Up * Definition.Height;
+		return Scene.GetAllComponents<Personnel>()
+			.Where( friend => friend != this && friend.Health > 0 && !friend.PhysicsCarrier.IsValid() )
+			.Select( friend => (Friend: friend, Distance: start.DistanceSquared( friend.WorldPosition + Vector3.Up * friend.Definition.Height )) )
+			.Where( candidate => candidate.Distance < 500 * 500 )
+			.OrderBy( candidate => candidate.Distance )
+			.FirstOrDefault( candidate => CanSeeColleague( candidate.Friend, start ) ).Friend;
+	}
+
+	protected override void OnDamaged( Component.IDamageable.DamageEvent damage )
+	{
+		base.OnDamaged( damage );
+		if ( IsBarnacleVictim || damage.Instigator?.GetComponentInParent<PlayerController>() is null ) return;
+		NearestColleague()?.Say( "SCARED" );
+	}
+
+	protected override void OnDeath( Component.IDamageable.DeathEvent death )
+	{
+		if ( !IsBarnacleVictim && death.Instigator?.GetComponentInParent<PlayerController>() is { } killer )
+		{
+			foreach ( var friend in Scene.GetAllComponents<Personnel>() )
+			{
+				if ( friend == this || friend.Health <= 0 ) continue;
+				var witnessed = CanSeeColleague( friend, WorldPosition + Vector3.Up );
+				if ( witnessed ) friend.SetRelationship( killer.GameObject, friend.Definition.Attack == NpcAttack.None ? Disposition.Fearful : Disposition.Hostile );
+				if ( friend.Leader == killer.GameObject ) friend.StopFollowing( !witnessed );
+			}
+		}
+		base.OnDeath( death );
+	}
+
+	bool CanFollow => Definition.Movement == NpcMovement.Ground;
+	bool AcceptsLeader( GameObject player ) => CanFollow && GetDisposition( player ) is not (Disposition.Hostile or Disposition.Fearful);
+	bool IPressable.CanPress( IPressable.Event e ) => AcceptsLeader( e.Source.GameObject );
+	bool IPressable.Press( IPressable.Event e )
+	{
+		ToggleFollow( e.Source.GameObject );
+		return true;
+	}
+
+	[Rpc.Host]
+	void ToggleFollow( GameObject source )
+	{
+		var player = source?.GetComponentInParent<PlayerController>();
+		if ( !player.IsValid() || !AcceptsLeader( player.GameObject ) || player.WorldPosition.Distance( WorldPosition ) > 160 ||
+			(Rpc.Caller is not null && player.Network.Owner != Rpc.Caller) )
+			return;
+		if ( Leader == player.GameObject )
+		{
+			StopFollowing( true );
+			return;
+		}
+		// The SDK leaves one existing follower when a second colleague joins.
+		foreach ( var surplus in Scene.GetAllComponents<Personnel>().Where( friend => friend != this && friend.Leader == player.GameObject ).Skip( 1 ) )
+			surplus.StopFollowing( true );
+		Leader = player.GameObject;
+		Movement?.Stop();
+		Say( "OK" );
+	}
+}

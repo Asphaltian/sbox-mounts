@@ -1,9 +1,11 @@
+using GoldSrc.HalfLife;
+
 namespace GoldSrc;
 
 /// <summary>
 /// A mounting implementation for Half-Life 1
 /// </summary>
-public abstract class GameMount : BaseGameMount
+public abstract partial class GameMount : BaseGameMount
 {
 	public abstract long AppId { get; }
 
@@ -27,6 +29,12 @@ public abstract class GameMount : BaseGameMount
 		if ( FileSystem is null || GameDirs is null || GameDirs.Count == 0 )
 			return Task.CompletedTask;
 
+		var registry = this is HalfLifeMount ? new NpcRegistry() : null;
+		var weapons = registry is null ? [] : Game.TypeLibrary.GetTypes<StudioWeapon>()
+			.Select( type => (Type: type, Pickup: type.GetAttribute<WeaponPickupAttribute>()) )
+			.Where( entry => entry.Pickup is not null ).ToArray();
+		var viewModels = weapons.Select( entry => entry.Pickup.ViewModelPath ).ToHashSet( System.StringComparer.OrdinalIgnoreCase );
+		var npcModels = registry is not null ? new Dictionary<string, string>( System.StringComparer.OrdinalIgnoreCase ) : null;
 		foreach ( var dir in GameDirs )
 		{
 			if ( !FileSystem.DirectoryExists( dir ) )
@@ -53,9 +61,9 @@ public abstract class GameMount : BaseGameMount
 						{
 							if ( lump.Type != 67 ) continue;
 
-							var texture = new WadTextureLoader( wad, lump.Name );
+							var texture = new WadTextureLoader( wad, lump.Name, wadName.Equals( "decals", System.StringComparison.OrdinalIgnoreCase ) );
 							context.Add( ResourceType.Texture, $"{dir}/textures/{wadName}/{lump.Name}", texture );
-							context.Add( ResourceType.Material, $"{dir}/materials/{wadName}/{lump.Name}", new MaterialLoader( texture.Path ) );
+							context.Add( ResourceType.Material, $"{dir}/materials/{wadName}/{lump.Name}", new MaterialLoader( texture.Path, lump.Name ) );
 						}
 					}
 					catch ( System.Exception ex )
@@ -70,14 +78,18 @@ public abstract class GameMount : BaseGameMount
 				{
 					using var reader = new BinaryReader( FileSystem.OpenRead( fullPath ) );
 
-					if ( reader.ReadInt32() != 0x54534449 || reader.ReadInt32() != 10 )
+					if ( reader.BaseStream.Length < 244 || reader.ReadInt32() != 0x54534449 || reader.ReadInt32() != 10 )
 						continue;
 
 					reader.BaseStream.Seek( 204, SeekOrigin.Begin );
 					if ( reader.ReadInt32() <= 0 )
 						continue;
 
-					context.Add( ResourceType.Model, path, new ModelLoader( fullPath ) );
+					var modelPath = relativePath.Replace( '\\', '/' );
+					var npc = registry?.FindModel( modelPath );
+					var animated = npc is not null || (registry is not null && viewModels.Contains( modelPath ));
+					context.Add( ResourceType.Model, path, new ModelLoader( fullPath, animated, npc ) );
+					npcModels?.TryAdd( modelPath, path );
 				}
 				else if ( ext == ".wav" )
 				{
@@ -86,17 +98,44 @@ public abstract class GameMount : BaseGameMount
 			}
 		}
 
+		MountSurfaces( context );
+		if ( npcModels is not null )
+		{
+			registry.Mount( context, npcModels );
+			context.Add( ResourceType.GameResource, Rifle.GrenadeAmmoPath, new AmmoLoader( "AR grenades", 10 ) );
+			foreach ( var ammo in weapons.Select( w => w.Pickup ).Where( p => p.Ammo is not null ).DistinctBy( w => w.Ammo ) )
+				context.Add( ResourceType.GameResource, $"ammo/{ammo.Ammo}.ammo", new AmmoLoader( ammo.Ammo, ammo.Limit ) );
+			foreach ( var (type, pickup) in weapons )
+			{
+				if ( !npcModels.TryGetValue( pickup.WorldPickupPath, out var model ) ) continue;
+				var loader = new WeaponPickupLoader( type, model );
+				loader.Tags.Add( "weapon" );
+				context.Add( ResourceType.PrefabFile, pickup.PrefabPath, loader );
+			}
+		}
+
 		IsMounted = true;
 		return Task.CompletedTask;
 	}
 }
 
-public class HalfLifeMount : GameMount
+public partial class HalfLifeMount : GameMount
 {
+	NpcAudio _npcAudio;
+
 	public override string Ident => "hl1";
 	public override string Title => "Half-Life";
 	public override long AppId => 70;
 	public override IReadOnlyList<string> GameDirs => ["valve_hd", "valve"];
+
+	internal NpcAudio NpcAudio => _npcAudio ??= new( this );
+
+	protected override void Shutdown()
+	{
+		_indexedSprites.Clear();
+		_npcAudio = null;
+		base.Shutdown();
+	}
 }
 
 public class OpposingForceMount : GameMount

@@ -1,0 +1,159 @@
+namespace GoldSrc.HalfLife;
+
+[System.AttributeUsage( System.AttributeTargets.Class, Inherited = false )]
+internal sealed class WeaponPickupAttribute( string model, string ammo, int limit ) : System.Attribute
+{
+	internal string Model => model;
+	internal string Ammo => ammo;
+	internal int Limit => limit;
+	internal string ViewModelPath => $"models/v_{model}.mdl";
+	public string ClassName { get; set; }
+	public string PickupModel { get; set; }
+	internal string WorldPickupPath => $"models/{PickupModel ?? $"w_{model}"}.mdl";
+	internal string PrefabPath => $"entities/items/weapon_{ClassName ?? model}.prefab";
+}
+
+[Hide]
+public abstract class StudioWeapon : BaseCombatWeapon
+{
+	WeaponPickupAttribute _definition;
+	internal WeaponPickupAttribute Definition => _definition ??= Game.TypeLibrary.GetType( GetType() ).GetAttribute<WeaponPickupAttribute>();
+	internal virtual string DeploySequence => "draw";
+	internal virtual string IdleSequence => "idle1";
+	internal virtual string ShotSequence => "shoot";
+	internal virtual string ReloadSequence => "reload";
+
+	internal abstract void Configure();
+	internal virtual void PosePickup( SkinnedModelRenderer renderer ) { }
+
+	// The p_ models have no attachments. These are barrel-tip positions in their right-hand bone space.
+	internal virtual Vector3 WorldMuzzleOffset( bool hd ) => Vector3.Zero;
+	internal virtual string ShotSound => null;
+
+	protected override void OnShootEffects( ShotEffect shot )
+	{
+		if ( !Application.IsDedicatedServer && (shot.Hit || shot.HitPosition != default) )
+		{
+			var start = GetMuzzleTransform().Position;
+			shot = shot with { Origin = start };
+			DrawShotTrail( start, shot.HitPosition );
+		}
+		base.OnShootEffects( shot );
+		if ( !shot.NoEvents && ShotSound is { } sample ) PlaySample( sample );
+	}
+
+	internal virtual void DrawShotTrail( Vector3 start, Vector3 end ) => BulletEffects.ShowTracer( start, end );
+
+	protected override SceneTrace BulletTrace( Ray ray, float distance, float radius ) =>
+		base.BulletTrace( ray, distance, radius ).WithCollisionRules( "bullet" ).WithoutTags( "playercontroller" );
+
+	Transform _worldMuzzle;
+	SkinnedModelRenderer _viewRenderer;
+
+	public override Transform GetMuzzleTransform()
+	{
+		if ( Owner is { ThirdPerson: false } && !IsProxy && _viewRenderer.IsValid() &&
+			_viewRenderer.GetAttachment( "attachment1" ) is { } muzzle )
+			return muzzle;
+
+		return WorldModel.IsValid() ? WorldModel.WorldTransform.ToWorld( _worldMuzzle ) : base.GetMuzzleTransform();
+	}
+
+	public override Ray AimRay
+	{
+		get
+		{
+			if ( !IsHeld ) return base.AimRay;
+			var sight = IsProxy && Owner.IsValid() ? Owner.EyeTransform.ForwardRay : base.AimRay;
+			var aim = BulletTrace( sight, Ballistics.Range, 0 ).Run().EndPosition;
+			var muzzle = GetMuzzleTransform().Position;
+
+			// If the barrel sticks through cover, keep the shot on the shooter's side.
+			var eye = Owner.IsValid() ? Owner.EyePosition : sight.Position;
+			var cover = BulletTrace( new Ray( eye, (muzzle - eye).Normal ), eye.Distance( muzzle ), 0 ).Run();
+			if ( cover.Hit || cover.StartedSolid )
+				return new Ray( cover.StartedSolid ? eye : cover.EndPosition - (muzzle - eye).Normal * 0.1f, (muzzle - eye).Normal );
+
+			var direction = aim - muzzle;
+			return new Ray( muzzle, direction.Dot( sight.Forward ) > 0 ? direction.Normal : sight.Forward );
+		}
+	}
+
+	internal void SetupPickup()
+	{
+		DisplayName = Game.TypeLibrary.GetType( GetType() ).Title;
+		UsesAmmo = UsesClips = true;
+		if ( Definition.Ammo is not null ) PrimaryAmmoType = GameResource.Load<BaseAmmoResource>( $"mount://hl1/ammo/{Definition.Ammo}.ammo" );
+		Configure();
+	}
+
+	protected void EjectShells( int count, bool shotgun )
+	{
+		if ( Application.IsDedicatedServer || !Owner.IsValid() ) return;
+		var pose = Owner.EyeTransform;
+		var origin = pose.PointToWorld( new Vector3( 32, -6, -12 ) );
+		for ( int i = 0; i < count; i++ ) ShellCasing.Eject( origin, pose.Rotation, shotgun, Owner.Velocity );
+	}
+
+	protected void PlaySample( string sample, float volume = 1, float pitch = 1 )
+	{
+		if ( !Application.IsDedicatedServer && Sandbox.Mounting.Directory.Get( "hl1" ) is HalfLifeMount mount )
+			NpcAudio.Play( mount.NpcAudio.Find( sample ), WorldPosition, volume, pitch );
+	}
+
+	protected override void OnUpdate()
+	{
+		base.OnUpdate();
+		if ( GetComponent<ModelRenderer>( true ) is { } loose ) loose.Enabled = !IsHeld;
+	}
+
+	protected override void CreateWorldModel()
+	{
+		DestroyWorldModel();
+		if ( !HolderRenderer.IsValid() ) return;
+		WorldModel = MakeModel( $"models/p_{Definition.Model}.mdl", HolderRenderer.GetBoneObject( HoldBone ) ?? GameObject, false );
+	}
+
+	protected override void CreateViewModel()
+	{
+		if ( ViewModel.IsValid() || IsProxy || Holder is not PlayerController ) return;
+		ViewModel = MakeModel( Definition.ViewModelPath, GameObject, true );
+	}
+
+	GameObject MakeModel( string relativePath, GameObject parent, bool firstPerson )
+	{
+		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount ) return null;
+		foreach ( var dir in mount.GameDirs )
+		{
+			var path = $"mount://hl1/{dir}/{relativePath}.vmdl";
+			if ( mount.GetByPath( path ) is not ModelLoader loader ) continue;
+			var model = Model.Load( path );
+			if ( !model.IsValid() || model.IsError ) continue;
+			var go = new GameObject( parent, false, DisplayName );
+			go.Flags |= GameObjectFlags.NotNetworked | GameObjectFlags.NotSaved;
+			var renderer = go.AddComponent<SkinnedModelRenderer>();
+			renderer.Model = model;
+			if ( firstPerson )
+			{
+				_viewRenderer = renderer;
+				go.Flags |= GameObjectFlags.Absolute;
+				go.Tags.Add( "firstperson", "viewmodel" );
+				renderer.RenderOptions.Game = false;
+				renderer.RenderOptions.Overlay = true;
+				var view = go.AddComponent<StudioWeaponView>();
+				view.Renderer = renderer;
+				view.TracerEffect = null;
+				view.Initialize( this, loader, mount.NpcAudio );
+			}
+			else if ( (model.Bones.GetBone( "Bip01 R Hand" ) ?? model.Bones.GetBone( "Bip01 R Forearm" ) ?? model.Bones.GetBone( "Bip01 R Arm2" )) is { } hand )
+			{
+				var grip = hand.LocalTransform;
+				go.LocalTransform = grip.ToLocal( global::Transform.Zero );
+				_worldMuzzle = grip.ToWorld( new Transform( WorldMuzzleOffset( dir.EndsWith( "_hd" ) ) ) );
+			}
+			go.Enabled = true;
+			return go;
+		}
+		return null;
+	}
+}
