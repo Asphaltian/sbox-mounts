@@ -15,6 +15,7 @@ public sealed class Barnacle : Npc
 
 	internal override void OnModelLoaded( ModelLoader loader )
 	{
+		EyeHeight = 0;
 		_tongue = loader.Controllers.FirstOrDefault();
 		if ( GetComponentInChildren<BoxCollider>() is { } hull ) hull.Center = Vector3.Down * (Definition.Height * 0.5f);
 	}
