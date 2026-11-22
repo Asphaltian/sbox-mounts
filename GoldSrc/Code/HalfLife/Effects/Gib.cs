@@ -104,10 +104,12 @@ public sealed class Gib : Component, Component.ICollisionListener
 			if ( volume > 0 ) NpcAudio.Play( mount.NpcAudio.Find( "debris/flesh" ), collision.Contact.Point, volume, pitch );
 		}
 		if ( _decals <= 0 || _blood == Npc.BloodColor.None ) return;
-		var normal = collision.Contact.Normal;
-		if ( normal.Dot( collision.Self.Body.MassCenter - collision.Contact.Point ) < 0 ) normal = -normal;
-		var prefix = _blood == Npc.BloodColor.Red ? "blood" : "yblood";
-		ImpactDecal.Place( collision.Contact.Point, normal, $"{prefix}{Game.Random.Int( 1, 6 )}", 0 );
+		// BounceGibTouch stains the surface beneath the gib, including on a sloped floor.
+		var start = WorldPosition + Vector3.Up * 8;
+		var floor = Scene.Trace.Ray( start, start + Vector3.Down * 24 )
+			.IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "trigger", "npc", "player", "playercontroller", "ragdoll", "debris" ).Run();
+		if ( !floor.Hit || floor.StartedSolid ) return;
+		BloodEffects.PlaceDecal( _blood, floor.EndPosition, floor.Normal, Game.Random.Int( 1, 6 ) );
 		_decals--;
 	}
 

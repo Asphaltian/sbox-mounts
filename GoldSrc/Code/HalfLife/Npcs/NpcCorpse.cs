@@ -17,7 +17,7 @@ public class NpcCorpse : Component
 
 	readonly StudioSequenceEvents _sequenceEvents = new();
 	StudioSequence _sequence, _final;
-	bool _finishing;
+	bool _finishing, _poseStarted;
 	int _nextEvent;
 	[Sync( SyncFlags.FromHost )] float FinalStart { get; set; } = -1;
 	NpcAudio _audio;
@@ -36,6 +36,7 @@ public class NpcCorpse : Component
 		go.WorldTransform = source.WorldTransform;
 
 		var renderer = go.AddComponent<SkinnedModelRenderer>();
+		renderer.Model = source.Model;
 		renderer.UseAnimGraph = true;
 
 		var corpse = npc.AddCorpseComponent( go );
@@ -58,6 +59,7 @@ public class NpcCorpse : Component
 		corpse._hull = new BBox( new Vector3( -radius, -radius, 0 ), new Vector3( radius, radius, npc.Definition.Height ) );
 		corpse.Velocity = velocity ?? (npc.GetComponent<Rigidbody>() is { MotionEnabled: true } body ? body.Velocity : Sandbox.Npcs.BaseNpc.GetVelocity( npc.GameObject ));
 		corpse._anchored = corpse.Landed = anchored;
+		corpse.StartPose( sequence );
 		go.Enabled = true;
 		go.NetworkSpawn( true, null );
 		return go;
@@ -71,47 +73,33 @@ public class NpcCorpse : Component
 	internal virtual void SetBody() { }
 	internal virtual void HandleEvent( int id ) { }
 
-	protected override async void OnStart()
+	protected override void OnStart() => StartPose();
+
+	void StartPose( StudioSequence sequence = null )
 	{
-		try
-		{
-			var mount = await Sandbox.Mounting.Directory.Mount( "hl1" );
-			if ( mount is not HalfLifeMount halfLife || mount.GetByPath( ModelPath ) is not ModelLoader loader )
-				return;
+		if ( _poseStarted || !Renderer.IsValid() ) return;
+		if ( Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount || mount.GetByPath( ModelPath ) is not ModelLoader loader ) return;
 
-			var model = await Model.LoadAsync( ModelPath );
-			if ( !IsValid || !Renderer.IsValid() || !model.IsValid() || model.IsError )
-				return;
+		var desired = PoseName ?? DeathSequence;
+		_sequence = sequence ?? loader.Sequences.FirstOrDefault( x => string.Equals( x.Name, desired, StringComparison.OrdinalIgnoreCase ) );
+		if ( _sequence is null ) return;
 
-			Renderer.Model = model;
-			if ( PoseName is null ) Renderer.BodyGroups = BodyGroups;
-			Renderer.MaterialGroup = MaterialGroup;
-			Renderer.Tint = Tint;
-			SetBody();
-			var desired = PoseName ?? DeathSequence;
-			_sequence = loader.Sequences.FirstOrDefault( x => string.Equals( x.Name, desired, StringComparison.OrdinalIgnoreCase ) );
-			if ( _sequence is null )
-				return;
+		_audio = mount.NpcAudio;
+		if ( PoseName is null ) Renderer.BodyGroups = BodyGroups;
+		Renderer.MaterialGroup = MaterialGroup;
+		Renderer.Tint = Tint;
+		SetBody();
 
-			_audio = halfLife.NpcAudio;
-			var time = Math.Clamp( Age, 0, _sequence.Duration );
-			if ( FinalSequence is { } final )
-				_final = loader.Sequences.FirstOrDefault( x => string.Equals( x.Name, final, StringComparison.OrdinalIgnoreCase ) && x != _sequence );
-			Renderer.Animation.Graph = loader.AnimationGraphs.GetGraph( _sequence, _final );
-			Renderer.Animation.Parameters.Set( StudioAnimationGraphs.StateParameter, _sequence.Name );
-			if ( PoseName is not null )
-			{
-				Renderer.Animation.Parameters.Set( _sequence.TimeParameter, PoseTime );
-				_sequence = null;
-				return;
-			}
-			_sequenceEvents.Reset( _sequence, time, time <= 0.1f );
-			OnUpdate();
-		}
-		catch ( Exception e )
-		{
-			Log.Warning( $"Could not load Half-Life corpse '{ModelPath}': {e.Message}" );
-		}
+		if ( FinalSequence is { } final )
+			_final = loader.Sequences.FirstOrDefault( x => string.Equals( x.Name, final, StringComparison.OrdinalIgnoreCase ) && x != _sequence );
+		var time = Math.Clamp( (float)Age, 0, _sequence.Duration );
+		Renderer.Animation.Graph = loader.AnimationGraphs.GetGraph( _sequence, _final );
+		Renderer.Animation.Parameters.Set( StudioAnimationGraphs.StateParameter, _sequence.Name, persist: true );
+		Renderer.Animation.Parameters.Set( _sequence.TimeParameter, PoseName is null ? time / _sequence.Duration : PoseTime, persist: true );
+		_poseStarted = true;
+
+		if ( PoseName is not null ) _sequence = null;
+		else _sequenceEvents.Reset( _sequence, time, time <= 0.1f );
 	}
 
 	protected override void OnUpdate()

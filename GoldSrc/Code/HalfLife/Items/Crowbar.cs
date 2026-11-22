@@ -21,7 +21,12 @@ public sealed class Crowbar : StudioWeapon
 	}
 
 	public override void PrimaryAttack() => Swing( true );
-	public override Ray AimRay => Holder is null ? base.AimRay : Holder.CalculateAimRay( this );
+	public override Ray AimRay => Holder switch
+	{
+		PlayerController player => player.EyeTransform.ForwardRay,
+		{ } holder => holder.CalculateAimRay( this ),
+		null => UnheldAimRay
+	};
 
 	void Swing( bool first )
 	{

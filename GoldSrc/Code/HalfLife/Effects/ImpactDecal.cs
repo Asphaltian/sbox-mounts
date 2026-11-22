@@ -13,7 +13,7 @@ internal static class ImpactDecal
 		var go = new GameObject( false, $"{name} decal" );
 		go.NetworkMode = NetworkMode.Never;
 		go.WorldPosition = position;
-		go.WorldRotation = Rotation.LookAt( normal );
+		go.WorldRotation = Rotation.LookAt( -normal );
 		var decal = go.AddComponent<Decal>();
 		decal.Decals = [new DecalDefinition { ColorTexture = texture, Width = size > 0 ? size : texture.Width, Height = size > 0 ? size : texture.Height }];
 		decal.Depth = 4;

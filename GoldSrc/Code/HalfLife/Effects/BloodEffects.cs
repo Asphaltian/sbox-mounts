@@ -24,7 +24,10 @@ internal static partial class BloodEffects
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
-	internal static void Decal( Npc.BloodColor color, Vector3 point, Vector3 normal, int variant )
+	internal static void Decal( Npc.BloodColor color, Vector3 point, Vector3 normal, int variant ) =>
+		PlaceDecal( color, point, normal, variant );
+
+	internal static void PlaceDecal( Npc.BloodColor color, Vector3 point, Vector3 normal, int variant )
 	{
 		var prefix = color == Npc.BloodColor.Red ? "blood" : "yblood";
 		ImpactDecal.Place( point, normal, $"{prefix}{variant}", 0 );

@@ -61,10 +61,10 @@ public partial class Npc
 			return npc.Faction switch
 			{
 				Factions.Citizen => HumanPassive, Factions.Ally => PlayerAlly, Factions.Enemy => HumanMilitary,
-				Factions.Monster => AlienMonster, Factions.Player => Player, _ => None
+				Factions.Monster => AlienMonster, Factions.Player => MonsterClass.Player, _ => None
 			};
 		}
-		return other.Tags.Has( Factions.Player ) || other.Root.Tags.Has( Factions.Player ) || other.GetComponentInParent<PlayerController>().IsValid() ? Player : None;
+		return other.Tags.Has( Factions.Player ) || other.Root.Tags.Has( Factions.Player ) || other.GetComponentInParent<PlayerController>().IsValid() ? MonsterClass.Player : None;
 	}
 
 	protected override Relationship GetFallbackRelationship( GameObject other ) => ClassRelationship( Classification, ClassOf( other ) );
@@ -73,23 +73,23 @@ public partial class Npc
 	{
 		return (self, target) switch
 		{
-			(HumanPassive, Player or HumanPassive or PlayerAlly) or (PlayerAlly, Player or HumanPassive)
+			(HumanPassive, MonsterClass.Player or HumanPassive or PlayerAlly) or (PlayerAlly, MonsterClass.Player or HumanPassive)
 				or (AlienWeapon, AlienMilitary) => new( Disposition.Friendly ),
 			(HumanPassive, AlienMilitary or AlienPredator) or (AlienPrey, AlienPredator)
-				or (Insect, None or Machine or Player or HumanPassive or HumanMilitary or AlienPassive or AlienMonster or AlienPrey or AlienPredator or PlayerAlly)
+				or (Insect, None or Machine or MonsterClass.Player or HumanPassive or HumanMilitary or AlienPassive or AlienMonster or AlienPrey or AlienPredator or PlayerAlly)
 				=> new( Disposition.Fearful ),
-			(HumanMilitary, Player or AlienMilitary or PlayerAlly) or (AlienMilitary, Player or HumanMilitary)
+			(HumanMilitary, MonsterClass.Player or AlienMilitary or PlayerAlly) or (AlienMilitary, MonsterClass.Player or HumanMilitary)
 				or (HumanPassive, HumanMilitary or AlienMonster) or (AlienPredator, AlienPrey) => new( Disposition.Hostile, 1 ),
-			(Machine, Player or HumanPassive or AlienMilitary or AlienPassive or AlienMonster or AlienPrey or AlienPredator or PlayerAlly or PlayerWeapon or AlienWeapon)
+			(Machine, MonsterClass.Player or HumanPassive or AlienMilitary or AlienPassive or AlienMonster or AlienPrey or AlienPredator or PlayerAlly or PlayerWeapon or AlienWeapon)
 				or (HumanPassive, AlienPrey)
 				or (HumanMilitary, HumanPassive or AlienPassive or AlienMonster or AlienPrey or AlienPredator)
 				or (AlienMilitary, Machine or HumanPassive or PlayerAlly)
-				or (AlienMonster, Machine or Player or HumanPassive or HumanMilitary or PlayerAlly)
-				or (AlienPrey or AlienPredator, Player or HumanPassive or HumanMilitary or PlayerAlly)
+				or (AlienMonster, Machine or MonsterClass.Player or HumanPassive or HumanMilitary or PlayerAlly)
+				or (AlienPrey or AlienPredator, MonsterClass.Player or HumanPassive or HumanMilitary or PlayerAlly)
 				or (AlienPredator, AlienPredator)
 				or (PlayerAlly, Machine or HumanMilitary or AlienMilitary or AlienPassive or AlienMonster or AlienPrey or AlienPredator)
-				or (PlayerWeapon, Player or HumanPassive or HumanMilitary or AlienMilitary or AlienPassive or AlienMonster or AlienPrey or AlienPredator or PlayerAlly or AlienWeapon)
-				or (AlienWeapon, Player or HumanPassive or HumanMilitary or AlienMonster or AlienPrey or PlayerAlly or PlayerWeapon)
+				or (PlayerWeapon, MonsterClass.Player or HumanPassive or HumanMilitary or AlienMilitary or AlienPassive or AlienMonster or AlienPrey or AlienPredator or PlayerAlly or AlienWeapon)
+				or (AlienWeapon, MonsterClass.Player or HumanPassive or HumanMilitary or AlienMonster or AlienPrey or PlayerAlly or PlayerWeapon)
 				=> new( Disposition.Hostile ),
 			_ => new( Disposition.Neutral )
 		};
