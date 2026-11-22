@@ -188,12 +188,16 @@ public partial class Npc : BaseNpc
 
 	protected override void OnUpdate()
 	{
-		base.OnUpdate();
+		if ( ScriptedIdle is null && !_script.IsValid() ) base.OnUpdate();
+		if ( MapNavigation.IsValid() ) MapNavigation.UpdatePosition = Movement?.MoveTarget.HasValue == true;
 		if ( !_loaded || Health <= 0 )
 			return;
 
 		if ( Networking.IsHost )
-			UpdateLeap();
+		{
+			if ( _script.IsValid() ) UpdateScript();
+			else if ( ScriptedIdle is null ) UpdateLeap();
+		}
 		UpdateSequence();
 	}
 
@@ -268,6 +272,12 @@ public partial class Npc : BaseNpc
 			point = projected.Value;
 		}
 
+		if ( MapNavigation.IsValid() && !MapNavigation.UpdatePosition )
+		{
+			// A scripted teleport can move the actor while the nav agent is parked.
+			MapNavigation.SetAgentPosition( WorldPosition );
+			MapNavigation.UpdatePosition = true;
+		}
 		Movement.MoveTo( point, stop, Definition.Speed * pace );
 		return true;
 	}
@@ -292,14 +302,14 @@ public partial class Npc : BaseNpc
 		var sequence = captured ?? Find( Action );
 		var loop = sequence is null;
 		var speed = Animation.MoveVelocity.Length;
-		sequence ??= MovementSequence( speed ) ?? RestSequence;
+		sequence ??= Find( ScriptedIdle ) ?? ScriptGait ?? MovementSequence( speed ) ?? RestSequence;
 		if ( sequence is null || !Renderer.Animation.IsValid )
 			return;
 
 		var changed = _shownSequence != sequence || _shownAction != ActionSerial;
 		var rate = loop ? MovementPlaybackRate( sequence, speed ) : 1f;
 		var nextTime = _clipTime + Time.Delta * rate;
-		if ( loop && !changed && Networking.IsHost && nextTime >= sequence.Duration ) FinishMovementCycle();
+		if ( ScriptedIdle is null && loop && !changed && Networking.IsHost && nextTime >= sequence.Duration ) FinishMovementCycle();
 		_clipTime = loop
 			? changed ? 0f : nextTime % sequence.Duration
 			: Math.Clamp( captured is null ? ActionTime : captureTime, 0, sequence.Duration );

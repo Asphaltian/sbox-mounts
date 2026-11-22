@@ -5,13 +5,13 @@ namespace GoldSrc.HalfLife;
 
 public abstract partial class Personnel
 {
-	sealed class Conversation
+	internal sealed class Conversation
 	{
 		public TimeUntil NextLine;
 	}
 
 	static readonly ConditionalWeakTable<Scene, Conversation> Conversations = new();
-	Conversation Dialogue => Conversations.GetValue( Scene, _ => new() );
+	internal static Conversation GetConversation( Scene scene ) => Conversations.GetValue( scene, _ => new() );
 
 	protected bool HasSpoken { get; private set; }
 	bool _wounded, _badlyWounded, _patientHurt, _patientWounded, _patientCritical;
@@ -39,13 +39,30 @@ public abstract partial class Personnel
 		EmitSound( $"!{SentencePrefix}_{line}", WorldPosition, VoiceVolume, SpeechPitch, this, attenuation );
 	}
 
-	protected void PauseConversation( float seconds ) => Dialogue.NextLine = seconds;
+	protected void PauseConversation( float seconds ) => GetConversation( Scene ).NextLine = seconds;
 
 	internal void Say( string line, GameObject listener = null, float duration = 3, float attenuation = GoldSrcSoundEvents.Idle )
 	{
 		_speaker = null;
 		EmitSentence( line, attenuation );
 		HasSpoken = true;
+		_listener = listener;
+		_talkUntil = duration;
+		PauseConversation( duration + 2 );
+		if ( listener.IsValid() ) Animation.SetLookTarget( listener );
+	}
+
+	internal bool FollowingPlayer => Leader.IsValid();
+
+	internal override void SpeakMapSentence( string sentence, float duration, GameObject listener, float volume, float attenuation, bool silenceFriends )
+	{
+		if ( silenceFriends )
+			foreach ( var friend in Scene.GetAllComponents<Personnel>() )
+				if ( friend != this && friend.Health > 0 && CanSeeColleague( friend, WorldPosition ) ) friend.StopVoice();
+
+		base.SpeakMapSentence( sentence, duration, listener, volume, attenuation, silenceFriends );
+		HasSpoken = true;
+		_speaker = null;
 		_listener = listener;
 		_talkUntil = duration;
 		PauseConversation( duration + 2 );
@@ -78,7 +95,7 @@ public abstract partial class Personnel
 		return true;
 	}
 
-	internal bool CanStartConversation => Dialogue.NextLine <= 0 && !PhysicsCarrier.IsValid();
+	internal bool CanStartConversation => GetConversation( Scene ).NextLine <= 0 && !PhysicsCarrier.IsValid();
 	internal override void IdleSound() { }
 
 	protected override void Think()

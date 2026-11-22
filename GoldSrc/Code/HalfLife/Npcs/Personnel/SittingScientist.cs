@@ -18,11 +18,16 @@ public sealed class SittingScientist : ScientistBase
 		Animation.TurnsBody = false;
 	}
 
+	[Property, Hide] public bool PlacedOnMapHull { get; set; }
+
 	internal override void PlaceAtSpawn()
 	{
-		var floor = Scene.Trace.Ray( WorldPosition + Vector3.Up, WorldPosition + Vector3.Down * 256 )
+		if ( PlacedOnMapHull ) return;
+		var radius = Definition.Radius;
+		var hull = new BBox( new Vector3( -radius, -radius, 0 ), new Vector3( radius, radius, Definition.Height ) );
+		var floor = Scene.Trace.Box( hull, WorldPosition, WorldPosition + Vector3.Down * 256 )
 			.IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "npc", "player", "trigger" ).Run();
-		if ( floor.Hit ) WorldPosition = floor.EndPosition;
+		if ( floor.Hit && !floor.StartedSolid ) WorldPosition = floor.EndPosition;
 	}
 
 	protected override void Think()
