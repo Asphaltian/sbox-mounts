@@ -16,7 +16,11 @@ public sealed partial class Vortigaunt : VoicedNpc
 
 	protected override void OnDamaged( Component.IDamageable.DamageEvent hit )
 	{
-		if ( hit.AcceptedDamage > 0 ) Provoked = true;
+		if ( hit.AcceptedDamage > 0 )
+		{
+			Provoked = true;
+			_recentAttacker = hit.Instigator;
+		}
 		base.OnDamaged( hit );
 	}
 
@@ -62,7 +66,7 @@ public sealed partial class Vortigaunt : VoicedNpc
 
 	protected override void Think()
 	{
-		base.Think();
+		if ( !TakeCover() ) base.Think();
 		if ( _chargeAction >= 0 && (_chargeAction != ActionSerial || Action is null) ) ClearBeams();
 	}
 
@@ -72,12 +76,19 @@ public sealed partial class Vortigaunt : VoicedNpc
 		base.OnDeath( death );
 	}
 
+	bool CanClaw( GameObject target )
+	{
+		var offset = target.WorldPosition - WorldPosition;
+		return offset.LengthSquared <= 64 * 64 && WorldRotation.Forward.Dot( offset.WithZ( 0 ).Normal ) >= 0.7f &&
+			(target.GetComponent<Sandbox.Npcs.BaseNpc>()?.IsOnGround ?? target.GetComponent<PlayerController>()?.IsOnGround ?? false);
+	}
+
 	internal override void BeginAttack( GameObject target )
 	{
 		var offset = target.WorldPosition - WorldPosition;
 		var claw = offset.LengthSquared <= 64 * 64;
 		if ( WorldRotation.Forward.Dot( offset.WithZ( 0 ).Normal ) < (claw ? 0.7f : 0.5f) ) return;
-		if ( claw && (target.GetComponent<Sandbox.Npcs.BaseNpc>() is { IsOnGround: false } || target.GetComponent<PlayerController>() is { IsOnGround: false }) ) return;
+		if ( claw && !CanClaw( target ) ) return;
 		if ( !claw && _nextZap > 0 ) return;
 		var action = Find( claw ? "attack1" : "zapattack1" );
 		if ( action is null ) return;
