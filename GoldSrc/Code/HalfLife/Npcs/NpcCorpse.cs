@@ -23,6 +23,8 @@ public class NpcCorpse : Component
 	NpcAudio _audio;
 	protected Vector3 Velocity { get; set; }
 	BBox _hull;
+	bool _anchored;
+	TimeUntil _checkSupport;
 	[Sync( SyncFlags.FromHost )] protected bool Landed { get; private set; }
 
 	internal static GameObject Spawn( Npc npc, StudioSequence sequence, bool anchored = false, Vector3? velocity = null )
@@ -55,7 +57,7 @@ public class NpcCorpse : Component
 		var radius = npc.Definition.Radius;
 		corpse._hull = new BBox( new Vector3( -radius, -radius, 0 ), new Vector3( radius, radius, npc.Definition.Height ) );
 		corpse.Velocity = velocity ?? (npc.GetComponent<Rigidbody>() is { MotionEnabled: true } body ? body.Velocity : Sandbox.Npcs.BaseNpc.GetVelocity( npc.GameObject ));
-		corpse.Landed = anchored;
+		corpse._anchored = corpse.Landed = anchored;
 		go.Enabled = true;
 		go.NetworkSpawn( true, null );
 		return go;
@@ -147,17 +149,23 @@ public class NpcCorpse : Component
 
 	protected override void OnFixedUpdate()
 	{
-		if ( IsProxy || Landed )
+		if ( IsProxy || _anchored )
 			return;
 
-		Velocity += Scene.PhysicsWorld.Gravity * (GravityScale * Time.Delta);
 		var offset = Vector3.Up * ModelOriginHeight;
 		var feet = WorldPosition - offset;
+		if ( Landed )
+		{
+			if ( _checkSupport > 0 ) return;
+			_checkSupport = 0.25f;
+			var support = TraceHull( feet, feet + Vector3.Down );
+			if ( support.Hit && support.Normal.z > 0.7f ) return;
+			Landed = false;
+		}
+
+		Velocity += Scene.PhysicsWorld.Gravity * (GravityScale * Time.Delta);
 		var next = feet + Velocity * Time.Delta;
-		var hit = Scene.Trace.Box( _hull, feet, next )
-			.IgnoreGameObjectHierarchy( GameObject )
-			.WithoutTags( "npc", "player", "playercontroller", "ragdoll", "trigger" )
-			.Run();
+		var hit = TraceHull( feet, next );
 		if ( !hit.Hit )
 		{
 			WorldPosition = next + offset;
@@ -175,4 +183,9 @@ public class NpcCorpse : Component
 		WorldPosition = hit.EndPosition + offset + hit.Normal * 0.03125f;
 		Velocity -= hit.Normal * MathF.Min( 0, Velocity.Dot( hit.Normal ) );
 	}
+
+	SceneTraceResult TraceHull( Vector3 from, Vector3 to ) => Scene.Trace.Box( _hull, from, to )
+		.IgnoreGameObjectHierarchy( GameObject )
+		.WithoutTags( "npc", "player", "playercontroller", "ragdoll", "trigger", "nocollide_props", "debris" )
+		.Run();
 }
