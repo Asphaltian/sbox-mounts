@@ -56,7 +56,7 @@ partial class MapBuilder
 				return;
 
 			case "info_intermission" or "info_player_start_ctf":
-				SpawnPreview( entity );
+				SpawnPreview( bsp, entity );
 				return;
 		}
 
@@ -100,11 +100,16 @@ partial class MapBuilder
 		RegisterTarget( entity, light );
 	}
 
-	private static void SpawnPreview( Entity entity )
+	private static void SpawnPreview( BspFile bsp, Entity entity )
 	{
 		var go = new GameObject( true, entity.ClassName );
 		go.WorldPosition = entity.Origin;
 		go.WorldRotation = entity.Rotation;
+		if ( !string.IsNullOrEmpty( entity.Target ) && bsp.Entities.FirstOrDefault( e => e.TargetName == entity.Target ) is {} target )
+		{
+			var direction = target.Origin - entity.Origin;
+			if ( !direction.IsNearlyZero() ) go.WorldRotation = Rotation.LookAt( direction );
+		}
 		go.Tags.Add( "map_preview" );
 	}
 

@@ -15,6 +15,9 @@ internal sealed class MapLoader( string filePath ) : SceneLoader<GameMount>
 
 	protected override Texture GetThumbnail()
 	{
+		// Half-Life ships rendered scene thumbnails in the mount's thumbs folder.
+		if ( Host is HalfLifeMount ) return null;
+
 		var map = System.IO.Path.GetFileNameWithoutExtension( filePath );
 		var overview = Host.FindFile( $"overviews/{map}.bmp" ) ?? Host.FindFile( $"overviews/{map}.tga" );
 		if ( overview is null ) return null;
