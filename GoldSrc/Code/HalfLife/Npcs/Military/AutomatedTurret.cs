@@ -31,7 +31,6 @@ public abstract partial class AutomatedTurret : Npc
 		corpse.Height = Definition.Height;
 		return corpse;
 	}
-	internal override bool AnchoredCorpse => true;
 	internal override NpcSounds Sounds { get; } = new( Death: "turret/tu_die" );
 	static readonly string[] Clips = ["deploy", "retire", "spin", "fire"];
 	internal override string[] ExtraActions => Clips;

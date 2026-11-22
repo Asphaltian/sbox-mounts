@@ -32,7 +32,9 @@ public sealed class Barnacle : Npc
 		base.OnDeath( death );
 	}
 
-	internal override bool AnchoredCorpse => true;
+	internal override bool AnchoredCorpse => Scene.Trace.Ray( WorldPosition, WorldPosition + Vector3.Up * 4 )
+		.IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "npc", "player", "trigger" ).Run().Hit;
+	internal override float ModelOriginHeight => Definition.Height;
 	public enum FeedingState { Waiting, Lifting, Chewing }
 
 	[Sync( SyncFlags.FromHost )] FeedingState State { get; set; }
