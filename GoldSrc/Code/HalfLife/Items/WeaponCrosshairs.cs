@@ -51,9 +51,19 @@ public abstract partial class StudioWeapon
 {
 	private WeaponCrosshairs _crosshairs;
 
+	// Sandbox Mode exposes its HUD visibility policy; other games can draw the weapon HUD directly.
+	private static bool CrosshairVisible()
+	{
+		var visible = TypeLibrary.GetType( "Sandbox.Hud" )?.GetMethod( "IsVisible" );
+		var element = TypeLibrary.GetType( "HudElement" );
+		if ( visible is null || element?.IsEnum != true ) return true;
+		var crosshair = TypeLibrary.GetEnumDescription( element.TargetType ).FirstOrDefault( e => e.Name == "Crosshair" ).ObjectValue;
+		return crosshair is null || visible.InvokeWithReturn<bool>( null, [crosshair] );
+	}
+
 	public override void DrawCrosshair( Painter painter, Vector2 center )
 	{
-		if ( !Hud.IsVisible( HudElement.Crosshair ) ) return;
+		if ( !CrosshairVisible() ) return;
 		if ( _crosshairs is null )
 		{
 			if ( Sandbox.Mounting.Directory.Get( "hl1" ) is not HalfLifeMount mount
@@ -65,7 +75,7 @@ public abstract partial class StudioWeapon
 		{
 			var hit = TraceLineOfFire( Owner.EyeTransform.ForwardRay, 8192, 0 ).UseHitboxes().Run().GameObject;
 			if ( hit.IsValid() && (hit.GetComponentInParent<Sandbox.Npcs.BaseNpc>() is { Health: > 0 }
-				|| hit.GetComponentInParent<global::Player>() is { Health: > 0 }) ) image = onTarget;
+				|| hit.GetComponentInParent<PlayerController>() is {} player && Maps.MapState.PlayerVitals( player ) is { Health: > 0 }) ) image = onTarget;
 		}
 		image?.Draw( painter, center );
 	}

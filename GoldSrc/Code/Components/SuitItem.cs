@@ -20,8 +20,8 @@ public sealed class SuitItem : MapEntity, Component.ITriggerListener
 	void ITriggerListener.OnTriggerEnter( Collider other )
 	{
 		if ( !CanTrigger || !Networking.IsHost ) return;
-		var player = other.GetComponentInParent<global::Player>();
-		if ( !player.IsValid() || player.Health <= 0 ) return;
+		var player = other.GetComponentInParent<PlayerController>();
+		if ( !player.IsValid() || MapState.PlayerVitals( player ) is not { Health: > 0 } vitals ) return;
 		var suit = player.GetComponent<HevSuit>();
 		string sound = null;
 		switch ( Item )
@@ -29,13 +29,13 @@ public sealed class SuitItem : MapEntity, Component.ITriggerListener
 			case "item_suit" when !suit.IsValid():
 				player.GameObject.AddComponent<HevSuit>().Speak( ShortLogon ? "!HEV_A0" : "!HEV_AAx" );
 				break;
-			case "item_battery" when suit.IsValid() && player.Armour < 100:
-				player.Armour = System.Math.Min( 100, player.Armour + (Skill >= 3 ? 10 : 15) );
-				suit.ReportCharge( player.Armour );
+			case "item_battery" when suit.IsValid() && vitals.Armour < 100:
+				vitals.Armour = System.Math.Min( 100, vitals.Armour + (Skill >= 3 ? 10 : 15) );
+				suit.ReportCharge( vitals.Armour );
 				sound = "items/gunpickup2.wav";
 				break;
-			case "item_healthkit" when player.Health < player.MaxHealth:
-				player.Health = System.Math.Min( player.MaxHealth, player.Health + (Skill >= 3 ? 10 : 15) );
+			case "item_healthkit" when vitals.Health < vitals.MaxHealth:
+				vitals.Health = System.Math.Min( vitals.MaxHealth, vitals.Health + (Skill >= 3 ? 10 : 15) );
 				sound = "items/smallmedkit1.wav";
 				break;
 			case "item_longjump" when suit.IsValid() && !player.GetComponent<LongJumpModule>().IsValid():

@@ -25,8 +25,8 @@ public sealed class WallCharger : MapEntity, Component.IPressable
 	private bool UseBy( GameObject activator )
 	{
 		if ( !Networking.IsHost || !activator.IsValid() ) return false;
-		var player = activator.GetComponentInParent<global::Player>();
-		if ( !player.IsValid() ) return false;
+		var player = activator.GetComponentInParent<PlayerController>();
+		if ( !player.IsValid() || MapState.PlayerVitals( player ) is not {} vitals ) return false;
 		if ( Juice == 0 || !player.GetComponent<HevSuit>().IsValid() )
 		{
 			if ( Juice == 0 ) Stop();
@@ -53,9 +53,9 @@ public sealed class WallCharger : MapEntity, Component.IPressable
 			_stage = 2;
 		}
 
-		if ( Armour ? player.Armour >= 100 : player.Health <= 0 || player.Health >= player.MaxHealth ) return true;
-		if ( Armour ) player.Armour = System.Math.Min( 100, player.Armour + 1 );
-		else player.Health = System.Math.Min( player.MaxHealth, player.Health + 1 );
+		if ( Armour ? vitals.Armour >= 100 : vitals.Health <= 0 || vitals.Health >= vitals.MaxHealth ) return true;
+		if ( Armour ) vitals.Armour = System.Math.Min( 100, vitals.Armour + 1 );
+		else vitals.Health = System.Math.Min( vitals.MaxHealth, vitals.Health + 1 );
 		if ( --Juice == 0 ) GetComponent<BrushAppearance>().Frame = 1;
 		return true;
 	}

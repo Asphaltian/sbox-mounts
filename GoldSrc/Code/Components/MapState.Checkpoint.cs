@@ -3,12 +3,25 @@ using System.Threading.Tasks;
 
 namespace GoldSrc.Maps;
 
-public sealed partial class MapState : Global.ISaveEvents, Global.IPlayerEvents
+public sealed partial class MapState : Component.IDamageable.IEvents
 {
 	private string _checkpoint;
 	private bool _loading;
 	private int _savingTrigger = -1;
 	internal static bool SoloCampaign => Networking.IsHost && Connection.All.Count <= 1 && !Application.IsDedicatedServer;
+
+	internal static Component.IDamageable PlayerVitals( PlayerController player ) =>
+		player.Components.GetAll<Component.IDamageable>().FirstOrDefault( x => x.MaxHealth > 0 );
+
+	private PlayerController LocalPlayer() =>
+		Scene.GetAllComponents<PlayerController>().FirstOrDefault( player => !player.IsProxy && player.Network.Owner == Connection.Local )
+		?? Scene.GetAllComponents<PlayerController>().FirstOrDefault( player => !player.IsProxy && player.Network.Owner is null );
+
+	protected override void OnStart()
+	{
+		if ( Networking.IsHost && !Scene.IsEditor && GetComponentInParent<MapInstance>() is {} map )
+			map.GameObject.GetOrAddComponent<CheckpointLoader>();
+	}
 
 	private sealed class SavedEntity
 	{
@@ -39,7 +52,7 @@ public sealed partial class MapState : Global.ISaveEvents, Global.IPlayerEvents
 	}
 
 	// Sandbox exposes the running save system's Save and Load methods in its type library.
-	private GameObjectSystem SaveSystem()
+	internal GameObjectSystem SaveSystem()
 	{
 		GameObjectSystem system = null;
 		var type = TypeLibrary.GetType( "Sandbox.SaveSystem" );
@@ -86,16 +99,16 @@ public sealed partial class MapState : Global.ISaveEvents, Global.IPlayerEvents
 		finally { _loading = false; }
 	}
 
-	void Global.IPlayerEvents.OnPlayerDied( global::Player player, PlayerDiedParams args )
+	void Component.IDamageable.IEvents.OnDied( Component.IDamageable.DeathEvent death )
 	{
-		if ( Networking.IsHost && !player.IsProxy ) LoadCheckpoint();
+		if ( Networking.IsHost && death.Victim.GetComponent<PlayerController>( true ) is { IsProxy: false } ) LoadCheckpoint();
 	}
 
-	void Global.ISaveEvents.BeforeSave( string filename )
+	internal string CaptureCheckpoint()
 	{
-		if ( !Networking.IsHost ) return;
-		var player = global::Player.FindLocalPlayer()?.Controller;
-		if ( !player.IsValid() ) return;
+		if ( !Networking.IsHost ) return null;
+		var player = LocalPlayer();
+		if ( !player.IsValid() ) return null;
 		var data = new Snapshot { Map = GetComponentInParent<MapInstance>().MapName, Position = player.WorldPosition, Eyes = player.EyeAngles };
 		foreach ( var pair in Globals ) data.Globals[pair.Key] = pair.Value;
 		foreach ( var entity in Entities )
@@ -125,17 +138,17 @@ public sealed partial class MapState : Global.ISaveEvents, Global.IPlayerEvents
 					break;
 			}
 		}
-		Global.SetSaveData( "goldsrc.map", Json.Serialize( data ) );
+		return Json.Serialize( data );
 	}
 
-	internal void RestoreCheckpoint( string filename )
+	internal void RestoreCheckpoint( string filename, string json )
 	{
-		if ( !Networking.IsHost || Global.GetSaveData( "goldsrc.map" ) is not {} json ) return;
+		if ( !Networking.IsHost || string.IsNullOrEmpty( json ) ) return;
 		var data = Json.Deserialize<Snapshot>( json );
 		if ( data?.Map != GetComponentInParent<MapInstance>().MapName ) return;
-		if ( filename.StartsWith( "goldsrc/checkpoints/", StringComparison.Ordinal ) ) _checkpoint = filename;
+		if ( filename?.StartsWith( "goldsrc/checkpoints/", StringComparison.Ordinal ) == true ) _checkpoint = filename;
 		foreach ( var pair in data.Globals ) SetGlobal( pair.Key, pair.Value );
-		var player = global::Player.FindLocalPlayer()?.Controller;
+		var player = LocalPlayer();
 		foreach ( var saved in data.IncomingActors )
 		{
 			var go = new GameObject( false ) { Parent = GameObject };
@@ -186,19 +199,34 @@ public sealed partial class MapState : Global.ISaveEvents, Global.IPlayerEvents
 }
 
 [Hide]
-public sealed class CheckpointLoader : Component, Global.ISaveEvents
+public sealed class CheckpointLoader : Component
 {
 	private string _pending;
+	private bool _checkedSave;
 
-	void Global.ISaveEvents.AfterLoad( string filename ) => _pending = filename;
+	// Map entities are regenerated from the BSP. Save their live state on the persistent map instance.
+	[Property, Hide]
+	public string MapSnapshot
+	{
+		get => _pending ?? GetComponentInChildren<MapState>()?.CaptureCheckpoint();
+		set { _pending = value; _checkedSave = false; }
+	}
 
 	protected override void OnFixedUpdate()
 	{
-		if ( _pending is null || !GetComponent<MapInstance>().IsLoaded ) return;
+		if ( _checkedSave || !Networking.IsHost || !GetComponent<MapInstance>().IsLoaded ) return;
 		var state = GetComponentInChildren<MapState>();
 		if ( !state.IsValid() ) return;
-		var filename = _pending;
+		_checkedSave = true;
+
+		var system = state.SaveSystem();
+		var filename = system is null ? null : TypeLibrary.GetPropertyValue( system, "LoadedSavePath" ) as string;
+		var snapshot = _pending;
 		_pending = null;
-		state.RestoreCheckpoint( filename );
+		// Older saves stored the snapshot in the Sandbox save metadata.
+		if ( snapshot is null && filename is not null )
+			snapshot = TypeLibrary.GetType( system.GetType() ).GetMethod( "GetMetadata" )?.InvokeWithReturn<string>( system, ["goldsrc.map", null] );
+
+		state.RestoreCheckpoint( filename, snapshot );
 	}
 }
