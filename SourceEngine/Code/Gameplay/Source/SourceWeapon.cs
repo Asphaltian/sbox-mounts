@@ -139,7 +139,15 @@ public abstract class SourceWeapon : BaseCombatWeapon
 
 		model.Place( _viewModelView );
 		model.FollowCameraEffects( camera, view );
+		model.ApplyLens( camera, view );
+		OnViewModelPlaced( model );
 	}
+
+	/// <summary>
+	/// The viewmodel has its final place for the frame. That happens after updates, so effects following its
+	/// attachments move here or they trail the view.
+	/// </summary>
+	protected virtual void OnViewModelPlaced( SourceViewModel model ) { }
 
 	/// <summary>Bullets go through hitboxes and skip the player controller's own collider.</summary>
 	protected override SceneTrace BulletTrace( Ray ray, float distance, float radius )

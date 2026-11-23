@@ -70,7 +70,6 @@ public sealed class SourceViewModel : BaseWeaponModel
 	Model _configuredModel;
 	Model _mirroredModel;
 	int[] _eventAttachments = [];
-	GameObject _mirroredMuzzle;
 	bool _attachmentsResolved;
 	string _reloadFinish;
 	(string Name, bool Loop)[] _choices = [];
@@ -82,7 +81,8 @@ public sealed class SourceViewModel : BaseWeaponModel
 	TimeSince _lastPrimaryShot = 10;
 	bool _throwReleasePending;
 	GameObject _muzzle;
-	SourceViewModelCamera _lens;
+	GameObject _worldMuzzle;
+	bool _scopeHidden;
 	string _flashType;
 	string _mount;
 
@@ -176,11 +176,60 @@ public sealed class SourceViewModel : BaseWeaponModel
 		return index >= 0 && index < attachments.Count ? Renderer.GetAttachmentObject( attachments[index] ) : null;
 	}
 
-	/// <summary>Maps a point drawn through this viewmodel's lens to where the world camera shows it.</summary>
-	public Vector3 LensToWorld( Vector3 point ) => _lens.IsValid() ? _lens.ToWorld( point ) : point;
-
 	/// <summary>The muzzle where the world camera shows it, for tracers and projectiles.</summary>
-	public Vector3 WorldMuzzlePosition => _muzzle.IsValid() ? LensToWorld( DrawnPosition( _muzzle ) ) : GameObject.WorldPosition;
+	public Vector3 WorldMuzzlePosition => _muzzle.IsValid() ? DrawnPosition( _muzzle ) : GameObject.WorldPosition;
+
+	// Source's viewmodel_fov reference, 54 degrees horizontal at 4:3, as a vertical half-angle tangent.
+	static readonly float LensTangent = MathF.Tan( 27f.DegreeToRadian() ) * 0.75f;
+
+	/// <summary>
+	/// Source draws viewmodels through their own fixed lens. Stretching the viewmodel across the view by the ratio of the
+	/// world camera's lens to that one puts every point where the fixed lens would draw it, without a second camera.
+	/// </summary>
+	internal void ApplyLens( CameraComponent camera, in CameraView view )
+	{
+		var rect = camera.ScreenRect;
+		var aspect = rect.Height > 0 ? rect.Width / rect.Height : Screen.Aspect;
+		var tangent = MathF.Tan( view.FieldOfView.DegreeToRadian() * 0.5f );
+		if ( camera.FovAxis == CameraComponent.Axis.Horizontal ) tangent /= aspect;
+		var stretch = tangent / LensTangent;
+		WorldScale = new Vector3( 1, stretch, stretch );
+		UpdateWorldMuzzle();
+	}
+
+	// Past the far end of any viewmodel.
+	const float BehindViewModelDistance = 128;
+
+	/// <summary>
+	/// Source draws sprites attached to a viewmodel in the world pass and the viewmodel over them. Here they share depth
+	/// with the gun, so a glow inside the gun's own depth would draw over its far end. Places the effect on the same view
+	/// ray behind the whole gun, scaled to keep its size on screen.
+	/// </summary>
+	internal void PlaceBehind( GameObject effect, Vector3 drawn )
+	{
+		var eye = Scene.Camera.IsValid() ? Scene.Camera.WorldPosition : WorldPosition;
+		var distance = drawn.Distance( eye );
+		var push = distance > 0.01f ? MathF.Max( 1, BehindViewModelDistance / distance ) : 1;
+		effect.WorldPosition = eye + (drawn - eye) * push;
+		effect.WorldScale = push;
+	}
+
+	/// <summary>
+	/// The muzzle where the world camera shows it, outside the stretched viewmodel so effects parented to it keep their
+	/// own proportions.
+	/// </summary>
+	void UpdateWorldMuzzle()
+	{
+		if ( !_muzzle.IsValid() ) return;
+		if ( !_worldMuzzle.IsValid() )
+		{
+			_worldMuzzle = new GameObject( GameObject.Parent, true, "Mounted viewmodel world muzzle" );
+			_worldMuzzle.NetworkMode = NetworkMode.Never;
+			_worldMuzzle.Flags |= GameObjectFlags.NotSaved | GameObjectFlags.NotNetworked;
+		}
+		_worldMuzzle.WorldTransform = new Transform( DrawnPosition( _muzzle ), _muzzle.WorldRotation );
+		MuzzleGameObject = _worldMuzzle;
+	}
 
 	void MuzzleFlash( GameObject attachment, string type )
 	{
@@ -188,12 +237,13 @@ public sealed class SourceViewModel : BaseWeaponModel
 		// Counter-Strike hides the viewmodel and its flash while scoped.
 		if ( !weapon.IsValid() || weapon.Silenced || GameObject.Tags.Has( "sniper_scoped" ) ) return;
 		attachment ??= _muzzle;
-		if ( Mirrored && attachment.IsValid() )
+		if ( attachment.IsValid() )
 		{
-			// Parented outside the mirrored model, where the flash is drawn; it outlives its few frames by little.
-			var drawn = new GameObject( GameObject, true, "Mirrored muzzle flash" );
+			// Parented outside the model, where the flash is drawn, and stretched with the viewmodel; it outlives its few frames by little.
+			var drawn = new GameObject( GameObject, true, "Viewmodel muzzle flash" );
 			drawn.NetworkMode = NetworkMode.Never;
 			drawn.WorldPosition = DrawnPosition( attachment );
+			if ( !Mirrored ) drawn.WorldRotation = attachment.WorldRotation;
 			drawn.AddComponent<TemporaryEffect>().DestroyAfterSeconds = 1;
 			attachment = drawn;
 		}
@@ -201,7 +251,7 @@ public sealed class SourceViewModel : BaseWeaponModel
 	}
 
 	/// <summary>
-	/// Like Source's FormatViewModelAttachment, world brass starts where the lens shows the port; that only
+	/// Like Source's FormatViewModelAttachment, world brass starts where the viewmodel draws the port; that only
 	/// moves the origin, so the port's axes are used as posed. A mirrored model reflects them with its bones.
 	/// </summary>
 	void EjectShell( string model, GameObject attachment, float? speed )
@@ -210,7 +260,7 @@ public sealed class SourceViewModel : BaseWeaponModel
 		var port = attachment.WorldRotation;
 		var owner = GetComponentInParent<BaseCombatWeapon>()?.Owner;
 		var inherited = owner.IsValid() ? owner.Velocity : Vector3.Zero;
-		SourceWeaponEffects.EjectBrass( model, LensToWorld( DrawnPosition( attachment ) ), DrawnDirection( port.Forward ), DrawnDirection( port.Right ),
+		SourceWeaponEffects.EjectBrass( model, DrawnPosition( attachment ), DrawnDirection( port.Forward ), DrawnDirection( port.Right ),
 			DrawnDirection( port.Up ), speed, Scene.Camera.WorldRotation, inherited, _mount );
 	}
 
@@ -239,8 +289,6 @@ public sealed class SourceViewModel : BaseWeaponModel
 		// Source's default muzzle is attachment 1; muzzle events may name another.
 		_muzzle = AttachmentObject( 0 );
 		ShellEjectGameObject = AttachmentObject( 1 );
-		_lens = GetOrAddComponent<SourceViewModelCamera>();
-		_lens.Muzzle = _muzzle;
 	}
 
 	/// <summary>The only entry point for the replacement hands; they configure themselves whenever the model changes.</summary>
@@ -263,8 +311,7 @@ public sealed class SourceViewModel : BaseWeaponModel
 		if ( !_animation.Ensure( Renderer, _choices, _pending ?? _clips.Idle ) ) return;
 		ResolveAttachments();
 		UpdateMirror();
-		UpdateMirroredMuzzle();
-		MuzzleGameObject = _lens.WorldMuzzle;
+		UpdateScopeVisibility();
 		if ( _pending is not null ) Play( _pending );
 		else if ( _throwReleasePending && _animation.Finished )
 		{
@@ -314,13 +361,30 @@ public sealed class SourceViewModel : BaseWeaponModel
 
 	bool Mirrored => Renderer.GameObject.LocalScale.y < 0;
 
-	/// <summary>Where an attachment is drawn: a mirrored viewmodel's attachment objects keep their unmirrored place.</summary>
-	Vector3 DrawnPosition( GameObject attachment )
+	/// <summary>Counter-Strike hides the viewmodel, hands included, while looking through a scope.</summary>
+	void UpdateScopeVisibility()
+	{
+		var scoped = GameObject.Tags.Has( "sniper_scoped" );
+		if ( scoped == _scopeHidden ) return;
+		_scopeHidden = scoped;
+		foreach ( var renderer in GetComponentsInChildren<ModelRenderer>() )
+		{
+			if ( renderer.SceneObject.IsValid() ) renderer.SceneObject.RenderingEnabled = !scoped;
+		}
+	}
+
+	/// <summary>
+	/// Where a renderer attachment is drawn. Attachment objects take the renderer's scale twice, in the pose the model
+	/// reports and again from their parent, which undoes a mirror and doubles the lens stretch; one is divided back out.
+	/// </summary>
+	internal Vector3 DrawnPosition( GameObject attachment )
 	{
 		var position = attachment.WorldPosition;
-		if ( !Mirrored ) return position;
-		var left = Renderer.WorldRotation.Left;
-		return position - 2 * (position - Renderer.WorldPosition).Dot( left ) * left;
+		if ( !Renderer.IsValid() || attachment.Parent != Renderer.GameObject ) return position;
+		var renderer = Renderer.WorldTransform;
+		var local = renderer.Rotation.Inverse * (position - renderer.Position);
+		var scale = renderer.Scale;
+		return renderer.Position + renderer.Rotation * new Vector3( local.x / scale.x, local.y / scale.y, local.z / scale.z );
 	}
 
 	/// <summary>Attachment rotations don't carry a mirrored viewmodel's reflection; reflect their directions instead.</summary>
@@ -329,26 +393,6 @@ public sealed class SourceViewModel : BaseWeaponModel
 		if ( !Mirrored ) return direction;
 		var left = Renderer.WorldRotation.Left;
 		return direction - 2 * direction.Dot( left ) * left;
-	}
-
-	/// <summary>Keeps the lens's world muzzle, for tracers and projectiles, on the drawn muzzle of a mirrored viewmodel.</summary>
-	void UpdateMirroredMuzzle()
-	{
-		if ( !Mirrored || !_muzzle.IsValid() )
-		{
-			if ( _mirroredMuzzle.IsValid() && _lens.IsValid() ) _lens.Muzzle = _muzzle;
-			_mirroredMuzzle?.Destroy();
-			_mirroredMuzzle = null;
-			return;
-		}
-		if ( !_mirroredMuzzle.IsValid() )
-		{
-			_mirroredMuzzle = new GameObject( GameObject, true, "Mirrored muzzle" );
-			_mirroredMuzzle.NetworkMode = NetworkMode.Never;
-		}
-		_mirroredMuzzle.WorldPosition = DrawnPosition( _muzzle );
-		_mirroredMuzzle.WorldRotation = _muzzle.WorldRotation;
-		_lens.Muzzle = _mirroredMuzzle;
 	}
 
 	void ResetBurst()
@@ -496,6 +540,7 @@ public sealed class SourceViewModel : BaseWeaponModel
 	protected override void OnDestroy()
 	{
 		_animation?.Dispose();
+		_worldMuzzle?.Destroy();
 		base.OnDestroy();
 	}
 

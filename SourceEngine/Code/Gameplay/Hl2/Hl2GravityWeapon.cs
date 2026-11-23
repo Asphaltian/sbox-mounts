@@ -206,6 +206,8 @@ public sealed class Hl2GravityWeapon : SourceWeapon
 		_effects.Update( this, HeldObject, ready );
 	}
 
+	protected override void OnViewModelPlaced( SourceViewModel model ) => _effects?.Follow( this );
+
 	public override void DrawCrosshair( Painter painter, Vector2 center ) => SourceCrosshair.Draw( painter, center, CanPrimaryAttack(), 0 );
 
 	protected override void OnHolstered()
@@ -232,7 +234,7 @@ public sealed class Hl2GravityWeapon : SourceWeapon
 /// The physcannon's code-driven sprites and beams, reconstructed from the SDK's StartEffects and
 /// DoEffect states: a core glow at the first attachment, glows on every prong, endcaps and beams
 /// from the prong tips while carrying. Like Source's sprite and beam entities they draw in the world
-/// pass at the attachments' lens-corrected positions, so the viewmodel covers them. The world model only has "core".
+/// pass at the attachments' positions, so the viewmodel covers them. The world model only has "core".
 /// </summary>
 sealed class Hl2PhysCannonEffects : IDisposable
 {
@@ -300,8 +302,6 @@ sealed class Hl2PhysCannonEffects : IDisposable
 		}
 		foreach ( var endcap in _endcaps )
 			SourceMountedEffects.SetSprite( endcap, holding ? Game.Random.Float( 0.1f, 0.15f ) : 0, Game.Random.Float( 200, 255 ) );
-		foreach ( var (sprite, anchor) in _anchors )
-			if ( sprite.IsValid() && anchor.IsValid() ) sprite.WorldPosition = Place( anchor );
 		var end = holding ? held.GetBounds().Center : Vector3.Zero;
 		foreach ( var (tip, beam) in _beams )
 		{
@@ -309,6 +309,27 @@ sealed class Hl2PhysCannonEffects : IDisposable
 			var start = Place( tip );
 			if ( blast < 1 ) SourceMountedEffects.SetBeam( beam, start, start + weapon.AimRay.Forward * BeamLength, 6.4f, 255 );
 			else SourceMountedEffects.SetBeam( beam, start, end, holding ? Game.Random.Float( 1, 2 ) : 0, 128 );
+		}
+		Follow( weapon );
+	}
+
+	/// <summary>
+	/// Moves the effects onto the attachments. The weapon also calls this once the viewmodel is placed for the frame,
+	/// which happens after updates, so they don't trail the view.
+	/// </summary>
+	public void Follow( Hl2GravityWeapon weapon )
+	{
+		foreach ( var (sprite, anchor) in _anchors )
+		{
+			if ( !sprite.IsValid() || !anchor.IsValid() ) continue;
+			if ( _view.IsValid() ) _view.PlaceBehind( sprite.GameObject, Place( anchor ) );
+			else sprite.WorldPosition = Place( anchor );
+		}
+		foreach ( var (tip, beam) in _beams )
+		{
+			if ( !tip.IsValid() || !beam.IsValid() ) continue;
+			beam.VectorPoints[0] = Place( tip );
+			if ( _launch < 0.1f ) beam.VectorPoints[1] = beam.VectorPoints[0] + weapon.AimRay.Forward * BeamLength;
 		}
 	}
 
@@ -336,7 +357,7 @@ sealed class Hl2PhysCannonEffects : IDisposable
 		return float.Lerp( _elementFrom, _open ? 1 : 0, spline );
 	}
 
-	Vector3 Place( GameObject anchor ) => _view.IsValid() ? _view.LensToWorld( anchor.WorldPosition ) : anchor.WorldPosition;
+	Vector3 Place( GameObject anchor ) => _view.IsValid() ? _view.DrawnPosition( anchor ) : anchor.WorldPosition;
 
 	SpriteRenderer AddSprite( GameObject anchor, string name, string mount )
 	{

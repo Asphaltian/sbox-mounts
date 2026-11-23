@@ -40,7 +40,7 @@ static class SourceWeaponEffects
 	}
 
 	/// <summary>
-	/// Viewmodel flashes are parented to the lens-space attachment, as Source draws them with the
+	/// Viewmodel flashes are parented to the viewmodel attachment, as Source draws them with the
 	/// viewmodel; world flashes use FX_MuzzleEffectAttached at the NPC scale for the type, or at
 	/// three quarters of a Counter-Strike script's scale (C_CSPlayer::ProcessMuzzleFlashEvent).
 	/// </summary>
@@ -79,16 +79,12 @@ static class SourceWeaponEffects
 		}
 	}
 
-	/// <summary>
-	/// Counter-Strike's muzzle dlight: 255 192 64 at exponent 5, radius 70, for 0.05 seconds. A viewmodel's
-	/// is placed where the world camera shows its muzzle, outside the lens so it lights the world.
-	/// </summary>
+	/// <summary>Counter-Strike's muzzle dlight: 255 192 64 at exponent 5, radius 70, for 0.05 seconds.</summary>
 	static void MuzzleLight( GameObject attachment )
 	{
-		var view = attachment.Components.GetInAncestorsOrSelf<SourceViewModel>();
 		var go = new GameObject( true, "Muzzle flash light" );
 		go.NetworkMode = NetworkMode.Never;
-		go.WorldPosition = view.IsValid() ? view.LensToWorld( attachment.WorldPosition ) : attachment.WorldPosition;
+		go.WorldPosition = attachment.WorldPosition;
 		var light = go.AddComponent<PointLight>();
 		light.Radius = 70;
 		light.LightColor = new Color( 1, 192 / 255f, 64 / 255f ) * 4;

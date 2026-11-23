@@ -19,6 +19,7 @@ sealed class Hl2RpgLaser : IDisposable
 	SpriteRenderer _muzzle;
 	GameObject _laserStart;
 	GameObject _laserEnd;
+	bool _on;
 
 	public void Update( SourceProjectileWeapon weapon, bool on )
 	{
@@ -67,11 +68,24 @@ sealed class Hl2RpgLaser : IDisposable
 			_beam = SourceMountedEffects.AddBeam( _beamRoot, BeamSprite, mount );
 			_muzzle = SourceMountedEffects.AddSprite( _beamRoot, GlowSprite, mount );
 		}
-		var start = view.LensToWorld( _laserStart.WorldPosition );
-		var end = view.LensToWorld( _laserEnd.WorldPosition );
-		SourceMountedEffects.SetBeam( _beam, start, end, on ? 0.5f : 0, 128, Red );
-		SourceMountedEffects.SetSprite( _muzzle, on ? 0.25f : 0, 255 );
-		if ( _muzzle.IsValid() ) _muzzle.WorldPosition = start;
+		_on = on;
+		Follow( view );
+	}
+
+	/// <summary>
+	/// Moves the beam and glow onto the viewmodel attachments. The weapon also calls this once the viewmodel is placed
+	/// for the frame, which happens after updates, so they don't trail the view.
+	/// </summary>
+	public void Follow( SourceViewModel view )
+	{
+		if ( !view.IsValid() || view.Renderer != _viewModel || !_laserStart.IsValid() || !_laserEnd.IsValid() ) return;
+		var start = view.DrawnPosition( _laserStart );
+		var end = view.DrawnPosition( _laserEnd );
+		// Wider and faded at the front than the SDK's 0.5: the gun no longer hides its end, which would otherwise cut off hard.
+		SourceMountedEffects.SetBeam( _beam, start, end, _on ? 1.2f : 0, 128, Red, fadeOut: 0.3f );
+		// Dimmer than the SDK's 255: auto exposure brightens additive sprites past Source's clamp.
+		SourceMountedEffects.SetSprite( _muzzle, _on ? 0.25f : 0, 96 );
+		if ( _muzzle.IsValid() ) view.PlaceBehind( _muzzle.GameObject, start );
 	}
 
 	void DisposeBeam()

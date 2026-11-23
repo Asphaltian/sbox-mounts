@@ -148,6 +148,8 @@ public sealed class SourceProjectileWeapon : SourceWeapon
 		_laser.Update( this, LaserOn );
 	}
 
+	protected override void OnViewModelPlaced( SourceViewModel model ) => _laser?.Follow( model );
+
 	protected override void OnFixedUpdate()
 	{
 		base.OnFixedUpdate();

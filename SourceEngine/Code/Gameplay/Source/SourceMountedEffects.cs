@@ -110,13 +110,17 @@ static class SourceMountedEffects
 		return beam;
 	}
 
-	public static void SetBeam( LineRenderer beam, Vector3 start, Vector3 end, float width, float brightness, Color? color = null )
+	/// <summary>Places a beam. <paramref name="fadeOut"/> is the share of its length, at the end, over which it fades to nothing.</summary>
+	public static void SetBeam( LineRenderer beam, Vector3 start, Vector3 end, float width, float brightness, Color? color = null, float fadeOut = 0 )
 	{
 		if ( !beam.IsValid() ) return;
 		beam.VectorPoints[0] = start;
 		beam.VectorPoints[1] = end;
 		beam.Width = width;
-		beam.Color = ((color ?? Color.White) * (brightness / 255f)).WithAlpha( 1 );
+		var tint = ((color ?? Color.White) * (brightness / 255f)).WithAlpha( 1 );
+		beam.Color = fadeOut > 0
+			? new Gradient( new Gradient.ColorFrame( 0, tint ), new Gradient.ColorFrame( 1 - fadeOut, tint ), new Gradient.ColorFrame( 1, Color.Black.WithAlpha( 0 ) ) )
+			: tint;
 		beam.Enabled = width > 0 && brightness > 0;
 	}
 }

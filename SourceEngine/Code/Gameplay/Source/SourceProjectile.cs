@@ -110,7 +110,7 @@ public abstract class SourceProjectile : Component
 	/// <summary>The spin a physical projectile is launched with.</summary>
 	protected virtual Vector3 Spin => Vector3.Zero;
 
-	/// <summary>The muzzle this machine shows for the weapon, mapped out of the viewmodel lens.</summary>
+	/// <summary>The muzzle this machine shows for the weapon, where the viewmodel draws it.</summary>
 	public static Vector3 LaunchOrigin( BaseCombatWeapon weapon )
 	{
 		var model = weapon.WeaponModel;
