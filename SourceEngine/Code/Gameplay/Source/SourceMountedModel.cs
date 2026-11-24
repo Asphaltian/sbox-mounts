@@ -12,7 +12,6 @@ public sealed class SourceMountedModel : Component
 	[Property] public string ModelPath { get; set; }
 	/// <summary>Used when the mount lacks <see cref="ModelPath"/>, such as a game's own viewmodel when an optional handless one is missing.</summary>
 	[Property] public string FallbackModelPath { get; set; }
-	[Property] public bool Animated { get; set; }
 	[Property] public SkinnedModelRenderer Renderer { get; set; }
 	[Property] public ModelCollider Collider { get; set; }
 	bool _unavailable;
@@ -34,7 +33,7 @@ public sealed class SourceMountedModel : Component
 				_unavailable = true;
 				return;
 			}
-			var path = $"mount://{MountName}/{ResolvedModelPath}{(Animated ? ".animated" : "")}.vmdl";
+			var path = $"mount://{MountName}/{ResolvedModelPath}.vmdl";
 			var model = await Model.LoadAsync( path );
 			if ( !IsValid || !Renderer.IsValid() ) return;
 			if ( !model.IsValid() || model.IsError )

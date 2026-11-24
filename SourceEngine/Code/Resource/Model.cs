@@ -2,17 +2,14 @@ using System;
 
 namespace Source1;
 
-internal sealed class ModelLoader( string fullPath, bool animated = false ) : ResourceLoader<SourceGameMount>
+internal sealed class ModelLoader( string fullPath ) : ResourceLoader<SourceGameMount>
 {
-	protected override object Load() => Host.ReadSourceModel( fullPath, animated: animated ).Build( Path );
+	protected override object Load() => Host.ReadSourceModel( fullPath, animated: true ).Build( Path );
 
 	// A model's skeleton and clips are only known once its animations are read, so they aren't listed while mounting.
 	protected override ResourceLoader ResolveChild( string name, out ResourceType type )
 	{
 		type = default;
-		if ( !animated )
-			return null;
-
 		if ( name.Equals( SourceAnimations.SkeletonName, StringComparison.OrdinalIgnoreCase ) )
 		{
 			type = ResourceType.AnimationSkeleton;

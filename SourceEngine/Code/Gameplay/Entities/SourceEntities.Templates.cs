@@ -27,7 +27,7 @@ static partial class SourceEntities
 				},
 				"Viewmodel": {
 					"Sandbox.SkinnedModelRenderer": {"CreateAttachments": true, "CreateBoneObjects": true, "Parameters": {"bools": {}, "floats": {}, "ints": {}, "rotations": {}, "vectors": {}}, "RenderOptions": {"AfterUILayer": false, "BloomLayer": false, "GameLayer": false, "OverlayLayer": true}, "RenderType": "Off", "Sequence": {"Blending": true, "Looping": true, "Name": null}, "UseAnimGraph": false},
-					"Source1.SourceMountedModel": {"Renderer": {"ref": "Viewmodel:Sandbox.SkinnedModelRenderer"}, "Animated": true}
+					"Source1.SourceMountedModel": {"Renderer": {"ref": "Viewmodel:Sandbox.SkinnedModelRenderer"}}
 				}
 			}
 			""",
@@ -58,7 +58,7 @@ static partial class SourceEntities
 				},
 				"model": {
 					"Sandbox.SkinnedModelRenderer": {"CreateAttachments": true, "CreateBoneObjects": true, "MaterialGroup": "default", "Sequence": {"Blending": true, "Looping": true, "Name": null}, "UseAnimGraph": false},
-					"Source1.SourceMountedModel": {"Renderer": {"ref": "model:Sandbox.SkinnedModelRenderer"}, "Animated": true},
+					"Source1.SourceMountedModel": {"Renderer": {"ref": "model:Sandbox.SkinnedModelRenderer"}},
 					"Sandbox.ModelHitboxes": {"Renderer": {"ref": "model:Sandbox.SkinnedModelRenderer"}, "Target": {"ref": "."}}
 				},
 				"collider": {
@@ -88,7 +88,7 @@ static partial class SourceEntities
 					"Source1.Hl2Charger": {},
 					"Sandbox.SkinnedModelRenderer": {"UseAnimGraph": false},
 					"Sandbox.ModelCollider": {"Static": true},
-					"Source1.SourceMountedModel": {"Animated": true, "Renderer": {"ref": ".:Sandbox.SkinnedModelRenderer"}, "Collider": {"ref": ".:Sandbox.ModelCollider"}}
+					"Source1.SourceMountedModel": {"Renderer": {"ref": ".:Sandbox.SkinnedModelRenderer"}, "Collider": {"ref": ".:Sandbox.ModelCollider"}}
 				}
 			}
 			""",

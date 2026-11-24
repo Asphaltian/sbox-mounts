@@ -27,7 +27,7 @@ static class SourceWeaponSetup
 
 	static string WorldModelPath( BaseCombatWeapon weapon ) => weapon.WorldModelPrefab?.GetComponentInChildren<SourceMountedModel>()?.ModelPath;
 
-	static string ViewModelPath( SourceMountedModel definition ) => $"mount://{definition.MountName}/{definition.ResolvedModelPath}.animated.vmdl";
+	static string ViewModelPath( SourceMountedModel definition ) => $"mount://{definition.MountName}/{definition.ResolvedModelPath}.vmdl";
 
 	/// <summary>Whether a weapon is swung rather than fired.</summary>
 	public static bool IsMelee( BaseCombatWeapon weapon ) => weapon is SourceMeleeWeapon;
@@ -103,7 +103,7 @@ static class SourceWeaponSetup
 	static SourceModelWeaponData ReadData( SourceMountedModel definition, string viewModel, string worldModel )
 	{
 		if ( !definition.IsValid() || string.IsNullOrEmpty( viewModel ) ) return null;
-		// Pickup needs the script synchronously; the static model is far cheaper to build than the animated one.
+		// Pickup needs the script synchronously.
 		var path = $"mount://{definition.MountName}/{viewModel}.vmdl";
 		if ( Sandbox.Mounting.Directory.Get( definition.MountName )?.GetByPath( path ) is null ) return null;
 		var model = Model.Load( path );

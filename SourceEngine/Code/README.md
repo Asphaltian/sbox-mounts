@@ -349,10 +349,9 @@ shaders and render targets report an error and use the error material.
 bind a shared, initially black render target. No live camera entities, feeds or
 captured UI views are imported.
 Refraction destination-alpha masks are not reproduced.
-Every model also registers an opt-in `<path>.animated` loader (developer-only in browsing)
-that imports its sequences, including `$includemodel` animation files, as lazily decoded
+Models import their sequences, including `$includemodel` animation files, as lazily decoded
 clips with sequence data: activities, anim events, blend grids, autolayers, pose parameters
-and sequence weight lists as bone masks. The plain loader imports no animation.
+and sequence weight lists as bone masks. Map static props import no animation.
 There is no flex-controller/rule evaluation.
 
 Source-shaped model data is stored with `ModelBuilder.WithData` under the GameData names
@@ -455,7 +454,7 @@ Each bone's reference transform is composed with its authored `poseToBone` matri
 vertices use Source's weighted skin matrices, not a shared root correction.
 Mesh geometry, normals, tangents, morphs and the skeleton use that pose together.
 Independent roots and child bones retain their individual transforms.
-The reference pose itself reads no animation clips (see `.animated` above). Additive, IK,
+The reference pose itself reads no animation clips. Additive, IK,
 root-motion and reparented references retain the bind pose with a trace diagnostic.
 PHY coordinates and ragdoll bind poses remain unchanged.
 Geometry-free animation helpers retain empty geometry. Studiomdl's untouched

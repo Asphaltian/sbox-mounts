@@ -100,8 +100,8 @@ public sealed class SourceViewModelHands : Component
 			// This mounted reference retains every finger on both hands. Many gun
 			// viewmodels collapse the trigger hand into a rigid weapon control.
 			var mountName = SourceMount.Of( model );
-			var reference = await Model.LoadAsync( $"mount://{mountName}/models/weapons/v_grenade.mdl.animated.vmdl" );
-			var wristReference = await Model.LoadAsync( $"mount://{mountName}/models/weapons/v_pistol.mdl.animated.vmdl" );
+			var reference = await Model.LoadAsync( $"mount://{mountName}/models/weapons/v_grenade.mdl.vmdl" );
+			var wristReference = await Model.LoadAsync( $"mount://{mountName}/models/weapons/v_pistol.mdl.vmdl" );
 			// The model changed while loading; the newer Configure owns the result.
 			stale = !IsValid || !source.IsValid() || Source != source || source.Model != model || _mirrored != SourceMirrored;
 			if ( stale || arms.IsError || reference.IsError || wristReference.IsError ) return;

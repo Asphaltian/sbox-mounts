@@ -123,9 +123,6 @@ public abstract partial class SourceGameMount : BaseGameMount
 		foreach ( var resource in current.Resources )
 		{
 			context.Add( resource.Factory.Type, resource.Path, resource.Factory.Create( resource.Path ) );
-			// Animation decoding is opt-in: browsing/spawning ordinary mounted props stays cheap.
-			if ( resource.Factory.Type == ResourceType.Model )
-				context.Add( ResourceType.Model, $"{resource.Path}.animated", new ModelLoader( resource.Path, animated: true ) { Flags = ResourceFlags.DeveloperOnly } );
 			if ( resource.Factory.Type == ResourceType.Texture && resource.Path.EndsWith( ".vtf", StringComparison.OrdinalIgnoreCase ) )
 				MountTextureFrames( context, current, resource.Path );
 			if ( resource.Factory.Type == ResourceType.Scene )

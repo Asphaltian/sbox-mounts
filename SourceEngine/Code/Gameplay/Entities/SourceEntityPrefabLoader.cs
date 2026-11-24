@@ -37,7 +37,7 @@ internal sealed class SourceEntityPrefabLoader( SourceEntity entity ) : Resource
 				("Title", entity.Title),
 				("Description", entity.Description),
 				("Group", Host.Title),
-				("PreviewModel", entity.PreviewModel is null ? null : $"mount://{Host.Ident}/{entity.PreviewModel}{(entity.PreviewSequence is null ? "" : ".animated")}.vmdl"),
+				("PreviewModel", entity.PreviewModel is null ? null : $"mount://{Host.Ident}/{entity.PreviewModel}.vmdl"),
 				("PreviewSequence", entity.PreviewSequence)
 			] );
 		}

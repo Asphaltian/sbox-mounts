@@ -77,7 +77,7 @@ public sealed class SourceHoldPose
 	{
 		foreach ( var (source, path) in Humans.GetValueOrDefault( mount ?? "" ) ?? [] )
 		{
-			var resource = $"mount://{source}/{path}.animated.vmdl";
+			var resource = $"mount://{source}/{path}.vmdl";
 			if ( !Loading.TryGetValue( resource, out var task ) )
 			{
 				var game = Sandbox.Mounting.Directory.Get( source );
