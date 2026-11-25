@@ -2,47 +2,89 @@ using System;
 
 namespace Source1;
 
+/// <summary>
+/// Packs leaves with matching XY dimensions into three volume textures. All three share
+/// one normalized Z range per leaf, with six ambient cube faces per direct-light slice.
+/// </summary>
 internal sealed class BspProbeTextures( string resourcePrefix ) : IDisposable
 {
-	private readonly HashSet<Texture> textures = [];
-	private readonly Dictionary<(ImageFormat Format, ulong Value), Texture> constants = [];
-	public int Count => textures.Count;
-	public long ByteCount { get; private set; }
+	private const int MaxDepth = 2048;
+	private readonly record struct Leaf( LightProbeVolume Volume, int Depth, byte[] Data );
 
-	public Texture GetOrCreate( Vector3Int counts, int depth, ImageFormat format, ReadOnlySpan<byte> data )
+	private sealed class Page
 	{
-		int stride = format switch
-		{
-			ImageFormat.RGBA8888 => 4,
-			ImageFormat.RGBA16161616F => 8,
-			_ => throw new NotSupportedException( $"Unsupported BSP probe texture format {format}." )
-		};
-		if ( counts.x is < 1 or > 32 || counts.y is < 1 or > 32 || counts.z is < 1 or > 32
-			|| depth != counts.z && depth != counts.z * 6
-			|| data.Length != checked(counts.x * counts.y * depth * stride) )
-			throw new InvalidDataException( "BSP probe texture dimensions do not match its data." );
+		public readonly List<Leaf> Leaves = [];
+		public int Depth;
+	}
 
-		var size = new Vector3Int( counts.x, counts.y, depth );
-		bool constant = depth == counts.z && IsConstant( data, stride );
-		ulong value = 0;
-		if ( constant )
+	private readonly Dictionary<(int Width, int Height), Page> pages = [];
+	private readonly HashSet<Texture> textures = [];
+
+	public int Count => textures.Count;
+
+	public void Add( LightProbeVolume volume, Vector3Int counts, BspProbeTextureData data )
+	{
+		var size = (counts.x, counts.y);
+		if ( !pages.TryGetValue( size, out var page ) )
+			pages.Add( size, page = new Page() );
+
+		if ( (page.Depth + counts.z) * 6 > MaxDepth )
+			Upload( counts.x, counts.y, page );
+
+		page.Leaves.Add( new Leaf( volume, counts.z, data.Data ) );
+		page.Depth += counts.z;
+	}
+
+	public void Finish()
+	{
+		foreach ( var ((width, height), page) in pages )
+			Upload( width, height, page );
+
+		pages.Clear();
+	}
+
+	private void Upload( int width, int height, Page page )
+	{
+		int probes = width * height * page.Depth;
+		var ambient = new byte[probes * 48];
+		var indices = new byte[probes * 4];
+		var scalars = new byte[probes * 8];
+		int offset = 0;
+		foreach ( var leaf in page.Leaves )
 		{
-			size = new Vector3Int( 1, 1, 1 );
-			data = data[..stride];
-			value = stride == 4 ? BitConverter.ToUInt32( data ) : BitConverter.ToUInt64( data );
-			if ( constants.TryGetValue( (format, value), out var existing ) )
-				return existing;
+			int count = width * height * leaf.Depth;
+			leaf.Data.AsSpan( 0, count * 48 ).CopyTo( ambient.AsSpan( offset * 48 ) );
+			leaf.Data.AsSpan( count * 48, count * 4 ).CopyTo( indices.AsSpan( offset * 4 ) );
+			leaf.Data.AsSpan( count * 52 ).CopyTo( scalars.AsSpan( offset * 8 ) );
+			offset += count;
 		}
 
-		var name = $"{resourcePrefix}/probes/{textures.Count}";
-		var texture = Texture.CreateVolume( size.x, size.y, size.z, format )
-			.WithName( name ).WithStaticUsage().WithData( data.ToArray() ).Finish();
+		var light = CreateTexture( width, height, page.Depth * 6, ImageFormat.RGBA16161616F, ambient );
+		var lightIndices = CreateTexture( width, height, page.Depth, ImageFormat.RGBA8888, indices );
+		var lightScalars = CreateTexture( width, height, page.Depth, ImageFormat.RGBA16161616F, scalars );
+		int slice = 0;
+		foreach ( var leaf in page.Leaves )
+		{
+			leaf.Volume.Texture = light;
+			leaf.Volume.IndicesTexture = lightIndices;
+			leaf.Volume.ScalarsTexture = lightScalars;
+			leaf.Volume.AtlasZOffset = (float)slice / page.Depth;
+			leaf.Volume.AtlasZScale = (float)leaf.Depth / page.Depth;
+			slice += leaf.Depth;
+		}
+
+		page.Leaves.Clear();
+		page.Depth = 0;
+	}
+
+	private Texture CreateTexture( int width, int height, int depth, ImageFormat format, byte[] data )
+	{
+		var texture = Texture.CreateVolume( width, height, depth, format )
+			.WithName( $"{resourcePrefix}/probes/atlas_{textures.Count}" ).WithStaticUsage().WithData( data ).Finish();
 		if ( texture is null || !texture.IsValid || texture.IsError )
-			throw new InvalidOperationException( $"{resourcePrefix}: could not create {size} {format} probe texture." );
+			throw new InvalidOperationException( $"{resourcePrefix}: could not create {width}x{height}x{depth} {format} probe atlas." );
+
 		textures.Add( texture );
-		if ( constant )
-			constants.Add( (format, value), texture );
-		ByteCount += data.Length;
 		return texture;
 	}
 
@@ -52,17 +94,8 @@ internal sealed class BspProbeTextures( string resourcePrefix ) : IDisposable
 	{
 		foreach ( var texture in textures )
 			texture.Dispose();
-		textures.Clear();
-		constants.Clear();
-		ByteCount = 0;
-	}
 
-	private static bool IsConstant( ReadOnlySpan<byte> data, int stride )
-	{
-		var first = data[..stride];
-		for ( int offset = stride; offset < data.Length; offset += stride )
-			if ( !data.Slice( offset, stride ).SequenceEqual( first ) )
-				return false;
-		return true;
+		textures.Clear();
+		pages.Clear();
 	}
 }

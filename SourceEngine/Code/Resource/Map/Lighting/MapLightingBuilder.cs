@@ -95,15 +95,15 @@ internal sealed class MapLightingBuilder( BspFile bsp, MapLoader loader, BspLigh
 			component.Priority = -(int)Math.Ceiling( Math.Log2( Math.Max( 1, bounds.Size.LengthSquared ) ) );
 			int probes = counts.x * counts.y * counts.z;
 			totalProbes += probes;
-			component.Texture = probeTextures.GetOrCreate( counts, counts.z * 6, ImageFormat.RGBA16161616F, textures.Data.AsSpan( 0, probes * 48 ) );
-			component.IndicesTexture = probeTextures.GetOrCreate( counts, counts.z, ImageFormat.RGBA8888, textures.Data.AsSpan( probes * 48, probes * 4 ) );
-			component.ScalarsTexture = probeTextures.GetOrCreate( counts, counts.z, ImageFormat.RGBA16161616F, textures.Data.AsSpan( probes * 52, probes * 8 ) );
+
+			probeTextures.Add( component, counts, textures );
 			go.Enabled = true;
 			volumes++;
 		}
 
+		probeTextures.Finish();
 		root.Enabled = true;
-		Log.Info( $"{FullPath}: created {volumes} native leaf probe volumes ({totalProbes} probes, {probeTextures.Count} unique textures, {probeTextures.ByteCount / (1024f * 1024f):F1} MiB payload instead of {totalProbes * 60L / (1024f * 1024f):F1} MiB) with {worldIndices.Count( index => index >= 0 )} indexed world lights." );
+		Log.Info( $"{FullPath}: created {volumes} native leaf probe volumes ({totalProbes} probes, {probeTextures.Count} atlas textures) with {worldIndices.Count( index => index >= 0 )} indexed world lights." );
 	}
 
 	private int[] CreateIndexedWorldLights( GameObject root, bool skybox )
