@@ -37,7 +37,7 @@ See the full [Mount API docs](https://sbox.game/dev/doc/game-mounts/) to learn m
 
 
 ## Development
-You will need a copy of s&box to develop mounts. You can get it on [Steam](https://store.steampowered.com/app/590830/sbox/), or by building [from source](https://github.com/Facepunch/sbox-public).
+You will need a copy of s&box to develop mounts. You can get it on [Steam](https://store.steampowered.com/app/590830/sbox/) and switch to the [staging branch](https://sbox.game/dev/doc/getting-started/staging-branch), or  [build it from source](https://github.com/Facepunch/sbox-public).
 
 The mounts in this repo are grouped by engine into projects. Open an `.sbproj` in the s&box editor to start working.
 
