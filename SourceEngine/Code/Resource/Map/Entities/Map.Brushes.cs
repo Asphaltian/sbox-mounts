@@ -73,7 +73,7 @@ partial class MapLoader
 			if ( entity.Integer( "error" ) != 0 || across.Length < 1 || up.Length < 1 )
 				return false;
 
-			var surface = new GameObject( false, "Glass pane" ) { Parent = instance };
+			var surface = new GameObject( false, "Glass pane" ) { Parent = instance, NetworkMode = NetworkMode.Object };
 			surface.LocalPosition = lower + across * 0.5f - entity.Vector( "origin" );
 			surface.LocalRotation = Rotation.LookAt( Vector3.Cross( across, up ).Normal, up.Normal );
 			var pane = surface.AddComponent<SourceGlassPane>( false );

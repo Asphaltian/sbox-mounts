@@ -31,13 +31,13 @@ public sealed partial class SourceGlassPane
 	static readonly int[] QuadIndices = [0, 2, 1, 0, 3, 2];
 	void Quad( List<Vertex> vertices, float left, float bottom, float right, float top, Vector2 uv0, Vector2 uv1, int rotation = 0, bool window = false )
 	{
-		Vector2[] uv = [uv0, new( uv1.x, uv0.y ), uv1, new( uv0.x, uv1.y )];
-		Vector3[] points = [new( 0, left, bottom ), new( 0, right, bottom ), new( 0, right, top ), new( 0, left, top )];
 		foreach ( int i in QuadIndices )
 		{
-			var st = uv[i];
-			var baseUv = window ? UvOrigin + st.x * UvAcross + st.y * UvUp : st;
-			vertices.Add( new Vertex( points[i], Vector3.Forward, Vector3.Left, baseUv ) { TexCoord1 = EdgeUv[(i + rotation) % 4] } );
+			var corner = EdgeUv[i];
+			var point = new Vector3( 0, corner.x == 0 ? left : right, corner.y == 0 ? bottom : top );
+			var uv = new Vector2( corner.x == 0 ? uv0.x : uv1.x, corner.y == 0 ? uv0.y : uv1.y );
+			if ( window ) uv = UvOrigin + uv.x * UvAcross + uv.y * UvUp;
+			vertices.Add( new Vertex( point, Vector3.Forward, Vector3.Left, uv ) { TexCoord1 = EdgeUv[(i + rotation) % 4] } );
 		}
 	}
 
@@ -105,7 +105,7 @@ public sealed partial class SourceGlassPane
 		if ( mask != default ) BroadcastShards( mask, force, origin, sound );
 	}
 
-	[Rpc.Broadcast]
+	[Rpc.Broadcast( NetFlags.OwnerOnly )]
 	void BroadcastShards( GlassMask mask, Vector3 force, Vector3 origin, bool sound )
 	{
 		if ( mask == default || Application.IsDedicatedServer ) return;
@@ -149,7 +149,7 @@ public sealed partial class SourceGlassPane
 			}
 	}
 
-	[Rpc.Broadcast]
+	[Rpc.Broadcast( NetFlags.OwnerOnly )]
 	void DropPane( int x, int y )
 	{
 		if ( Application.IsDedicatedServer ) return;

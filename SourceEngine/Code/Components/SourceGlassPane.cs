@@ -69,7 +69,7 @@ public sealed partial class SourceGlassPane : Component, Component.IDamageable, 
 		PlayGlassSound( true, WorldTransform.PointToWorld( Vector3.Up * Height / 2 ) );
 	}
 
-	[Rpc.Broadcast]
+	[Rpc.Broadcast( NetFlags.OwnerOnly )]
 	private void PlayGlassSound( bool first, Vector3 at ) => PlaySample( first, at );
 
 	void PlaySample( bool first, Vector3 at )
@@ -187,15 +187,16 @@ public sealed partial class SourceGlassPane : Component, Component.IDamageable, 
 				next[y * 16 + x] = (0.01f + Support( x, y + 1 ) + 1.25f * Support( x, y - 1 ) + Support( x - 1, y ) + Support( x + 1, y )
 					+ Support( x - 1, y - 1 ) + Support( x + 1, y - 1 ) + 0.25f * (Support( x - 1, y + 1 ) + Support( x + 1, y + 1 ))) / 6.75f;
 		Array.Copy( next, support, next.Length );
-		GlassMask before = Holes;
+		GlassMask shattered = default;
 		for ( int y = 0; y < Rows; y++ )
 			for ( int x = 0; x < Columns; x++ )
 				if ( Solid( x, y ) && support[y * 16 + x] < Fragility * 0.002f )
 				{
 					Break( x, y );
 					if ( Coin() ) DropPane( x, y );
+					else shattered = shattered.With( x, y );
 				}
-		EmitShards( Holes ^ before, Vector3.Zero, WorldPosition, true );
+		EmitShards( shattered, Vector3.Zero, WorldPosition, true );
 	}
 
 	void ClearColliders()
@@ -224,7 +225,7 @@ public sealed partial class SourceGlassPane : Component, Component.IDamageable, 
 		glass?.Delete();
 		glass = null;
 		if ( IntactBrush.IsValid() ) IntactBrush.Enabled = !Cracked;
-		if ( Cracked )
+		if ( Cracked && !Application.IsDedicatedServer )
 			glass = new SceneObject( Scene.SceneWorld, BuildPane(), WorldTransform );
 		if ( Scene.IsEditor ) return;
 		foreach ( var box in strips ) box.Destroy();
