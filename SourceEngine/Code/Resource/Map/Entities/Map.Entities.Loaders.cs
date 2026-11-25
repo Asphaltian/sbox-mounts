@@ -19,6 +19,7 @@ partial class MapLoader
 			"func_wall_toggle" => new ToggleWallEntityLoader(),
 			"func_illusionary" => new IllusionaryEntityLoader(),
 			"func_lod" => new LodBrushEntityLoader(),
+			"func_useableladder" => new EndpointLadderLoader(),
 			"func_conveyor" => new ConveyorEntityLoader(),
 			"func_rot_button" or "func_movelinear" or "func_rotating" or "func_train" or "func_tracktrain" => new UnsimulatedBrushEntityLoader(),
 			"func_breakable" or "func_breakable_surf" => new BreakableEntityLoader(),

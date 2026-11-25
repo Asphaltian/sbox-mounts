@@ -5,7 +5,7 @@ namespace Source1;
 
 partial class MapLoader
 {
-	private List<Model> BuildShadowModel( BspFile bsp, int modelIndex )
+	private List<Model> BuildShadowModel( BspFile bsp, int modelIndex, HashSet<int> brushIds = null )
 	{
 		var material = Material.Load( "materials/dev/reflectivity_30.vmat" );
 		if ( material is null || material.IsError )
@@ -36,7 +36,7 @@ partial class MapLoader
 				BuildFace( bsp, ref face, projection, tangent, group, bsp.FaceVertexNormalOffsets[index] );
 		}
 
-		AddHiddenShadowFaces( bsp, modelIndex, ChunkFor, texture => IsOpaqueTexture( texture, out _ ) );
+		AddHiddenShadowFaces( bsp, modelIndex, brushIds ?? GetModelBrushes( bsp, modelIndex ), ChunkFor, texture => IsOpaqueTexture( texture, out _ ) );
 
 		var result = new List<Model>( chunks.Count );
 		int triangles = 0;

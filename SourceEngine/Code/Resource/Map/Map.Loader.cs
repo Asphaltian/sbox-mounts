@@ -101,7 +101,9 @@ internal sealed partial class MapLoader : SceneLoader<SourceGameMount>
 		var atmosphere = BuildFog( bsp, world );
 		BuildWater( bsp, geometry, atmosphere );
 		BuildWorldPhysics( bsp, geometry );
-		AddShadowBlocker( BuildShadowModel( bsp, 0 ), geometry );
+		var worldBrushes = GetModelBrushes( bsp, 0 );
+		BuildBrushLadders( bsp, world, worldBrushes );
+		AddShadowBlocker( BuildShadowModel( bsp, 0, worldBrushes ), geometry );
 		BuildEntities( bsp, world );
 		BuildLightProbes( bsp, world );
 		BuildSkybox3D( bsp, world );

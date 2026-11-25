@@ -20,6 +20,7 @@ internal static class BspContents
 	public const int Solid = 0x1;
 	public const int Opaque = 0x80;
 	public const int Moveable = 0x4000;
+	public const int Ladder = 0x20000000;
 	public const int OpaqueMask = Solid | Opaque | Moveable;
 }
 
