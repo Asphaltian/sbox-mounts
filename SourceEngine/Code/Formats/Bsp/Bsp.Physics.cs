@@ -23,6 +23,7 @@ internal partial class BspFile
 	internal const int ContentsBlockAudio = 0x4003;
 	internal const int SurfaceSky = 6;
 	internal readonly HashSet<byte> _missingPhysicsMaterials = [];
+	internal ushort[] leafBrushes = [];
 	internal CollisionBrush[] collisionBrushes = [];
 	internal CollisionBrushSide[] collisionBrushSides = [];
 	[StructLayout( LayoutKind.Sequential, Pack = 1 )]
@@ -40,10 +41,14 @@ internal partial class BspFile
 
 	internal void ReadCollisionBrushes( Stream stream, long fileStart, (int offset, int length, int version, int uncompressedSize)[] lumps )
 	{
-		if ( PhysCollideData.Length == 0 && StaticProps.Length == 0 && ambientLighting is null )
-			return;
+		ReadSpatialData( stream, fileStart, lumps );
 		collisionBrushes = ReadLump<CollisionBrush>( stream, fileStart, lumps[18] );
 		collisionBrushSides = ReadLump<CollisionBrushSide>( stream, fileStart, lumps[19] );
+		leafBrushes = ReadLump<ushort>( stream, fileStart, lumps[17] );
+		foreach ( int brush in leafBrushes )
+			ValidateRange( brush, 1, collisionBrushes.Length, "BSP leaf brush" );
+		foreach ( var leaf in leaves )
+			ValidateRange( leaf.FirstBrush, leaf.BrushCount, leafBrushes.Length, "BSP leaf brushes" );
 		foreach ( var brush in collisionBrushes )
 			ValidateRange( brush.FirstSide, brush.SideCount, collisionBrushSides.Length, "Collision brush sides" );
 		foreach ( var side in collisionBrushSides )

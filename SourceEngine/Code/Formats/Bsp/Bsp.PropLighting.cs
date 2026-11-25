@@ -9,7 +9,6 @@ internal partial class BspFile
 	internal PropWorldLight[] worldLights = [];
 	internal byte[] visibility = [];
 	internal float[] lightingStyles = [];
-	internal ushort[] lightingLeafBrushes = [];
 	internal readonly List<LightingDisplacement> lightingDisplacements = [];
 	internal sealed record LightingDisplacement( BBox Bounds, Vector3[] Positions, Vector2[] Coordinates, int[] Indices, int Face );
 	internal void ReadPropLighting( Stream stream, long fileStart, (int offset, int length, int version, int uncompressedSize)[] lumps )
@@ -37,11 +36,6 @@ internal partial class BspFile
 		else
 			worldLights = ReadLump<PropWorldLight>( stream, fileStart, lightLump );
 		visibility = ReadRaw( stream, fileStart, lumps[4] );
-		lightingLeafBrushes = ReadLump<ushort>( stream, fileStart, lumps[17] );
-		foreach ( int brush in lightingLeafBrushes )
-			ValidateRange( brush, 1, collisionBrushes.Length, "Lighting leaf brush" );
-		foreach ( var leaf in leaves )
-			ValidateRange( leaf.FirstBrush, leaf.BrushCount, lightingLeafBrushes.Length, "Lighting leaf brushes" );
 		for ( int index = 0; index < worldLights.Length; index++ )
 		{
 			ref var light = ref worldLights[index];
@@ -347,7 +341,7 @@ internal partial class BspFile
 				var leaf = leaves[-1 - index];
 				for ( int entry = leaf.FirstBrush; entry < leaf.FirstBrush + leaf.BrushCount; entry++ )
 				{
-					int brushIndex = lightingLeafBrushes[entry];
+					int brushIndex = leafBrushes[entry];
 					if ( !lighting.VisitBrush( brushIndex, generation ) )
 						continue;
 					var brush = collisionBrushes[brushIndex];

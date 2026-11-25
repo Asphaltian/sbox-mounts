@@ -273,7 +273,8 @@ internal partial class BspFile
 
 	internal void ValidateNodes()
 	{
-		ValidateChild( Models[0].HeadNode );
+		foreach ( var model in Models )
+			ValidateChild( model.HeadNode );
 		foreach ( var node in nodes )
 		{
 			ValidateRange( node.Plane, 1, Planes.Length, "Node plane" );

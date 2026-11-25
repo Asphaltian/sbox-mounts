@@ -14,7 +14,7 @@ partial class MapLoader
 		bindings.Features["F_RENDER_BACKFACES"] = 0;
 		material = Host.CreateMaterialVariant( material, $"{ResourcePrefix}_shadow_blockers.vmat", bindings );
 		var opaqueTextures = new Dictionary<int, (bool Opaque, Vector2 MappingSize)>();
-		var group = new MeshGroup( material );
+		var chunks = new Dictionary<Vector3, MeshGroup>();
 		var model = bsp.Models[modelIndex];
 		for ( int index = model.FirstFace; index < model.FirstFace + model.FaceCount; index++ )
 		{
@@ -22,8 +22,11 @@ partial class MapLoader
 			if ( modelIndex == 0 && bsp.IsSkyboxFace( index ) || !IsRenderable( bsp, face ) )
 				continue;
 			ref var info = ref bsp.TexInfos[face.TexInfo];
-			if ( (info.Flags & (0x1000 | 8)) != 0 || !IsOpaqueTexture( info.TexData, out var mappingSize ) )
+			if ( (info.Flags & (BspSurfaceFlags.NoShadows | BspSurfaceFlags.Warp)) != 0 || !IsOpaqueTexture( info.TexData, out var mappingSize ) )
 				continue;
+			if ( face.NumEdges < 3 ) continue;
+			int edge = bsp.SurfEdges[face.FirstEdge];
+			var group = ChunkFor( bsp.Vertices[edge >= 0 ? bsp.Edges[edge].V0 : bsp.Edges[-edge].V1] );
 			var surface = _faceSurfaces[index];
 			var projection = new FaceProjection( info, mappingSize, surface );
 			var tangent = new Vector3( info.TextureVecsS.x, info.TextureVecsS.y, info.TextureVecsS.z ).Normal;
@@ -33,51 +36,39 @@ partial class MapLoader
 				BuildFace( bsp, ref face, projection, tangent, group, bsp.FaceVertexNormalOffsets[index] );
 		}
 
-		if ( group.Indices.Count == 0 )
-			return [];
-		for ( int index = 0; index < group.Vertices.Count; index++ )
-		{
-			var vertex = group.Vertices[index];
-			vertex.Normal = -vertex.Normal;
-			group.Vertices[index] = vertex;
-		}
-
-		for ( int index = 0; index < group.Indices.Count; index += 3 )
-			(group.Indices[index + 1], group.Indices[index + 2]) = (group.Indices[index + 2], group.Indices[index + 1]);
-		var chunks = new Dictionary<Vector3, (MeshGroup Mesh, Dictionary<int, int> Vertices)>();
-		for ( int index = 0; index < group.Indices.Count; index += 3 )
-		{
-			var center = (group.Vertices[group.Indices[index]].Position
-				+ group.Vertices[group.Indices[index + 1]].Position
-				+ group.Vertices[group.Indices[index + 2]].Position) / (3 * WorldFragmentSize * 4);
-			var cell = new Vector3( MathF.Floor( center.x ), MathF.Floor( center.y ), MathF.Floor( center.z ) );
-			if ( !chunks.TryGetValue( cell, out var chunk ) )
-			{
-				chunk = (new MeshGroup( material ), []);
-				chunks.Add( cell, chunk );
-			}
-			for ( int vertex = 0; vertex < 3; vertex++ )
-			{
-				var source = group.Indices[index + vertex];
-				if ( !chunk.Vertices.TryGetValue( source, out var target ) )
-				{
-					target = chunk.Mesh.Vertices.Count;
-					chunk.Vertices.Add( source, target );
-					chunk.Mesh.Vertices.Add( group.Vertices[source] );
-				}
-				chunk.Mesh.Indices.Add( target );
-			}
-		}
+		AddHiddenShadowFaces( bsp, modelIndex, ChunkFor, texture => IsOpaqueTexture( texture, out _ ) );
 
 		var result = new List<Model>( chunks.Count );
+		int triangles = 0;
 		foreach ( var chunk in chunks.Values )
 		{
+			if ( chunk.Indices.Count == 0 ) continue;
+			for ( int i = 0; i < chunk.Vertices.Count; i++ )
+			{
+				var vertex = chunk.Vertices[i];
+				vertex.Normal = -vertex.Normal;
+				chunk.Vertices[i] = vertex;
+			}
+			for ( int i = 0; i < chunk.Indices.Count; i += 3 )
+				(chunk.Indices[i + 1], chunk.Indices[i + 2]) = (chunk.Indices[i + 2], chunk.Indices[i + 1]);
+
 			var builder = Model.Builder;
-			var (bounds, _) = BuildWorldMesh( builder, material, [chunk.Mesh], addTraceMesh: false );
+			var (bounds, _) = BuildWorldMesh( builder, material, [chunk], addTraceMesh: false );
 			result.Add( CreateWorldModel( builder.WithViewBounds( bounds ), $"shadow_faces_{modelIndex}_{result.Count}.vmdl" ) );
+			triangles += chunk.Indices.Count / 3;
 		}
-		Log.Info( $"{FullPath}: model {modelIndex} shadow blockers contain {group.Indices.Count / 3} inverted opaque triangles in {result.Count} spatial chunks." );
+		Log.Info( $"{FullPath}: model {modelIndex} shadow blockers contain {triangles} shadow triangles in {result.Count} spatial chunks." );
 		return result;
+
+		MeshGroup ChunkFor( Vector3 point )
+		{
+			point /= WorldFragmentSize * 4;
+			var cell = new Vector3( MathF.Floor( point.x ), MathF.Floor( point.y ), MathF.Floor( point.z ) );
+			if ( !chunks.TryGetValue( cell, out var chunk ) )
+				chunks.Add( cell, chunk = new MeshGroup( material ) );
+			return chunk;
+		}
+
 		bool IsOpaqueTexture( int texture, out Vector2 mappingSize )
 		{
 			if ( !opaqueTextures.TryGetValue( texture, out var entry ) )

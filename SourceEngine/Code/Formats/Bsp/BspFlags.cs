@@ -29,6 +29,7 @@ internal static class BspSurfaceFlags
 	public const int Sky = 0x4;
 	public const int SkyMask = Sky2D | Sky;
 	public const int Warp = 0x8;
+	public const int NoShadows = 0x1000;
 	public const int NoDraw = 0x80;
 	public const int BumpLight = 0x800;
 }
