@@ -19,6 +19,7 @@ public sealed class ModelClips : IReadOnlyDictionary<string, Clip>
 	readonly Dictionary<string, Clip> _loaded = new( StringComparer.OrdinalIgnoreCase );
 	Skeleton _skeleton;
 	bool _skeletonLoaded;
+	Graph _pickupPose;
 
 	ModelClips( SourceModelAnimationData data )
 	{
@@ -36,6 +37,18 @@ public sealed class ModelClips : IReadOnlyDictionary<string, Clip>
 			_skeletonLoaded = true;
 			return _skeleton = Skeleton.Load( _data.Skeleton );
 		}
+	}
+
+	// Dropped weapons use the first frame of their world model's default sequence.
+	internal Graph PickupPose( Model model )
+	{
+		if ( _pickupPose is not null ) return _pickupPose;
+		var sequence = model.GetData<SourceModelSequenceData[]>()?.FirstOrDefault();
+		if ( !TryGetValue( sequence?.Name, out var clip ) || Skeleton is null ) return null;
+
+		var builder = Graph.Builder;
+		builder.WithSkeleton( Skeleton );
+		return _pickupPose = builder.Create( builder.Pose( clip, new GraphBuilder.PoseSettings() ), "Weapon pickup pose" );
 	}
 
 	public bool TryGetValue( string key, out Clip value )

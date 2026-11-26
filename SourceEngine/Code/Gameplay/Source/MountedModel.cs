@@ -48,11 +48,16 @@ public sealed class MountedModel : Component
 				return;
 			}
 			Renderer.Model = model;
+			var weapon = GetComponentInParent<BaseCombatWeapon>();
+			if ( weapon is Weapon pickup && pickup.DroppedGameObject == GameObject && ModelClips.Of( model ).PickupPose( model ) is { } pose )
+			{
+				Renderer.Animation.Graph = pose;
+				Renderer.UseAnimGraph = true;
+			}
 			if ( Collider.IsValid() ) AssignCollider( model );
 			Renderer.Enabled = true;
 			// World models exist on the host as well as the owning client. Derive
 			// gameplay reload timing there, not just on the owner-only viewmodel.
-			var weapon = GetComponentInParent<BaseCombatWeapon>();
 			if ( weapon.IsValid() ) await WeaponSetup.ConfigureWeapon( weapon );
 		}
 		catch ( Exception e )
