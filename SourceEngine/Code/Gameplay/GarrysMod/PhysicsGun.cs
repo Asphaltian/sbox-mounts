@@ -179,7 +179,7 @@ public sealed partial class PhysicsGun : Weapon, PlayerController.IEvents
 	void NotifyUnfrozen( int count )
 	{
 		var text = Game.Language.GetPhrase( "physgun.unfrozen", new() { { "count", count.ToString() } } );
-		Sandbox.UI.Notices.AddNotice( "ac_unit", Color.Cyan, text, 3 );
+		Log.Info( text );
 		var file = SoundFile.Load( "mount://gmod/sound/npc/roller/mine/rmine_chirp_answer1.wav.vsnd" );
 		if ( file.IsValid() ) Sound.Play( new SoundEvent { UI = true, Sounds = [file] } );
 	}
@@ -216,12 +216,12 @@ public sealed partial class PhysicsGun : Weapon, PlayerController.IEvents
 				&& model.GameObject.Tags.Has( "source1_entity", includeAncestors: false ) )
 				target = model;
 			if ( !target.IsValid() || target.Tags.Has( DisabledTag ) || (Limited && target.Tags.Has( LimitedTag )) ) return;
-			if ( !CanGrab( target, Network.Owner ) || (body.IsValid() && !body.PhysicsBody.IsValid()) ) return;
+			if ( !CanGrab( target ) || (body.IsValid() && !body.PhysicsBody.IsValid()) ) return;
 			if ( !PhysicsOwnership.TryBorrow( target, EntityRoot( target ), out _borrowed ) ) return;
 
 			HeldTarget = target;
 			_previousMass = null;
-			EntityRoot( target ).RunEvent<IPhysgunEvent>( x => x.OnPhysgunPickup() );
+			EntityRoot( target ).RunEvent<IPhysgunGrab>( x => x.OnGrabbed( this ) );
 			if ( !target.IsValid() || HeldTarget != target ) return;
 			var transform = target.WorldTransform;
 			if ( body.IsValid() )
@@ -342,17 +342,17 @@ public sealed partial class PhysicsGun : Weapon, PlayerController.IEvents
 	}
 
 	internal static bool IsWorld( GameObject target ) =>
-		!target.Tags.Has( "source1_entity" ) && ToolMode.IsWorldObject( target );
+		!target.Tags.Has( "source1_entity" ) && (target.Tags.Has( "world" ) || target.GetComponentInChildren<Terrain>( true ).IsValid());
 
 	internal static bool CanMove( Component target ) =>
 		target.IsValid() && !IsWorld( target.GameObject ) && !target.GetComponentInParent<PlayerController>().IsValid();
 
-	static bool CanGrab( Component body, Connection grabber )
+	bool CanGrab( Component body )
 	{
 		if ( !CanMove( body ) ) return false;
-		var grab = new IPhysgunEvent.GrabEvent { Grabber = grabber };
-		EntityRoot( body ).RunEvent<IPhysgunEvent>( x => x.OnPhysgunGrab( grab ) );
-		return !grab.Cancelled && body.IsValid();
+		bool allowed = true;
+		EntityRoot( body ).RunEvent<IPhysgunGrab>( x => allowed &= x.CanGrab( this ) );
+		return allowed && body.IsValid();
 	}
 
 	void Freeze()
@@ -382,7 +382,7 @@ public sealed partial class PhysicsGun : Weapon, PlayerController.IEvents
 		_borrowed = null;
 		HeldTarget = null;
 		BeamOn = false;
-		if ( target.IsValid() ) EntityRoot( target ).RunEvent<IPhysgunEvent>( x => x.OnPhysgunDrop() );
+		if ( target.IsValid() ) EntityRoot( target ).RunEvent<IPhysgunGrab>( x => x.OnReleased( this ) );
 		if ( previousMass is { } mass && body.IsValid() )
 		{
 			body.MassOverride = mass.Setting;

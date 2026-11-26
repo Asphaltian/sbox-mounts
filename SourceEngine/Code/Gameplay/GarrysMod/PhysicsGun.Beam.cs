@@ -5,6 +5,8 @@ namespace Source1.GarrysMod;
 public sealed partial class PhysicsGun
 {
 	const int Segments = 16;
+	[ConVar( "gmod.physgun_color", ConVarFlags.Saved | ConVarFlags.UserInfo, Help = "Physics Gun beam color." )]
+	public static string BeamColor { get; set; } = "";
 	[ConVar( "physgun_drawbeams", Help = "Draw active Physics Gun beams." )]
 	public static bool DrawBeams { get; set; } = true;
 	[ConVar( "physgun_halo", ConVarFlags.Saved, Help = "Outline the object held by a Physics Gun." )]
@@ -96,7 +98,7 @@ public sealed partial class PhysicsGun
 
 	void UpdateColor()
 	{
-		var setting = Owner.GetComponent<Player>()?.PhysgunColor ?? "";
+		var setting = Network.Owner is { } owner ? owner.GetUserData( "gmod.physgun_color" ) ?? "" : BeamColor;
 		if ( setting == _colorSetting ) return;
 		_colorSetting = setting;
 		var tint = Color.Parse( setting ) ?? new Color( 0.30f, 1.80f, 2.10f );
@@ -115,13 +117,25 @@ public sealed partial class PhysicsGun
 	{
 		if ( target == _outlined ) return;
 		_outlined = target;
-		if ( !target.IsValid() )
+		if ( !_outline.IsValid() && target.IsValid() )
 		{
-			_outline.Hide();
-			return;
+			_outline = _beamRoot.AddComponent<HighlightOutline>( false );
+			_outline.OverrideTargets = true;
+			_outline.Targets = [];
+			_outline.ObscuredColor = Color.Transparent;
+			_outline.Width = 0.2f;
 		}
-		_outline ??= ObjectHighlight.Create( _beamRoot );
-		_outline.Show( ObjectHighlight.GetTarget( target ), new HighlightStyle( _tint, Color.Transparent, HighlightStyle.Selected.Width ) );
+		if ( !_outline.IsValid() ) return;
+
+		_outline.Targets.Clear();
+		if ( target.IsValid() )
+		{
+			var ragdoll = target.GetComponentInParent<ModelPhysics>( true );
+			if ( ragdoll.IsValid() && ragdoll.Renderer.IsValid() ) target = ragdoll.Renderer.GameObject;
+			_outline.Targets.AddRange( target.GetComponentsInChildren<Renderer>() );
+		}
+		_outline.Color = _tint;
+		_outline.Enabled = _outline.Targets.Count > 0;
 	}
 
 	void DrawGlows( int count, Vector3 position, Vector3 step, bool muzzle )
