@@ -73,7 +73,7 @@ internal sealed partial class SourceModelBuilder( SourceGameMount mount, string 
 				AddPhysics( builder, physics, physicsPlan );
 		}
 
-		AddMetadata( builder, mdl, boneNames );
+		AddMetadata( builder, mdl, boneNames, viewBounds );
 		AddHitboxes( builder, mdl, boneNames );
 		AddGameData( builder, mdl, physics );
 
@@ -112,7 +112,7 @@ internal sealed partial class SourceModelBuilder( SourceGameMount mount, string 
 				var built = result.Bones.GetBone( bone );
 				if ( built is null ) return (bone, (string)null, Transform.Zero);
 				return (bone, built.Parent?.Name, built.Parent is null ? built.LocalTransform : built.Parent.LocalTransform.ToLocal( built.LocalTransform ));
-			} ).ToArray(), animations.BoneMasks, animations.Clips ) );
+			} ).ToArray(), animations.BoneMasks, animations.Clips, animations.IkEndBones ) );
 		}
 		if ( physicsPlan != null )
 			ValidatePhysics( result, physics, physicsPlan );

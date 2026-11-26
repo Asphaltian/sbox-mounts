@@ -4,6 +4,98 @@ namespace Source1;
 
 // Stored on imported models through ModelBuilder.WithData; game code reads them into its own types with the same GameData names.
 
+[Sandbox.ModelEditor.GameData( "source_entity_hull" ), Hide]
+public sealed class EntityHull
+{
+	public BBox Bounds { get; set; }
+}
+
+[Sandbox.ModelEditor.GameData( "source_air_drag" ), Hide]
+public sealed class AirDrag
+{
+	public Vector3 AreaFractions { get; set; }
+	public Vector3 UnitMassInertia { get; set; }
+
+	private const float MetresPerInch = 0.0254f;
+
+	private static Vector3 SizeInMetres( Model model )
+	{
+		if ( model.Physics is not { Parts.Count: 1 } physics || physics.Parts[0].Hulls is not { Count: > 0 } hulls )
+			return default;
+		var bounds = hulls[0].Bounds;
+		for ( var i = 1; i < hulls.Count; i++ ) bounds = bounds.AddBBox( hulls[i].Bounds );
+		return bounds.Size * MetresPerInch;
+	}
+
+	// The stored fractions use IVP axis order (X, Z, Y).
+	private Vector3 Fractions => new( AreaFractions.x, AreaFractions.z, AreaFractions.y );
+
+	private Vector3 LinearBasis( Vector3 size ) =>
+		new Vector3( size.y * size.z, size.x * size.z, size.x * size.y ) * Fractions * MetresPerInch;
+
+	internal (Vector3 Linear, Vector3 Angular, Vector3 Inertia) Basis( Model model, Vector3 scale )
+	{
+		var size = SizeInMetres( model ) * scale.Abs();
+		var half = size * 0.5f;
+		var inertia = UnitMassInertia;
+		if ( scale != Vector3.One )
+		{
+			// Each principal moment is the sum of the second moments on the other two axes.
+			var second = (new Vector3( (inertia.x + inertia.y + inertia.z) * 0.5f ) - inertia) * scale * scale;
+			inertia = new( second.y + second.z, second.x + second.z, second.x + second.y );
+		}
+
+		var fractions = Fractions;
+		var angular = new Vector3(
+			AngularFactor( half.x, half.y, half.z, fractions.y, fractions.z, inertia.x ),
+			AngularFactor( half.y, half.z, half.x, fractions.z, fractions.x, inertia.y ),
+			AngularFactor( half.z, half.x, half.y, fractions.x, fractions.y, inertia.z ) );
+		return (LinearBasis( size ), angular, inertia / (MetresPerInch * MetresPerInch));
+	}
+
+	/// <summary>Applies the authored inertia and returns the drag factors for this rigid body.</summary>
+	internal static (Vector3 Linear, Vector3 Angular) ConfigureBody( Model model, Rigidbody body )
+	{
+		var physics = body.PhysicsBody;
+		if ( !physics.IsValid() || model?.GetData<AirDrag>() is not { } drag ) return default;
+		var mass = physics.Mass;
+		if ( mass <= 0 ) return default;
+		var basis = drag.Basis( model, Vector3.One );
+		var inertia = basis.Inertia * mass;
+		if ( inertia.x > 0 && inertia.y > 0 && inertia.z > 0 )
+			physics.SetInertiaTensor( inertia, Rotation.Identity );
+		return (basis.Linear / mass, basis.Angular / mass);
+	}
+
+	// Integrate the drag torque over both faces parallel to this spin axis.
+	private static float AngularFactor( float length, float width, float height, float widthFraction, float heightFraction, float inertia )
+	{
+		if ( inertia <= 0 ) return 0;
+		var w2 = width * width;
+		var h2 = height * height;
+		var l2 = length * length / 3;
+		return 2 * length / inertia * (heightFraction * w2 * (l2 + w2 / 2 + h2)
+			+ widthFraction * h2 * (l2 + h2 / 2 + w2));
+	}
+}
+
+[Sandbox.ModelEditor.GameData( "source_prop_damage" ), Hide]
+public sealed class PropDamageModifiers
+{
+	public float Bullet { get; set; } = 1;
+	public float Club { get; set; } = 1;
+	public float Explosive { get; set; } = 1;
+	public bool FireResistant { get; set; }
+}
+
+[Sandbox.ModelEditor.GameData( "physgun_interactions" ), Hide]
+public sealed class PhysGunInteractions
+{
+	/// <summary>Authored angular speed about the prop's local Z axis in degrees per second.</summary>
+	public float? LaunchSpin { get; set; }
+	public Angles? PreferredCarryAngles { get; set; }
+}
+
 /// <summary>Weapon-script data associated with imported first- and third-person models.</summary>
 [Sandbox.ModelEditor.GameData( "weapon_data", AllowMultiple = true ), Hide]
 public sealed class SourceModelWeaponData
@@ -20,12 +112,16 @@ public sealed class SourceModelWeaponData
 	/// <summary>Mounted HUD icon texture, white on transparent, when the script's TextureData weapon entry resolves.</summary>
 	public string Icon { get; set; }
 	public int ClipSize { get; set; } = -1;
+	public int? DefaultClip { get; set; }
+	public int? SecondaryDefaultClip { get; set; }
 	public int SecondaryClipSize { get; set; } = -1;
 	public int Bucket { get; set; }
 	/// <summary>Position within the source inventory bucket, when authored.</summary>
 	public int? BucketPosition { get; set; }
 	/// <summary>Source weapon selection priority, when authored.</summary>
 	public int? Weight { get; set; }
+	/// <summary>Damage explicitly authored in the weapon script.</summary>
+	public float? ScriptDamage { get; set; }
 	/// <summary>Damage from the weapon script, or the mounted game's numeric skill settings, if supplied.</summary>
 	public float? PlayerDamage { get; set; }
 	public float? NpcDamage { get; set; }
@@ -73,6 +169,9 @@ public sealed class SourceModelSequenceData
 	public int ActivityWeight { get; set; }
 	[JsonIgnore( Condition = JsonIgnoreCondition.WhenWritingDefault )]
 	public bool Looping { get; set; }
+	/// <summary>The source sequence takes its phase from game time.</summary>
+	[JsonIgnore( Condition = JsonIgnoreCondition.WhenWritingDefault )]
+	public bool RealTime { get; set; }
 	/// <summary>Enter this sequence immediately, without blending from the previous pose.</summary>
 	[JsonIgnore( Condition = JsonIgnoreCondition.WhenWritingDefault )]
 	public bool Snap { get; set; }
@@ -93,6 +192,22 @@ public sealed class SourceModelSequenceData
 	/// </summary>
 	[JsonIgnore( Condition = JsonIgnoreCondition.WhenWritingDefault )]
 	public string BoneMask { get; set; }
+
+	/// <summary>Blend of a masked gesture whose absolute pose comes from one timed layer.</summary>
+	[JsonIgnore( Condition = JsonIgnoreCondition.WhenWritingNull )]
+	public LayerRamp? PoseBlend { get; set; }
+
+	public readonly record struct LayerRamp( float Start, float Peak, float Tail, float End, bool Spline )
+	{
+		internal bool IsTimed => Start != End && float.IsFinite( Start ) && float.IsFinite( Peak ) && float.IsFinite( Tail ) && float.IsFinite( End );
+
+		internal float Weight( float cycle )
+		{
+			if ( cycle < Start || cycle >= End ) return 0;
+			var weight = cycle < Peak ? (cycle - Start) / (Peak - Start) : cycle > Tail ? (End - cycle) / (End - Tail) : 1;
+			return Spline ? weight * weight * (3 - 2 * weight) : weight;
+		}
+	}
 	/// <summary>
 	/// Additive sequences to play beside this one for its complete motion. For a whole-body sequence these are the
 	/// delta sequences authored as its layers, already baked into its clip with their parameters at zero.

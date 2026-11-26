@@ -1,0 +1,253 @@
+using System;
+
+namespace Source1.Hl2;
+
+/// <summary>
+/// C_PropCombineBall's code-drawn look: a flickering combinemuzzle1 halo, the pulsing
+/// ar2_altfire1 body, eight ar2_altfire1b motion-blur halos and CPropCombineBall's additive
+/// 0.1 second sprite trail. Source draws the ball model only while it is held.
+/// </summary>
+[Title( "HL2 Combine Ball Effect" )]
+[Category( "Half-Life 2" )]
+[Alias( "Source1.Hl2CombineBallEffect", "Hl2CombineBallEffect" )]
+public sealed class CombineBallEffect : Component
+{
+	const float TrailLife = 0.1f;
+	public float Radius { get; set; } = 10;
+	public string MountName { get; set; } = "hl2";
+	SpriteRenderer _body;
+	SpriteRenderer _flicker;
+	readonly List<SpriteRenderer> _blur = new();
+	LineRenderer _trail;
+	GameObject _trailRoot;
+	readonly List<(Vector3 Position, TimeSince Age)> _history = new();
+	Vector3 _lastPosition;
+	float _roll;
+
+	protected override void OnStart()
+	{
+		_flicker = MountedEffects.AddSprite( GameObject, "effects/combinemuzzle1", MountName );
+		for ( var i = 0; i < 8; i++ )
+			if ( MountedEffects.AddSprite( GameObject, "effects/ar2_altfire1b", MountName ) is { } blur ) _blur.Add( blur );
+		_body = MountedEffects.AddSprite( GameObject, "effects/ar2_altfire1", MountName );
+		_trailRoot = new GameObject( false, "HL2 combine ball trail" );
+		_trailRoot.NetworkMode = NetworkMode.Never;
+		_trailRoot.Enabled = true;
+		_trail = MountedEffects.AddBeam( _trailRoot, "sprites/combineball_trail_black_1", MountName );
+		if ( _trail.IsValid() )
+		{
+			_trail.Width = new Curve( new Curve.Frame( 0, Radius ), new Curve.Frame( 1, 0 ) );
+			_trail.Color = Color.White;
+		}
+		_lastPosition = WorldPosition;
+		_roll = Game.Random.Float( 0, 360 );
+	}
+
+	protected override void OnUpdate()
+	{
+		var position = WorldPosition;
+		// DrawFlicker
+		if ( _flicker.IsValid() ) SetHalo( _flicker, position, Radius * Game.Random.Float( 1.5f, 2.5f ), Game.Random.Float( 0.2f, 0.3f ) );
+		// DrawMotionBlur: up to eight halos stepping back along this frame's motion.
+		var motion = position - _lastPosition;
+		var speed = Math.Clamp( motion.Length, 0, 32 );
+		var step = MathF.Min( speed * 0.5f, 4 );
+		var brightness = Math.Clamp( (speed - 4) / 28, 0, 1 );
+		for ( var i = 0; i < _blur.Count; i++ )
+			SetHalo( _blur[i], position - motion.Normal * step * (i + 1), Radius, brightness * (1 - i / 12f) );
+		// The body halo pulses by a unit at 25 radians a second.
+		if ( _body.IsValid() )
+		{
+			SetHalo( _body, position, Radius + MathF.Sin( Time.Now * 25 ), 1 );
+			_body.WorldRotation = Rotation.FromRoll( _roll );
+		}
+		_lastPosition = position;
+		UpdateTrail( position );
+	}
+
+	static void SetHalo( SpriteRenderer sprite, Vector3 position, float halfWidth, float brightness )
+	{
+		if ( !sprite.IsValid() ) return;
+		sprite.WorldPosition = position;
+		sprite.Size = halfWidth * 2;
+		sprite.Color = (Color.White * brightness).WithAlpha( 1 );
+		sprite.Enabled = brightness > 0;
+	}
+
+	void UpdateTrail( Vector3 position )
+	{
+		if ( !_trail.IsValid() ) return;
+		_history.RemoveAll( x => x.Age > TrailLife );
+		_history.Add( (position, 0) );
+		_trail.VectorPoints ??= new();
+		_trail.VectorPoints.Clear();
+		for ( var i = _history.Count - 1; i >= 0; i-- )
+			_trail.VectorPoints.Add( _history[i].Position );
+		_trail.Enabled = _history.Count > 1;
+	}
+
+	protected override void OnDestroy()
+	{
+		_trailRoot?.Destroy();
+	}
+
+	/// <summary>Two flashes on the struck surface and sparks along its normal.</summary>
+	public static void Bounce( Vector3 position, Vector3 normal, string mount )
+	{
+		if ( Application.IsDedicatedServer ) return;
+		const float radius = 16;
+		var origin = position + normal;
+		FlatQuad.Create( "effects/combinemuzzle1", origin, normal, radius * 10, 0, 0.25f, mount );
+		FlatQuad.Create( "effects/combinemuzzle2", origin, normal, radius * 2, radius * 4, 0.5f, mount );
+		WeaponEffects.ElectricSpark( origin, 2, normal, mount );
+	}
+
+	/// <summary>Two expanding shock rings and an upward burst of sparks.</summary>
+	public static void Explode( Vector3 position, float radius, string mount )
+	{
+		if ( Application.IsDedicatedServer ) return;
+		WeaponEffects.ElectricSpark( position, 4, Vector3.Up, mount );
+		BeamRing.Create( position, radius, 1024, 64, 0.2f, 32, mount );
+		BeamRing.Create( position, radius, 1024, 64, 0.5f, 64, mount );
+	}
+}
+
+/// <summary>FX_AddQuad with FXQUAD_BIAS_SCALE and FXQUAD_BIAS_ALPHA: a full-width quad facing the normal, alpha 1 to 0.</summary>
+[Title( "HL2 Flat Quad" )]
+[Category( "Half-Life 2" )]
+[Alias( "Source1.Hl2FlatQuad", "Hl2FlatQuad" )]
+public sealed class FlatQuad : Component
+{
+	float _scalePower, _alphaPower, _rollSpeed;
+	SpriteRenderer _sprite;
+	float _start;
+	float _end;
+	float _life;
+	TimeSince _age;
+
+	public static void Create( string material, Vector3 position, Vector3 normal, float startWidth, float endWidth, float life, string mount, bool linear = false )
+		=> Spawn( material, position, normal, startWidth, endWidth, life, mount, linear ? 0.5f : 0.75f, linear ? 0.5f : 0.4f );
+
+	internal static void WaterRipple( Vector3 position, Vector3 normal, string mount )
+		=> Spawn( "effects/splashwake1", position + normal * 0.5f, normal, 16, 128, 1.5f, mount, 0.7f, 0.25f,
+			rollSpeed: Game.Random.Float( -16, 16 ), additive: false );
+
+	internal static void ExplosionRipple( Vector3 surface, string mount )
+		=> Spawn( "effects/splashwake1", surface + Vector3.Up * 2, Vector3.Up, 64, 256, 2, mount, 0.85f, 0.25f,
+			rollSpeed: Game.Random.Float( -4, 4 ), additive: false );
+
+	static void Spawn( string material, Vector3 position, Vector3 normal, float startWidth, float endWidth, float life, string mount,
+		float scaleBias, float alphaBias, float rollSpeed = 0, bool additive = true )
+	{
+		var go = new GameObject( false, "HL2 quad" );
+		go.NetworkMode = NetworkMode.Never;
+		go.WorldPosition = position;
+		go.WorldRotation = Rotation.LookAt( normal ) * Rotation.FromRoll( Game.Random.Int( 0, 360 ) );
+		var sprite = MountedEffects.AddSprite( go, material, mount );
+		if ( !sprite.IsValid() )
+		{
+			go.Destroy();
+			return;
+		}
+		sprite.Billboard = SpriteRenderer.BillboardMode.None;
+		sprite.Additive = additive;
+		var quad = go.AddComponent<FlatQuad>();
+		quad._sprite = sprite;
+		quad._start = startWidth;
+		quad._end = endWidth;
+		quad._scalePower = -MathF.Log2( scaleBias );
+		quad._alphaPower = -MathF.Log2( alphaBias );
+		quad._rollSpeed = rollSpeed;
+		quad._life = life;
+		quad.Draw( 0 );
+		go.Enabled = true;
+	}
+
+	protected override void OnStart() => _age = 0;
+
+	protected override void OnUpdate()
+	{
+		var t = _age / _life;
+		if ( t >= 1 )
+		{
+			GameObject.Destroy();
+			return;
+		}
+		if ( _rollSpeed != 0 ) LocalRotation *= Rotation.FromRoll( _rollSpeed * Time.Delta );
+		Draw( t );
+	}
+
+	void Draw( float t )
+	{
+		_sprite.Size = float.Lerp( _start, _end, MathF.Pow( t, _scalePower ) );
+		_sprite.Color = Color.White.WithAlpha( 1 - (MathF.Pow( t, _alphaPower )) );
+	}
+}
+
+/// <summary>TE_BeamRingPoint with FBEAM_FADEOUT: a horizontal beam ring growing between two radii while it fades.</summary>
+[Title( "HL2 Beam Ring" )]
+[Category( "Half-Life 2" )]
+[Alias( "Source1.Hl2BeamRing", "Hl2BeamRing" )]
+public sealed class BeamRing : Component
+{
+	const int Segments = 32;
+	LineRenderer _line;
+	float _startRadius;
+	float _endRadius;
+	float _life;
+	float _brightness;
+	TimeSince _age;
+
+	public static void Create( Vector3 center, float startRadius, float endRadius, float width, float life, float brightness, string mount )
+	{
+		var go = new GameObject( false, "HL2 beam ring" );
+		go.NetworkMode = NetworkMode.Never;
+		go.WorldPosition = center;
+		var line = MountedEffects.AddBeam( go, "sprites/lgtning", mount );
+		if ( !line.IsValid() )
+		{
+			go.Destroy();
+			return;
+		}
+		line.Width = width;
+#pragma warning disable CS0618
+		// Beam segments repeat their texture rather than stretching it around the ring.
+		var texturing = line.Texturing;
+		texturing.WorldSpace = true;
+		texturing.UnitsPerTexture = width;
+		line.Texturing = texturing;
+#pragma warning restore CS0618
+		var ring = go.AddComponent<BeamRing>();
+		ring._line = line;
+		ring._startRadius = startRadius;
+		ring._endRadius = endRadius;
+		ring._life = life;
+		ring._brightness = brightness;
+		ring.Draw( 0 );
+		go.Enabled = true;
+	}
+
+	protected override void OnStart() => _age = 0;
+
+	protected override void OnUpdate()
+	{
+		var t = _age / _life;
+		if ( t >= 1 )
+		{
+			GameObject.Destroy();
+			return;
+		}
+		Draw( t );
+	}
+
+	void Draw( float t )
+	{
+		var radius = float.Lerp( _startRadius, _endRadius, t );
+		var center = WorldPosition;
+		_line.VectorPoints ??= new();
+		_line.VectorPoints.Clear();
+		for ( var i = 0; i <= Segments; i++ )
+			_line.VectorPoints.Add( center + Rotation.FromYaw( i * 360f / Segments ).Forward * radius );
+		_line.Color = (new Color( 1, 1, 225 / 255f ) * (_brightness / 255f * (1 - t))).WithAlpha( 1 );
+	}
+}

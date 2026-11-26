@@ -21,9 +21,10 @@ internal sealed partial class SourceModelBuilder
 		{
 			var hasAuthoredPieces = physics?.Text.Any( block => block.IsBlock
 				&& block.Name.Equals( "break", StringComparison.OrdinalIgnoreCase ) ) == true;
-			var data = Host.GetPropData().Read( mdl.KeyValues, FullPath, message => Log.Trace( message ), hasAuthoredPieces );
-			if ( data is not null )
-				builder.WithData( data );
+			var (prop, physGun, modifiers) = Host.GetPropData().Read( mdl.KeyValues, FullPath, message => Log.Trace( message ), hasAuthoredPieces );
+			if ( prop is not null ) builder.WithData( prop );
+			if ( physGun is not null ) builder.WithData( physGun );
+			if ( modifiers is not null ) builder.WithData( modifiers );
 		}
 		catch ( Exception e ) when ( e is IOException or InvalidDataException or NotSupportedException )
 		{

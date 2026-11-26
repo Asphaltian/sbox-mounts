@@ -11,7 +11,12 @@ internal sealed class SourceSurfaceLoader( SourceSurfaceDefinition definition ) 
 			Friction = parameters.Float( "friction" ),
 			Elasticity = parameters.Float( "elasticity" ),
 			Density = parameters.Float( "density" ),
-			Tags = "source1",
+			Tags = definition.GameMaterial switch
+			{
+				'A' or 'B' or 'F' or 'H' => "source1 flesh",
+				'G' => "source1 grate",
+				_ => "source1"
+			},
 			PrefabCollection = new()
 			{
 				BulletImpactDecal = Host.GetImpactDecal( definition.GameMaterial )
@@ -49,7 +54,7 @@ internal sealed class SourceSurfaceLoader( SourceSurfaceDefinition definition ) 
 
 }
 
-internal sealed class SurfaceSoundLoader( SourceSoundDefinition definition ) : ResourceLoader<SourceGameMount>
+internal sealed class SurfaceSoundLoader( SourceSoundDefinition definition, int? channel = null ) : ResourceLoader<SourceGameMount>
 {
-	protected override object Load() => SourceSoundEvents.Create( Host, definition );
+	protected override object Load() => SourceSoundEvents.Create( Host, definition, channel: channel );
 }

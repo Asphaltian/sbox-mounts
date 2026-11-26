@@ -1,0 +1,448 @@
+namespace Source1.GarrysMod;
+
+/// <summary>The Physics Gun carries the point under the crosshair, including individual ragdoll bodies.</summary>
+public sealed partial class PhysicsGun : Weapon, PlayerController.IEvents
+{
+	public override Ray AimRay => Owner.IsValid() ? Owner.EyeTransform.ForwardRay : base.AimRay;
+
+	const float MinRange = 40;
+	const string GridConVar = "gm_snapgrid";
+	const float CarryMass = 45678;
+	const string KeepMassTag = "physgun_keep_mass";
+	internal const string UnfreezableTag = "physgun_unfreezable";
+	const string DisabledTag = "physgun_disabled";
+	const string LimitedTag = "physgun_limited";
+
+	[ConVar( "physgun_limited", ConVarFlags.Server | ConVarFlags.Replicated, Help = "Restrict Physics Gun pickup of map entities." )]
+	public static bool Limited { get; set; }
+
+	internal static void TagMapEntity( GameObject target, MapEntity entity )
+	{
+		if ( entity.Get( "gmod_allowphysgun" ) == "0" )
+		{
+			target.Tags.Add( DisabledTag );
+			return;
+		}
+
+		var name = entity.Get( "classname" ).ToLowerInvariant();
+		if ( name is "prop_vehicle_jeep" or "prop_vehicle_apc" or "prop_vehicle_jeep_old" )
+			target.Tags.Add( KeepMassTag );
+		bool limited = name == "func_physbox" ? (entity.Integer( "spawnflags" ) & 0x8000) != 0
+			: name.StartsWith( "func_" ) || name.StartsWith( "prop_dynamic" ) || name.StartsWith( "prop_door" )
+			|| (name.StartsWith( "prop_" ) && (entity.Integer( "spawnflags" ) & (8 | 512)) != 0);
+		if ( limited ) target.Tags.Add( LimitedTag );
+	}
+
+	[ConVar( "physgun_maxrange", ConVarFlags.Server | ConVarFlags.Replicated, Min = 128, Max = 32768, Help = "Maximum carry distance. The Physics Gun can pick up objects twice this far away." )]
+	public static float MaxRange { get; set => field = float.IsFinite( value ) ? value : 4096; } = 4096;
+
+	[ConVar( "physgun_maxSpeed", ConVarFlags.Server, Min = 0 )]
+	public static float MaxCarrySpeed { get; set; } = 5000;
+
+	[ConVar( "physgun_maxSpeedDamping", ConVarFlags.Server, Min = 0 )]
+	public static float MaxCarryDamping { get; set; } = 10000;
+
+	[ConVar( "physgun_maxAngular", ConVarFlags.Server, Min = 0 )]
+	public static float MaxAngularSpeed { get; set; } = 5000;
+
+	[ConVar( "physgun_maxAngularDamping", ConVarFlags.Server, Min = 0 )]
+	public static float MaxAngularDamping { get; set; } = 10000;
+
+	[ConVar( "physgun_DampingFactor", ConVarFlags.Server )]
+	public static float DampingFactor { get; set; } = 0.8f;
+
+	[ConVar( "physgun_teleportDistance", ConVarFlags.Server, Min = 0, Help = "Snap a held body to its target when farther than this distance. Zero disables snapping." )]
+	public static float TeleportDistance { get; set; }
+
+	[ConVar( "physgun_timeToArrive", ConVarFlags.Server, Min = 0 )]
+	public static float TimeToArrive { get; set; } = 0.05f;
+
+	[ConVar( "physgun_timeToArriveRagdoll", ConVarFlags.Server, Min = 0 )]
+	public static float RagdollTimeToArrive { get; set; } = 0.1f;
+
+	[ConVar( "physgun_wheelspeed", Help = "Physics Gun carry distance per scroll notch." )]
+	public static float WheelSpeed { get; set; } = 10;
+
+	[ConVar( "phys_spinspeed", ConVarFlags.Server, Help = "Degrees per second to turn a held body with the movement keys." )]
+	public static float SpinSpeed { get; set => field = float.IsFinite( value ) ? value : 200; } = 200;
+
+	[ConVar( GridConVar, ConVarFlags.Saved, Min = 0, Max = 4096, Help = "World grid spacing for held props. Zero disables snapping." )]
+	public static float SnapGrid { get; set; }
+
+	[ConVar( "gm_snapangles", ConVarFlags.Saved, Min = -360, Max = 360, Help = "Angle increment for Physics Gun rotation while holding Use and Run." )]
+	public static float SnapAngles { get; set; } = 45;
+
+	[ConVar( "physgun_rotation_sensitivity", ConVarFlags.Saved, Min = 0.01f, Max = 10000, Help = "Sensitivity of mouse rotation while holding Use with the Physics Gun." )]
+	public static float RotationSensitivity { get; set; } = 0.05f;
+
+	enum Trigger { Released, Grab, Adjust, Push, Pull, Freeze }
+	System.IDisposable _movementHook;
+	[Sync] Trigger InputState { get; set; }
+	bool Adjusting => InputState is Trigger.Adjust or Trigger.Push or Trigger.Pull;
+	[Sync] float GridSize { get; set; }
+	[Sync] float SnapStep { get; set; } = -1;
+	float? _previousSnapStep;
+	// Accumulate on the owner so a network update can carry several frames of mouse input.
+	[Sync] Rotation MouseRotation { get; set; } = Rotation.Identity;
+	Rotation _lastMouseRotation;
+	[Sync] int SpinDirection { get; set; }
+	[Sync( SyncFlags.FromHost )] Component HeldTarget { get; set; }
+	public Rigidbody HeldBody => HeldTarget as Rigidbody;
+	[Sync( SyncFlags.FromHost )] Vector3 GrabPoint { get; set; }
+	[Sync( SyncFlags.FromHost )] bool BeamOn { get; set; }
+	Angles _holdAngles;
+	float _distance;
+	float _arrivalTime;
+	BBox _modelHull;
+	(float Setting, float NativeOverride)? _previousMass;
+	bool _restoreImpactDamage;
+	PhysicsOwnership _borrowed;
+	internal override bool ShouldPlayIdle => false;
+
+	public PhysicsGun()
+	{
+		UsesAmmo = false;
+		AttackDamageTags = [];
+	}
+
+	protected override void OnControl()
+	{
+		if ( Input.Pressed( "reload" ) )
+		{
+			Unfreeze();
+			return;
+		}
+
+		if ( NextPrimaryFire > 0 ) return;
+		if ( Input.Pressed( "attack2" ) && HeldTarget.IsValid() )
+		{
+			InputState = Trigger.Freeze;
+			(WeaponModel as ViewModel)?.PlayPhyscannonAttack();
+			SetNextFire( 0.5f );
+			return;
+		}
+
+		InputState = Input.Down( "attack1" ) && !Input.Down( "attack2" ) ? Trigger.Grab : Trigger.Released;
+		if ( InputState == Trigger.Grab ) GridSize = ConsoleSystem.GetValue( GridConVar ).ToFloat();
+		if ( InputState == Trigger.Grab && Input.Pressed( "attack1" ) && !HeldTarget.IsValid() && TraceTarget( AimRay, MaxRange * 2 ).Hit )
+			(WeaponModel as ViewModel)?.PlayPhyscannonAttack();
+		if ( InputState != Trigger.Grab || !HeldTarget.IsValid() ) return;
+
+		if ( Input.Down( "use" ) )
+		{
+			SnapStep = Input.Down( "run" ) ? System.MathF.Abs( float.IsFinite( SnapAngles ) ? SnapAngles : 45 ) : -1;
+			var forward = Input.AnalogMove.x;
+			SpinDirection = -System.Math.Sign( Input.AnalogMove.y );
+			InputState = forward switch { > 0 => Trigger.Push, < 0 => Trigger.Pull, _ => Trigger.Adjust };
+			_movementHook ??= Scene.AddHook( GameObjectSystem.Stage.PhysicsStep, -1, RedirectMovement,
+				nameof( PhysicsGun ), "Redirect player movement while adjusting a held body" );
+		}
+
+		var wheel = Input.MouseWheel.y;
+		if ( wheel == 0 ) return;
+		var speed = float.IsFinite( WheelSpeed ) ? WheelSpeed.Clamp( -10000, 10000 ) : 10;
+		Scroll( HeldTarget, wheel * (System.MathF.Abs( speed ) < 0.1f ? 0.1f : speed) );
+		Input.MouseWheel = default;
+		Input.ReleaseAction( "SlotNext" );
+		Input.ReleaseAction( "SlotPrev" );
+	}
+
+	void PlayerController.IEvents.OnEyeAngles( ref Angles look )
+	{
+		if ( IsProxy || !Active || !HeldTarget.IsValid() || !Input.Down( "attack1" ) || !Input.Down( "use" ) ) return;
+
+		// Source's default mouse pitch and yaw convert one command count into 0.022 degrees of camera motion.
+		const float degreesPerCount = 0.022f;
+		float sensitivity = float.IsFinite( RotationSensitivity ) ? RotationSensitivity.Clamp( 0.01f, 1000 ) : 0.05f;
+		var turn = new Angles( -look.pitch, -look.yaw, 0 ) * (sensitivity / degreesPerCount);
+		if ( turn.pitch != 0 || turn.yaw != 0 )
+			MouseRotation = (turn.ToRotation() * MouseRotation).Normal;
+		look = default;
+	}
+
+	// The controller builds its wish velocity in fixed update, after frame input handling.
+	void RedirectMovement()
+	{
+		if ( !IsProxy && Active && HasOwner && HeldTarget.IsValid() && Adjusting )
+			Owner.WishVelocity = Vector3.Zero;
+	}
+
+	[Rpc.Host( NetFlags.OwnerOnly )]
+	void Unfreeze()
+	{
+		if ( !Active || !HasOwner ) return;
+		int count = Owner.GetComponent<FrozenProps>()?.Unfreeze( AimRay ) ?? 0;
+		if ( count > 0 ) NotifyUnfrozen( count );
+	}
+
+	[Rpc.Owner( NetFlags.HostOnly | NetFlags.Reliable )]
+	void NotifyUnfrozen( int count )
+	{
+		var text = Game.Language.GetPhrase( "physgun.unfrozen", new() { { "count", count.ToString() } } );
+		Sandbox.UI.Notices.AddNotice( "ac_unit", Color.Cyan, text, 3 );
+		var file = SoundFile.Load( "mount://gmod/sound/npc/roller/mine/rmine_chirp_answer1.wav.vsnd" );
+		if ( file.IsValid() ) Sound.Play( new SoundEvent { UI = true, Sounds = [file] } );
+	}
+
+	[Rpc.Host( NetFlags.OwnerOnly )]
+	void Scroll( Component target, float offset )
+	{
+		if ( Active && HeldTarget.IsValid() && HeldTarget == target && float.IsFinite( offset ) )
+			_distance = (_distance + offset).Clamp( MinRange, MaxRange );
+	}
+
+	protected override void OnFixedUpdate()
+	{
+		base.OnFixedUpdate();
+		if ( !Networking.IsHost ) return;
+		if ( !Active || !HasOwner || InputState is Trigger.Released or Trigger.Freeze )
+		{
+			if ( Active && HasOwner && InputState == Trigger.Freeze && HeldTarget.IsValid() ) Freeze();
+			Release();
+			return;
+		}
+
+		var ray = AimRay;
+		var yaw = Owner.EyeAngles.yaw;
+		if ( !HeldTarget.IsValid() )
+		{
+			if ( _borrowed.IsValid() ) Release();
+			var hit = TraceTarget( ray, MaxRange * 2 );
+			if ( !hit.Hit ) return;
+			BeamOn = true;
+			var body = hit.GameObject?.GetComponentInParent<Rigidbody>();
+			Component target = (Component)body ?? hit.GameObject?.GetComponentInParent<Projectile>();
+			if ( target is null && hit.Collider is ModelCollider model && model.GameObject.NetworkMode == NetworkMode.Object
+				&& model.GameObject.Tags.Has( "source1_entity", includeAncestors: false ) )
+				target = model;
+			if ( !target.IsValid() || target.Tags.Has( DisabledTag ) || (Limited && target.Tags.Has( LimitedTag )) ) return;
+			if ( !CanGrab( target, Network.Owner ) || (body.IsValid() && !body.PhysicsBody.IsValid()) ) return;
+			if ( !PhysicsOwnership.TryBorrow( target, EntityRoot( target ), out _borrowed ) ) return;
+
+			HeldTarget = target;
+			_previousMass = null;
+			EntityRoot( target ).RunEvent<IPhysgunEvent>( x => x.OnPhysgunPickup() );
+			if ( !target.IsValid() || HeldTarget != target ) return;
+			var transform = target.WorldTransform;
+			if ( body.IsValid() )
+			{
+				if ( !body.PhysicsBody.IsValid() )
+				{
+					Release();
+					return;
+				}
+				PrepareBody( body );
+				transform = body.PhysicsBody.Transform;
+			}
+			else if ( target is ModelCollider collider )
+			{
+				_modelHull = collider.Model?.GetData<EntityHull>()?.Bounds ?? collider.Model?.Bounds ?? collider.LocalBounds;
+			}
+
+			GrabPoint = transform.Rotation.Inverse * (hit.HitPosition - transform.Position);
+			_distance = ray.Position.Distance( hit.HitPosition );
+			_holdAngles = target is TumblingProjectile tumbling ? tumbling.FlightAngles : transform.Rotation.Angles();
+			_holdAngles.yaw -= yaw;
+			_previousSnapStep = null;
+			_lastMouseRotation = MouseRotation;
+		}
+
+		if ( InputState is Trigger.Push or Trigger.Pull )
+			_distance = _distance.Approach( InputState == Trigger.Push ? MaxRange : MinRange, 100 * Time.Delta );
+
+		var physics = HeldBody?.PhysicsBody;
+		if ( HeldTarget is Rigidbody && !physics.IsValid() )
+		{
+			Release();
+			return;
+		}
+		var angles = HoldAngles( yaw );
+		var rotation = angles.ToRotation();
+		var position = ray.Position + ray.Forward * _distance - (physics?.Rotation ?? rotation) * GrabPoint;
+		if ( GridSize > 0 && float.IsFinite( GridSize ) ) position = position.SnapToGrid( System.MathF.Min( GridSize, 4096 ) );
+		if ( HeldBody is null )
+		{
+			if ( HeldTarget is TumblingProjectile tumbling ) tumbling.FlightAngles = angles;
+			HeldTarget.WorldRotation = rotation;
+			HeldTarget.WorldPosition = CarryPosition( HeldTarget, position );
+			return;
+		}
+		var offset = position - physics.Position;
+		if ( TeleportDistance > 0 && offset.LengthSquared > TeleportDistance * TeleportDistance )
+		{
+			physics.Transform = new Transform( position, rotation );
+			physics.Velocity = Vector3.Zero;
+		}
+		else
+		{
+			var velocity = ShadowController.Velocity( physics.Velocity, offset, MaxCarrySpeed, MaxCarryDamping, _arrivalTime, DampingFactor );
+			physics.Velocity = velocity.ClampLength( 4000 );
+		}
+
+		var angularError = ShadowController.AngularError( physics.Rotation, rotation );
+		physics.AngularVelocity = ShadowController.Velocity( physics.AngularVelocity, angularError, MaxAngularSpeed.DegreeToRadian(), MaxAngularDamping.DegreeToRadian(), _arrivalTime, DampingFactor );
+	}
+
+	void PrepareBody( Rigidbody body )
+	{
+		// Carry mass is for the controller. It must not turn a held prop into an impact weapon.
+		_restoreImpactDamage = body.EnableImpactDamage;
+		body.EnableImpactDamage = false;
+		if ( !body.MotionEnabled )
+		{
+			body.MotionEnabled = true;
+			body.Network.Refresh( body );
+		}
+		bool ragdoll = body.GetComponentInParent<ModelPhysics>().IsValid();
+		// With two holders, the gun that raised the mass restores it on release.
+		if ( !ragdoll && !body.Tags.Has( KeepMassTag ) && body.Mass < CarryMass )
+		{
+			var mass = body.Mass;
+			var nativeOverride = 0f;
+			if ( body.MassOverride <= 0 )
+			{
+				// ModelCollider can author the native mass while Rigidbody still uses automatic mass.
+				body.PhysicsBody.Mass = 0;
+				if ( body.Mass != mass ) nativeOverride = mass;
+			}
+			_previousMass = (body.MassOverride, nativeOverride);
+			body.MassOverride = CarryMass;
+		}
+		_arrivalTime = ragdoll ? RagdollTimeToArrive : TimeToArrive;
+	}
+
+	Vector3 CarryPosition( Component target, Vector3 end )
+	{
+		var start = target.WorldPosition;
+		SceneTraceResult Sweep( Vector3 from, Vector3 to )
+		{
+			var trace = Scene.Trace.Ray( from, to );
+			trace = target is ModelCollider
+				? trace.Size( _modelHull.Mins * target.WorldScale, _modelHull.Maxs * target.WorldScale )
+				: ((Projectile)target).FlightHull( trace );
+			return trace.WithTag( "world" ).WithoutTags( "trigger" ).IgnoreGameObjectHierarchy( target.GameObject ).Run();
+		}
+
+		var trace = Sweep( start, end );
+		if ( trace.StartedSolid && !Sweep( end, end ).StartedSolid ) return end;
+		// On obstruction Source retries the horizontal move at the entity's current height.
+		return trace.Hit ? Sweep( start, end.WithZ( start.z ) ).EndPosition : end;
+	}
+
+	SceneTraceResult TraceTarget( Ray ray, float distance ) => Scene.Trace.Ray( ray, distance )
+		.IgnoreGameObjectHierarchy( GameObject.Root ).WithoutTags( "trigger" ).Run();
+
+	// Map props share a scene root. Dispatch to the mounted entity that owns this physics body.
+	internal static GameObject EntityRoot( Component body )
+	{
+		var target = body.GameObject;
+		while ( !target.IsRoot && !target.Tags.Has( "source1_entity", includeAncestors: false ) && target.Parent is { } parent )
+			target = parent;
+		return target;
+	}
+
+	internal static bool IsWorld( GameObject target ) =>
+		!target.Tags.Has( "source1_entity" ) && ToolMode.IsWorldObject( target );
+
+	internal static bool CanMove( Component target ) =>
+		target.IsValid() && !IsWorld( target.GameObject ) && !target.GetComponentInParent<PlayerController>().IsValid();
+
+	static bool CanGrab( Component body, Connection grabber )
+	{
+		if ( !CanMove( body ) ) return false;
+		var grab = new IPhysgunEvent.GrabEvent { Grabber = grabber };
+		EntityRoot( body ).RunEvent<IPhysgunEvent>( x => x.OnPhysgunGrab( grab ) );
+		return !grab.Cancelled && body.IsValid();
+	}
+
+	void Freeze()
+	{
+		var held = HeldTarget;
+		var body = HeldBody;
+		var target = EntityRoot( held );
+		var player = Network.Owner;
+		bool allowed = true;
+		target.RunEvent<IPhysgunFreeze>( x => allowed &= x.CanFreeze( this, body, player ) );
+		if ( !allowed || !body.IsValid() || HeldTarget != held || !HasOwner || !body.MotionEnabled || body.Tags.Has( UnfreezableTag ) ) return;
+
+		body.MotionEnabled = false;
+		Owner.GetOrAddComponent<FrozenProps>().Track( body );
+		target.RunEvent<IPhysgunFreeze>( x => x.OnFrozen( player, body ) );
+	}
+
+	void Release()
+	{
+		var target = HeldTarget;
+		var body = HeldBody;
+		var previousMass = _previousMass;
+		var restoreImpactDamage = _restoreImpactDamage;
+		var borrowed = _borrowed;
+		_previousMass = null;
+		_restoreImpactDamage = false;
+		_borrowed = null;
+		HeldTarget = null;
+		BeamOn = false;
+		if ( target.IsValid() ) EntityRoot( target ).RunEvent<IPhysgunEvent>( x => x.OnPhysgunDrop() );
+		if ( previousMass is { } mass && body.IsValid() )
+		{
+			body.MassOverride = mass.Setting;
+			if ( mass.NativeOverride > 0 && body.PhysicsBody.IsValid() ) body.PhysicsBody.Mass = mass.NativeOverride;
+		}
+		if ( restoreImpactDamage && body.IsValid() )
+		{
+			var holder = Scene.GetAllComponents<PhysicsGun>().FirstOrDefault( gun => gun.HeldBody == body );
+			if ( holder is null ) body.EnableImpactDamage = true;
+			else holder._restoreImpactDamage = true;
+		}
+		if ( body.IsValid() && !body.MotionEnabled ) body.Network.Refresh( body );
+		borrowed?.Release();
+	}
+
+	Angles HoldAngles( float yaw )
+	{
+		if ( Adjusting && SpinDirection != 0 )
+			_holdAngles.yaw += SpinDirection * SpinSpeed * Time.Delta;
+
+		if ( !_lastMouseRotation.Equals( MouseRotation ) )
+		{
+			var delta = Rotation.Difference( _lastMouseRotation, MouseRotation );
+			_holdAngles = (delta * _holdAngles.ToRotation()).Angles();
+			_lastMouseRotation = MouseRotation;
+		}
+
+		var target = _holdAngles.WithYaw( yaw + _holdAngles.yaw );
+		bool snapping = Adjusting && SnapStep >= 0;
+		if ( !snapping && !_previousSnapStep.HasValue ) return target;
+
+		float step = snapping ? SnapStep : _previousSnapStep.Value;
+		target = step == 0 ? Angles.Zero : target.SnapToGrid( step );
+		_previousSnapStep = snapping ? step : null;
+
+		// Resume free rotation from the last grid angle.
+		if ( !snapping ) _holdAngles = target.WithYaw( target.yaw - yaw );
+		return target;
+	}
+
+	void StopRedirectingMovement()
+	{
+		_movementHook?.Dispose();
+		_movementHook = null;
+	}
+
+	protected override void OnDisabled()
+	{
+		if ( Networking.IsHost ) Release();
+		ClearBeam();
+		StopRedirectingMovement();
+		base.OnDisabled();
+	}
+
+	protected override void OnHolstered()
+	{
+		StopRedirectingMovement();
+		if ( !IsProxy ) InputState = Trigger.Released;
+		if ( Networking.IsHost ) Release();
+		ClearBeam();
+		base.OnHolstered();
+	}
+}

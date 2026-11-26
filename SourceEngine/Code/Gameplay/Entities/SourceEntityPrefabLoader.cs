@@ -22,7 +22,7 @@ internal sealed class SourceEntityPrefabLoader( SourceEntity entity ) : Resource
 	};
 
 	// Components that load their art from a mount, which is always the one building them.
-	static readonly HashSet<string> MountNamed = [typeof( SourceMountedModel ).FullName, typeof( SourceMountedEffect ).FullName, typeof( CssExplosionEffect ).FullName];
+	static readonly HashSet<string> MountNamed = [typeof( MountedModel ).FullName, typeof( MountedEffect ).FullName, typeof( ExplosionEffect ).FullName];
 
 	PrefabFile prefab;
 
@@ -49,10 +49,22 @@ internal sealed class SourceEntityPrefabLoader( SourceEntity entity ) : Resource
 			// Through text, so numbers read back as whatever type the engine asks for.
 			root.Deserialize( JsonNode.Parse( build.Root().ToJsonString() ).AsObject() );
 			build.ResolveNested( root.Scene );
+			if ( entity.Kind == SourceEntityKind.Weapon && root.GetComponent<BaseCombatWeapon>( true ) is { } weapon )
+				ConfigureWeaponInventory( weapon );
 		}
 
 		prefab = builder.Create() ?? throw new InvalidOperationException( $"{Path}: could not create the prefab." );
 		return prefab;
+	}
+
+	// Holstered weapons need their inventory settings on every peer, before their first equip.
+	void ConfigureWeaponInventory( BaseCombatWeapon weapon )
+	{
+		var view = weapon.ViewModelPrefab?.GetComponentInChildren<MountedModel>( true );
+		var world = weapon.WorldModelPrefab?.GetComponentInChildren<MountedModel>( true )?.ModelPath ?? entity.PreviewModel;
+		SourceModelWeaponData Lookup( string path ) => string.IsNullOrEmpty( path ) ? null : WeaponSetup.SelectWeaponData( Host.GetWeaponData( path ), world );
+
+		WeaponSetup.ApplyInventoryData( weapon, Lookup( view?.ModelPath ) ?? Lookup( world ) ?? Lookup( view?.FallbackModelPath ) );
 	}
 
 	protected override void Shutdown()

@@ -86,7 +86,6 @@ internal sealed class SourceParticlePrefabLoader( string sourcePath, PcfFile.Ele
 		PcfFile.Element sphere;
 		PcfFile.Element box;
 		PcfFile.Element sequenceLifetime;
-		PcfFile.Element yawFlip;
 		ParticleFloat trailLength;
 		int sequenceMin;
 		int sequenceMax;
@@ -173,6 +172,7 @@ internal sealed class SourceParticlePrefabLoader( string sourcePath, PcfFile.Ele
 					alphaMax = op.Number( "alpha_max", 255 ) / 255;
 					break;
 				case "color random":
+					if ( op.Number( "tint_perc" ) != 0 ) Skip( op, "world lighting tint" );
 					effect.Gradient = new ParticleGradient
 					{
 						Type = ParticleGradient.ValueType.Range,
@@ -183,11 +183,14 @@ internal sealed class SourceParticlePrefabLoader( string sourcePath, PcfFile.Ele
 					break;
 				case "rotation random":
 					timedFields.Remove( RollField );
-					var initial = op.Number( "rotation_initial" );
-					effect.InitialRoll = new ParticleFloat( initial + op.Number( "rotation_offset_min" ), initial + op.Number( "rotation_offset_max", 360 ) );
+					effect.InitialRoll = RandomAngle( op, "rotation" );
+					break;
+				case "rotation yaw random":
+					effect.InitialYaw = RandomAngle( op, "yaw" );
+					effect.Yaw = 0;
 					break;
 				case "rotation yaw flip random":
-					yawFlip = op;
+					effect.Yaw = Flip( op.Number( "Flip Percentage", 0.5f ) );
 					break;
 				case "sequence random":
 					sequenceMin = (int)op.Number( "sequence_min" );
@@ -374,6 +377,12 @@ internal sealed class SourceParticlePrefabLoader( string sourcePath, PcfFile.Ele
 					effect.ForceSpace = ParticleEffect.SimulationSpace.World;
 					effect.Damping = SourceParticleMath.DragToDamping( op.Number( "drag" ) );
 					break;
+				case "cull when crossing plane":
+					if ( !ControlPointZero( op, "Control Point for point on plane" ) ) break;
+					var plane = root.AddComponent<SourceParticlePlaneCull>();
+					plane.Normal = Vector( op, "Plane Normal", Vector3.Up );
+					plane.Offset = op.Number( "Cull plane offset" );
+					break;
 				case "lifespan decay":
 					break;
 				case "alpha fade in random":
@@ -544,7 +553,19 @@ internal sealed class SourceParticlePrefabLoader( string sourcePath, PcfFile.Ele
 		void ApplyColorFades()
 		{
 			if ( colorFades.Count == 0 ) return;
-			if ( effect.Gradient.Type == ParticleGradient.ValueType.Range ) Unsupported.Add( "Color Fade (from the midpoint of the random initial color)" );
+			if ( effect.Gradient.Type == ParticleGradient.ValueType.Range )
+			{
+				// Each color fade writes from the birth color, so the last active operator wins.
+				var fade = colorFades.LastOrDefault( f => f.Number( "fade_start_time" ) != f.Number( "fade_end_time", 1 ) );
+				if ( fade is null ) return;
+				var controller = root.AddComponent<SourceParticleColorFade>();
+				controller.Start = fade.Number( "fade_start_time" );
+				controller.End = fade.Number( "fade_end_time", 1 );
+				controller.Target = ColorValue( fade, "color_fade", Color.White );
+				controller.Ease = fade.Boolean( "ease_in_and_out", true );
+				effect.ApplyColor = false;
+				return;
+			}
 
 			var startColor = effect.Gradient.Evaluate( 0, 0.5f );
 			var frames = new Gradient.ColorFrame[65];
@@ -707,7 +728,6 @@ internal sealed class SourceParticlePrefabLoader( string sourcePath, PcfFile.Ele
 				// Without an orientation control point Source uses the world XY plane.
 				alignment = ParticleSpriteRenderer.BillboardAlignment.Particle;
 				effect.InitialPitch = 90;
-				if ( yawFlip is not null ) effect.InitialYaw = Flip( Math.Clamp( yawFlip.Number( "Flip Percentage", 0.5f ), 0, 1 ) );
 			}
 			else if ( orientation != 0 )
 			{
@@ -725,16 +745,28 @@ internal sealed class SourceParticlePrefabLoader( string sourcePath, PcfFile.Ele
 			renderer.Sprite.EmbeddedResource = new Sandbox.Resources.EmbeddedResource { ResourceCompiler = "embed" };
 			renderer.Additive = parameters.Boolean( "$additive" ) || parameters.Integer( "$spriterendermode", 0 ) == 5;
 			renderer.Lighting = source.ShaderName.Equals( "VertexLitGeneric", StringComparison.OrdinalIgnoreCase );
-			renderer.DepthFeather = parameters.Float( "$depthblendscale" );
+			renderer.DepthFeather = parameters.DepthFeather;
 			return renderer;
 		}
+	}
+
+	static ParticleFloat RandomAngle( PcfFile.Element op, string field )
+	{
+		var initial = op.Number( $"{field}_initial" );
+		return RandomRange( initial + op.Number( $"{field}_offset_min" ), initial + op.Number( $"{field}_offset_max", 360 ),
+			op.Number( $"{field}_random_exponent", 1 ) );
 	}
 
 	static ParticleFloat Range( PcfFile.Element op, string min, string max, float fallback, string exponent = null, float scale = 1 )
 	{
 		var a = op.Number( min, fallback ) * scale;
 		var b = op.Number( max, fallback ) * scale;
-		var power = exponent is null ? 1 : Math.Max( 0, op.Number( exponent, 1 ) );
+		return RandomRange( a, b, exponent is null ? 1 : op.Number( exponent, 1 ) );
+	}
+
+	static ParticleFloat RandomRange( float a, float b, float power )
+	{
+		power = Math.Max( 0, power );
 		if ( power == 1 ) return new( a, b );
 
 		return new ParticleFloat
@@ -761,12 +793,17 @@ internal sealed class SourceParticlePrefabLoader( string sourcePath, PcfFile.Ele
 	}
 
 	// 180 degrees for the given fraction of particles, picked by each particle's seed.
-	static ParticleFloat Flip( float chance ) => new()
+	static ParticleFloat Flip( float chance )
 	{
-		Type = ParticleFloat.ValueType.Curve,
-		Evaluation = ParticleFloat.EvaluationType.Seed,
-		CurveA = new Curve( new Curve.Frame( 0, 0 ) { Mode = Curve.HandleMode.Stepped }, new Curve.Frame( 1 - chance, 180 ) { Mode = Curve.HandleMode.Stepped } )
-	};
+		if ( chance <= 0 ) return 0;
+		if ( chance >= 1 ) return 180;
+		return new ParticleFloat
+		{
+			Type = ParticleFloat.ValueType.Curve,
+			Evaluation = ParticleFloat.EvaluationType.Seed,
+			CurveA = new Curve( new Curve.Frame( 0, 0 ) { Mode = Curve.HandleMode.Stepped }, new Curve.Frame( 1 - chance, 180 ) { Mode = Curve.HandleMode.Stepped } )
+		};
+	}
 
 	static Vector3 Vector( PcfFile.Element op, string key, Vector3 fallback = default ) => op.Vector( key ) is { Length: 3 } v ? new( v[0], v[1], v[2] ) : fallback;
 

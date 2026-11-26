@@ -209,7 +209,7 @@ internal partial class BspFile
 			var filtered = new BspPhysicsMesh
 			{
 				SurfaceName = source.SurfaceName,
-				PassAudio = source.PassAudio
+				Kind = source.Kind
 			};
 			var vertices = new Dictionary<uint, uint>();
 			for ( int offset = 0; offset < source.Indices.Count; offset += 3 )
@@ -251,9 +251,12 @@ internal partial class BspFile
 		}
 	}
 
-	internal int FindLeaf( Vector3 position )
+	internal int FindLeaf( Vector3 position ) => FindLeaf( position, Models[0].HeadNode );
+
+	internal int ModelCenterContents( BspModel model ) => leaves[FindLeaf( (model.Mins + model.Maxs) * 0.5f, model.HeadNode )].Contents;
+
+	int FindLeaf( Vector3 position, int index )
 	{
-		int index = Models[0].HeadNode;
 		while ( index >= 0 )
 		{
 			var node = nodes[index];

@@ -16,6 +16,33 @@ public sealed class SourceWaterMap : Component
 	[Property] public List<Node> Nodes { get; set; } = [];
 	[Property] public int Root { get; set; } = -1;
 
+	internal static bool IsUnderwater( Scene scene, Vector3 position )
+	{
+		foreach ( var map in scene.GetAll<SourceWaterMap>() )
+		{
+			if ( map.Active && map.FindWater( position ) >= 0 ) return true;
+		}
+		return WaterBody.Find( scene, position ).IsValid();
+	}
+
+	internal static float? ExplosionDepth( Scene scene, Vector3 position )
+	{
+		var top = position + Vector3.Up * 512;
+		var water = scene.Trace.Ray( position, top ).WithTag( "water" ).HitTriggersOnly().Run();
+		if ( water.StartedSolid )
+		{
+			if ( water.HasTag( "slime" ) ) return null;
+			var down = scene.Trace.Ray( top, position ).WithTag( "water" ).HitTriggersOnly();
+			var surface = down.Run();
+			if ( surface.Shape != water.Shape ) surface = down.RunAll().FirstOrDefault( hit => hit.Shape == water.Shape );
+			return surface.Hit && !surface.StartedSolid ? surface.HitPosition.z - position.z : float.PositiveInfinity;
+		}
+
+		if ( WaterBody.Find( scene, position ) is not { } body ) return null;
+		var point = body.ToSurface( position );
+		return body.FromSurface( point.WithZ( body.SampleHeight( point ) ) ).z - position.z;
+	}
+
 	public int FindWater( Vector3 position )
 	{
 		position = WorldTransform.PointToLocal( position );

@@ -74,6 +74,7 @@ partial class MapLoader
 				return false;
 
 			var surface = new GameObject( false, "Glass pane" ) { Parent = instance, NetworkMode = NetworkMode.Object };
+			if ( BspFile.IsWindowOnly( bsp.ModelCenterContents( model ) ) ) surface.Tags.Add( "source1_window" );
 			surface.LocalPosition = lower + across * 0.5f - entity.Vector( "origin" );
 			surface.LocalRotation = Rotation.LookAt( Vector3.Cross( across, up ).Normal, up.Normal );
 			var pane = surface.AddComponent<SourceGlassPane>( false );
@@ -135,6 +136,7 @@ partial class MapLoader
 			};
 			instance.Tags.Add( "world" );
 			instance.Tags.Add( "source1_entity" );
+			GarrysMod.PhysicsGun.TagMapEntity( instance, entity );
 			var prop = ReadProp( entity );
 			var visible = prop.Visible && (entity.Integer( "effects" ) & 32) == 0 && loader.IsEnabled( entity );
 			if ( model is not null )

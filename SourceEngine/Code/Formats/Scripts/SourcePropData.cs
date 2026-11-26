@@ -18,17 +18,22 @@ internal sealed class SourcePropData
 		}
 	}
 
-	internal ModelPropData Read( IReadOnlyList<VmtNode> roots, string path, Action<string> report, bool hasAuthoredPieces = false )
+	internal (ModelPropData Prop, PhysGunInteractions PhysGun, PropDamageModifiers Modifiers) Read( IReadOnlyList<VmtNode> roots, string path, Action<string> report, bool hasAuthoredPieces = false )
 	{
 		if ( roots.Count == 1 && roots[0].IsBlock && roots[0].Name.Equals( "mdlkeyvalue", StringComparison.OrdinalIgnoreCase ) )
 			roots = roots[0].Children;
+		PhysGunInteractions physGun = null;
+		var interactions = roots.FirstOrDefault( node => node.IsBlock && node.Name.Equals( "physgun_interactions", StringComparison.OrdinalIgnoreCase ) );
+		if ( interactions is not null && interactions.Values.TryGetValue( "preferred_carryangles", out var text ) && Angles.TryParse( text, out var angles ) )
+			physGun = new() { PreferredCarryAngles = angles };
 		var prop = roots.FirstOrDefault( node => node.IsBlock && node.Name.Equals( "prop_data", StringComparison.OrdinalIgnoreCase ) );
 		if ( prop is null )
-			return null;
+			return (null, physGun, null);
 
 		var values = new Dictionary<string, string>( StringComparer.OrdinalIgnoreCase );
 		var bases = new HashSet<string>( StringComparer.OrdinalIgnoreCase );
 		var flammable = false;
+		var fireResistant = false;
 		Apply( prop );
 		foreach ( var block in roots )
 			ReadInteractions( block );
@@ -43,14 +48,17 @@ internal sealed class SourcePropData
 			&& !string.IsNullOrWhiteSpace( parameters.String( "breakable_model" ) ) )
 			report( $"{path}: script-selected random breakable chunks are not supported." );
 
-		return new ModelPropData
+		var bullet = parameters.Float( "dmg.bullets", 1 );
+		var club = parameters.Float( "dmg.club", 1 );
+		var explosive = parameters.Float( "dmg.explosive", 1 );
+		return (new ModelPropData
 		{
 			Health = parameters.Integer( "health", -1 ),
 			Flammable = false,
 			Explosive = false,
 			ExplosionDamage = damage,
 			ExplosionRadius = radius
-		};
+		}, physGun, new PropDamageModifiers { Bullet = bullet, Club = club, Explosive = explosive, FireResistant = fireResistant });
 
 		void Apply( VmtNode section )
 		{
@@ -71,9 +79,20 @@ internal sealed class SourcePropData
 
 		void ReadInteractions( VmtNode block )
 		{
+			if ( block.IsBlock && block.Name.Equals( "physgun_interactions", StringComparison.OrdinalIgnoreCase )
+				&& block.Values.TryGetValue( "onlaunch", out var launch ) )
+			{
+				if ( launch.Equals( "spin_zaxis", StringComparison.OrdinalIgnoreCase ) )
+					(physGun ??= new()).LaunchSpin = 5000;
+				else if ( launch.Equals( "spin_none", StringComparison.OrdinalIgnoreCase ) )
+					(physGun ??= new()).LaunchSpin ??= 0;
+			}
 			if ( block.IsBlock && block.Name.Equals( "fire_interactions", StringComparison.OrdinalIgnoreCase )
 				&& block.Values.TryGetValue( "flammable", out var value ) )
+			{
 				flammable = value.Equals( "yes", StringComparison.OrdinalIgnoreCase );
+				fireResistant |= value.Equals( "no", StringComparison.OrdinalIgnoreCase );
+			}
 		}
 	}
 }

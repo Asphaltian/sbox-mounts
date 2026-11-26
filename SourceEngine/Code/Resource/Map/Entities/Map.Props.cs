@@ -16,7 +16,7 @@ partial class MapLoader
 		{
 			Parent = world
 		};
-		public void BuildProp( MapProp prop )
+		public void BuildProp( MapProp prop, MapEntity entity = null )
 		{
 			if ( string.IsNullOrWhiteSpace( prop.Model ) || !prop.Model.EndsWith( ".mdl", StringComparison.OrdinalIgnoreCase ) )
 			{
@@ -75,6 +75,15 @@ partial class MapLoader
 				instance.Tags.Add( "world" );
 			if ( prop.StaticPropIndex < 0 )
 				instance.Tags.Add( "source1_entity" );
+			if ( entity is not null )
+			{
+				GarrysMod.PhysicsGun.TagMapEntity( instance, entity );
+				if ( !skybox && prop.Solid != 0 && entity.Get( "classname" ) is "prop_dynamic" or "prop_dynamic_override"
+					&& entity.Get( "gmod_allowphysgun" ) != "0" )
+					instance.NetworkMode = NetworkMode.Object;
+			}
+			if ( prop.EnableOnPhyscannon )
+				instance.Tags.Add( Hl2.GravityWeapon.EnableMotionTag );
 			var materialGroup = GetSkin( model, prop.Skin, path );
 			if ( useGameplay )
 			{

@@ -26,6 +26,11 @@ partial class MapLoader
 			"func_door" => new DoorEntityLoader(),
 			"func_door_rotating" => new RotatingDoorEntityLoader(),
 			"func_button" => new ButtonEntityLoader(),
+			"info_target" => new NamedTargetLoader(),
+			"npc_antlion_template_maker" => new AntlionMakerLoader(),
+			"info_node_hint" => new NodeHintLoader(),
+			"logic_relay" => new RelayLoader(),
+			"point_bugbait" => new BugbaitSensorLoader(),
 			"infodecal" => new DecalEntityLoader(),
 			"info_projecteddecal" => new ProjectedDecalEntityLoader(),
 			"env_soundscape" => new SoundscapeEntityLoader(),
@@ -72,6 +77,127 @@ partial class MapLoader
 		}
 
 		builder.Finish();
+	}
+
+	private sealed class NamedTargetLoader : EntityLoader
+	{
+		public override bool SupportsSkybox => false;
+		public override void Load( EntityBuilder builder, MapEntity entity )
+		{
+			if ( entity.Get( "targetname" ) is not { Length: > 0 } name ) return;
+			_ = new GameObject( true, name )
+			{
+				Parent = builder.World,
+				LocalPosition = entity.Vector( "origin" ),
+				LocalRotation = Rotation.From( entity.Angles )
+			};
+		}
+	}
+
+	private sealed class AntlionMakerLoader : EntityLoader
+	{
+		public override bool SupportsSkybox => false;
+		public override void Load( EntityBuilder builder, MapEntity entity ) => builder.BuildAntlionMaker( entity );
+	}
+
+	private sealed partial class EntityBuilder
+	{
+		public void BuildAntlionMaker( MapEntity entity )
+		{
+			var group = entity.Get( "spawngroup" );
+			var template = entity.Get( "TemplateName" );
+			if ( string.IsNullOrEmpty( group ) || string.IsNullOrEmpty( template ) ) return;
+			var child = bsp.Entities.FirstOrDefault( e => e.Get( "classname" ) == "npc_antlion"
+				&& string.Equals( e.Get( "targetname" ), template, StringComparison.OrdinalIgnoreCase ) );
+			if ( child is null ) return;
+
+			var point = new GameObject( true, entity.Get( "targetname", "npc_antlion_template_maker" ) )
+			{
+				Parent = World,
+				LocalPosition = entity.Vector( "origin" ),
+				LocalRotation = Rotation.From( entity.Angles )
+			};
+			var maker = point.AddComponent<Hl2.AntlionMaker>();
+			var flags = entity.Integer( "spawnflags" );
+			var ignore = entity.Get( "ignorebugbait" );
+			maker.IgnoreBugbait = ignore == "1" || string.Equals( ignore, "yes", StringComparison.OrdinalIgnoreCase );
+			maker.Group = group;
+			maker.TemplateName = template;
+			var prefab = (child.Integer( "spawnflags" ) & (1 << 18)) != 0 ? "antlion_worker" : "antlion";
+			maker.ChildPrefab = $"mount://{owner.Host.Ident}/entities/npcs/{prefab}.prefab";
+			maker.FollowTarget = entity.Get( "followtarget" );
+			maker.FightTarget = entity.Get( "fighttarget" );
+			maker.SpawnTarget = entity.Get( "spawntarget", "" );
+			maker.Radius = entity.Number( "spawnradius" );
+			maker.Interval = entity.Number( "SpawnFrequency" );
+			maker.MaxAlive = entity.Integer( "MaxLiveChildren" );
+			maker.Remaining = (flags & 32) != 0 ? -1 : entity.Integer( "MaxNPCCount" );
+			maker.RandomBurrow = (flags & 1024) != 0;
+			maker.Spawning = entity.Integer( "StartDisabled" ) == 0;
+			RegisterEntityIO( entity, maker );
+		}
+	}
+
+	private sealed class NodeHintLoader : EntityLoader
+	{
+		public override bool SupportsSkybox => false;
+
+		public override void Load( EntityBuilder builder, MapEntity entity )
+		{
+			const int antlionBurrowPoint = 400;
+			if ( entity.Integer( "hinttype" ) != antlionBurrowPoint ) return;
+
+			var point = new GameObject( true, entity.Get( "targetname", "info_node_hint" ) )
+			{
+				Parent = builder.World,
+				LocalPosition = entity.Vector( "origin" ),
+				LocalRotation = Rotation.From( entity.Angles )
+			};
+			var burrow = point.AddComponent<Hl2.AntlionBurrow>();
+			burrow.Group = entity.Get( "Group" );
+			burrow.Available = entity.Integer( "StartHintDisabled" ) == 0;
+			builder.RegisterEntityIO( entity, burrow );
+		}
+	}
+
+	private sealed class RelayLoader : EntityLoader
+	{
+		public override bool SupportsSkybox => false;
+		public override void Load( EntityBuilder builder, MapEntity entity )
+		{
+			var point = new GameObject( true, entity.Get( "targetname", "logic_relay" ) )
+			{
+				Parent = builder.World,
+				LocalPosition = entity.Vector( "origin" )
+			};
+			var relay = point.AddComponent<MapRelay>();
+			relay.Disabled = entity.Integer( "StartDisabled" ) != 0;
+			var flags = entity.Integer( "spawnflags" );
+			relay.Once = (flags & 1) != 0;
+			relay.FastRetrigger = (flags & 2) != 0;
+			builder.RegisterEntityIO( entity, relay );
+		}
+	}
+	private sealed class BugbaitSensorLoader : EntityLoader
+	{
+		public override bool SupportsSkybox => false;
+
+		public override void Load( EntityBuilder builder, MapEntity entity )
+		{
+			var point = new GameObject( true, entity.Get( "targetname", "point_bugbait" ) )
+			{
+				Parent = builder.World,
+				LocalPosition = entity.Vector( "origin" )
+			};
+			var sensor = point.AddComponent<Hl2.BugbaitSensor>();
+			var flags = entity.Integer( "spawnflags" );
+			sensor.Radius = entity.Number( "radius" );
+			sensor.Listening = entity.Integer( "Enabled" ) != 0;
+			sensor.SuppressCall = (flags & 1) != 0;
+			sensor.DetectThrows = (flags & 2) == 0;
+			sensor.DetectSqueezes = (flags & 4) == 0;
+			builder.RegisterEntityIO( entity, sensor );
+		}
 	}
 
 	private sealed class SpawnEntityLoader : EntityLoader
