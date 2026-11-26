@@ -15,7 +15,7 @@ static partial class SourceEntities
 				},
 				"standalone_wm": {
 					"Sandbox.BaseWeaponModel": {"EjectBrass": null, "Renderer": {"ref": "standalone_wm:Sandbox.SkinnedModelRenderer"}, "TracerEffect": null},
-					"Sandbox.SkinnedModelRenderer": {"CreateAttachments": true, "CreateBoneObjects": true, "Sequence": {"Blending": true, "Looping": true, "Name": null}, "UseAnimGraph": false},
+					"Sandbox.SkinnedModelRenderer": {"__enabled": false, "CreateAttachments": true, "CreateBoneObjects": true, "Sequence": {"Blending": true, "Looping": true, "Name": null}, "UseAnimGraph": false},
 					"Source1.MountedModel": {"Renderer": {"ref": "standalone_wm:Sandbox.SkinnedModelRenderer"}, "Collider": {"ref": ".:Sandbox.ModelCollider"}}
 				}
 			}
