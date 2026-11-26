@@ -22,7 +22,7 @@ public sealed class MountedModel : Component
 	public string ResolvedModelPath => string.IsNullOrEmpty( FallbackModelPath )
 		|| Sandbox.Mounting.Directory.Get( MountName )?.GetByPath( $"mount://{MountName}/{ModelPath}.vmdl" ) is not null ? ModelPath : FallbackModelPath;
 
-	protected override void OnStart() => ChangeModel( ModelPath );
+	protected override void OnAwake() => ChangeModel( ModelPath );
 
 	internal async void ChangeModel( string requested )
 	{
