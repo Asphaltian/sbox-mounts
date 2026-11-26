@@ -5,7 +5,7 @@ namespace Source1;
 [Title( "Source Weapon World Model" )]
 [Category( "Source 1" )]
 [Alias( "Source1.SourceWeaponWorldModel", "SourceWeaponWorldModel" )]
-public sealed partial class WeaponWorldModel : BaseWeaponModel
+public sealed class WeaponWorldModel : BaseWeaponModel
 {
 	Model _alignedModel;
 	Model _effectsModel;
@@ -31,9 +31,6 @@ public sealed partial class WeaponWorldModel : BaseWeaponModel
 	void Attack( Vector3? hitPoint, Vector3? origin, bool alternate )
 	{
 		base.OnAttack( hitPoint, origin );
-		_heldShot++;
-		_shotTime = 0;
-		if ( _hold?.HasReloadGesture == true ) _reloadTime = float.MaxValue;
 		if ( _weapon is not BulletWeapon weapon )
 		{
 			foreach ( var (flashType, attachment) in _projectileFlashes )
@@ -115,19 +112,17 @@ public sealed partial class WeaponWorldModel : BaseWeaponModel
 		MuzzleGameObject = _muzzleName is null ? null : Renderer.GetAttachmentObject( _muzzleName );
 		if ( Renderer.BoneMergeTarget.IsValid() )
 		{
-			StopHold();
 			Renderer.LocalTransform = global::Transform.Zero;
 			_alignedModel = null;
 			ReleaseLeftHand();
 			return;
 		}
-		if ( UpdateHold() ) return;
 		if ( _alignedModel != Renderer.Model ) AlignToHand();
 		FollowLeftHand();
 	}
 
 	/// <summary>
-	/// The hold when the mounted game has no pose for the weapon, see <see cref="UpdateHold"/>: the holder's hold type poses the arms.
+	/// The holder's animation graph poses the arms; attach the weapon in the hand's grip frame.
 	/// Holds the model the way an NPC's bonemerge would: its ValveBiped.Bip01_R_Hand goes to the holder's wrist,
 	/// the hold bone's parent. Source's hand bone points down the barrel with its up axis along the grip, the hold
 	/// bone's grip frame rolled half a turn. Models without the bone (props such as HL2's w_357 and w_crossbow,
