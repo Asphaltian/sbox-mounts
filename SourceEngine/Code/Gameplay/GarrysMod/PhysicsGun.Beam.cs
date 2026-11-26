@@ -5,6 +5,7 @@ namespace Source1.GarrysMod;
 public sealed partial class PhysicsGun
 {
 	const int Segments = 16;
+	static readonly Color DefaultColor = new( 0.30f, 1.80f, 2.10f );
 	[ConVar( "gmod.physgun_color", ConVarFlags.Saved | ConVarFlags.UserInfo, Help = "Physics Gun beam color." )]
 	public static string BeamColor { get; set; } = "";
 	[ConVar( "physgun_drawbeams", Help = "Draw active Physics Gun beams." )]
@@ -23,6 +24,18 @@ public sealed partial class PhysicsGun
 	Color _tint;
 	TrailTextureConfig? _searchBeam, _grabBeam;
 	string _colorSetting;
+
+	protected override void OnStart()
+	{
+		base.OnStart();
+		SetDroppedColor( DefaultColor );
+	}
+
+	void SetDroppedColor( Color color )
+	{
+		if ( DroppedGameObject?.GetComponent<SkinnedModelRenderer>( true ) is { } renderer )
+			renderer.Attributes.Set( "SourceWeaponColor", new Vector3( color.r, color.g, color.b ) );
+	}
 
 	protected override void OnUpdate()
 	{
@@ -101,9 +114,10 @@ public sealed partial class PhysicsGun
 		var setting = Network.Owner is { } owner ? owner.GetUserData( "gmod.physgun_color" ) ?? "" : BeamColor;
 		if ( setting == _colorSetting ) return;
 		_colorSetting = setting;
-		var tint = Color.Parse( setting ) ?? new Color( 0.30f, 1.80f, 2.10f );
+		var tint = Color.Parse( setting ) ?? DefaultColor;
 		var color = new Vector3( tint.r, tint.g, tint.b );
 		_beamModel.Attributes.Set( "SourceWeaponColor", color );
+		SetDroppedColor( tint );
 		var rgb = color.Normal;
 		_tint = new Color( rgb.x, rgb.y, rgb.z );
 		if ( _outline.IsValid() ) _outline.Color = _tint;
