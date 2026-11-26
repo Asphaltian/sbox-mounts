@@ -1,0 +1,184 @@
+using System;
+
+namespace Overgrowth;
+
+public sealed partial class RabbitGuard
+{
+	[Property, Range( 0f, 10f )] public float FallDamageMultiplier { get; set; } = 1f;
+	TimeSince sinceRagdollImpact;
+	sealed class FallImpactDamage : BluntDamage;
+
+	void TryImpactHeadDrips( float damage, int attempts )
+	{
+		int count = 0;
+		for ( int i = 0; i < attempts; i++ )
+			if ( Random.Shared.Float( 0f, 110f ) < damage ) count++;
+		if ( count > 0 ) AddImpactHeadDrips( count, Random.Shared.Next() );
+	}
+
+	[Rpc.Broadcast( NetFlags.HostOnly )]
+	void AddImpactHeadDrips( int count, int seed )
+	{
+		if ( BloodLevel != 2 || !Renderer.IsValid() || CharacterLoader.FromModel( Renderer.Model ) is not { Surface: not null } character ) return;
+		var marks = Renderer.GameObject.GetOrAddComponent<CutMarks>();
+		var random = new Random( seed );
+		for ( int i = 0; i < count; i++ )
+			marks.AddHeadDrip( character, 0, new Vector3( 0f, random.Float( -1f, 1f ), random.Float( -0.2f, 0.2f ) ) );
+	}
+
+	bool IsHeadBone( int index )
+	{
+		if ( !Renderer.IsValid() || !Renderer.Model.IsValid() || boundAnimations?.Head is null ) return false;
+		var head = Renderer.Model.Bones.GetBone( boundAnimations.HeadBone );
+		for ( int i = 0; head is not null && i < boundAnimations.Head.ChainLength; i++, head = head.Parent )
+			if ( head.Index == index ) return true;
+		return false;
+	}
+
+	internal void OnRagdollContact( Collision collision, int bone )
+	{
+		if ( !Networking.IsHost || !Downed || collision.Other.IsTrigger || !collision.Other.GameObject.IsValid() ) return;
+		float impulse = RagdollImpactImpulse( collision ) / 40f;
+		var point = collision.Contact.Point;
+		if ( !IsValid || Health <= 0f ) return;
+		if ( impulse <= 0.1f ) return;
+		var surface = TerrainLoader.ContactSurface( collision.Other.Collider as ModelCollider, point, collision.Other.Surface, out var terrainHit )?.ResourceName;
+		float hardness = (Sandbox.Mounting.Directory.Get( "overgrowth" ) as GameMount)?.MaterialHardness( surface ) ?? 1f;
+		if ( impulse * hardness * (IsHeadBone( bone ) ? 5f : 1f) > 5f )
+		{
+			float multiplier = Math.Max( 0.001f, FallDamageMultiplier );
+			KnockoutShield = Math.Max( 0, KnockoutShield - (int)((float)sinceRagdollImpact * 2f * multiplier) );
+			sinceRagdollImpact = 0f;
+			bool awake = !Unconscious;
+			((IDamageable)this).OnDamage( new FallImpactDamage { Damage = impulse * 0.5f * multiplier, Position = point } );
+			if ( !IsValid || Health <= 0f ) return;
+			if ( awake && Unconscious ) PlayCombatSound( "Data/Sounds/hit/hit_medium_juicy.xml", CharacterCenter( GameObject ) );
+		}
+		if ( zoneKilled || bodyDragger.IsValid() || (impulse <= 1f && queuedThrowDamage <= 0f) ) return;
+		var center = CharacterCenter( GameObject );
+		if ( WaterDepth( center - Vector3.Up * LegRadius ) >= 0.2f ) return;
+		if ( queuedThrowDamage > 0f )
+		{
+			ApplyThrowImpact( point );
+			if ( !IsValid || Health <= 0f ) return;
+		}
+
+		if ( impulse > 1f ) BillboardParticle.EmitSkid( surface, point, terrainHit );
+		if ( bodySounds.PlayRagdoll( impulse, point, surface, PlayMaterialEvent ) )
+			ReportSound( GameObject, center, HeardSound.LoudFoley, 5f );
+	}
+
+	// Box3D's begin-touch notification can contain just the last solver substep's impulse.
+	// Recover the normal impulse required to arrest the initial approach at this contact.
+	internal static float BodyImpactImpulse( Collision collision ) => EstimateImpactImpulse( collision, false );
+	internal static float RagdollImpactImpulse( Collision collision ) => EstimateImpactImpulse( collision, true );
+
+	static float EstimateImpactImpulse( Collision collision, bool articulated )
+	{
+		var contact = collision.Contact;
+		if ( contact.NormalSpeed <= 0f ) return contact.Impulse;
+		var other = collision.Other.Body;
+		var self = collision.Self.Body;
+		float inverseMass = InverseContactMass( self ) + InverseContactMass( other );
+		if ( inverseMass <= 0f ) return contact.Impulse;
+		float speedChange = contact.NormalSpeed;
+		if ( articulated && self.IsValid() )
+		{
+			// Both listeners receive the same normal. Orient it toward this limb to measure rebound.
+			var normal = contact.Normal;
+			if ( normal.Dot( self.MassCenter - contact.Point ) < 0f ) normal = -normal;
+			var relative = self.GetVelocityAtPoint( contact.Point );
+			if ( other.IsValid() ) relative -= other.GetVelocityAtPoint( contact.Point );
+			speedChange += Math.Max( 0f, relative.Dot( normal ) );
+		}
+		return Math.Max( contact.Impulse, speedChange / inverseMass );
+
+		float InverseContactMass( PhysicsBody body )
+		{
+			if ( !body.IsValid() || !body.MotionEnabled || body.Mass <= 0f ) return 0f;
+			if ( !articulated || !body.Component.IsValid() || body.Component.GetComponentInParent<ModelPhysics>() is not { } model )
+				return FreeInverseMass( body, contact.Point, contact.Normal );
+
+			float mass = body.Mass;
+			foreach ( var joint in model.Joints )
+			{
+				if ( !joint.Component.IsValid() || !joint.Body1.Component.IsValid() || !joint.Body2.Component.IsValid() ) continue;
+				bool first = joint.Body1.Component.PhysicsBody == body;
+				if ( !first && joint.Body2.Component.PhysicsBody != body ) continue;
+				var neighbor = (first ? joint.Body2 : joint.Body1).Component;
+				if ( !neighbor.PhysicsBody.IsValid() || !neighbor.PhysicsBody.MotionEnabled || neighbor.PhysicsBody.Mass <= 0f ) continue;
+				var anchor = neighbor.WorldTransform.PointToWorld( (first ? joint.LocalFrame2 : joint.LocalFrame1).Position );
+				// Only motion along the line between contact and joint loads the next limb directly.
+				var direction = (anchor - contact.Point).Normal;
+				float projection = direction.Dot( contact.Normal );
+				float inverse = FreeInverseMass( neighbor.PhysicsBody, anchor, direction );
+				if ( inverse > 0f ) mass += projection * projection / inverse;
+			}
+			return 1f / mass;
+		}
+
+		static float FreeInverseMass( PhysicsBody body, Vector3 point, Vector3 normal )
+		{
+			var arm = Vector3.Cross( point - body.MassCenter, normal );
+			var axis = (body.Rotation * body.InertiaRotation).Inverse * arm;
+			var inertia = body.Inertia;
+			return 1f / body.Mass + Angular( axis.x, inertia.x ) + Angular( axis.y, inertia.y ) + Angular( axis.z, inertia.z );
+		}
+		static float Angular( float axis, float inertia ) => inertia > 0f ? axis * axis / inertia : 0f;
+	}
+}
+
+internal struct BodyFallSounds
+{
+	internal TimeUntil Normal, Heavy, Medium, Light;
+
+	internal bool PlayRagdoll( float impulse, Vector3 point, string surface, Action<string, Vector3, string, float> play )
+	{
+		// Collided shares these cooldowns with upright landings, but thresholds are in impulse units.
+		if ( impulse > 4f && Normal <= 0f )
+		{
+			Normal = 0.6f;
+			play( "bodyfall", point, surface, 1f );
+		}
+		else if ( impulse > 3f && Heavy <= 0f )
+		{
+			Heavy = 0.2f;
+			play( "bodyfall_heavy", point, surface, 0.8f );
+			if ( Normal <= 0f )
+			{
+				Normal = 0.6f;
+				play( "bodyfall", point, surface, 1f );
+			}
+		}
+		else if ( impulse > 2f && Medium <= 0f )
+		{
+			Medium = 0.2f;
+			play( "bodyfall_medium", point, surface, 0.6f );
+		}
+		else if ( impulse > 1f && Light <= 0f )
+		{
+			Light = 0.2f;
+			play( "bodyfall_light", point, surface, 0.4f );
+		}
+		else return false;
+		return true;
+	}
+}
+
+internal sealed class RabbitBodyContact : Component, Component.ICollisionListener
+{
+	internal RabbitGuard Fighter { get; set; }
+	internal CharacterRemains Remains { get; set; }
+
+	void ICollisionListener.OnCollisionStart( Collision collision )
+	{
+		if ( !collision.Self.Body.IsValid() || GetComponent<ModelPhysics>() is not { Active: true } physics ) return;
+		foreach ( var part in physics.Bodies )
+		{
+			if ( part.Component != collision.Self.Body.Component ) continue;
+			if ( Fighter.IsValid() ) Fighter.OnRagdollContact( collision, part.Bone );
+			else if ( Remains.IsValid() ) Remains.OnBodyContact( collision );
+			return;
+		}
+	}
+}

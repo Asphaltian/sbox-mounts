@@ -1,0 +1,546 @@
+using Sandbox.Animation;
+
+namespace Overgrowth;
+
+internal sealed record RabbitGuardAnimations( Graph Graph, Skeleton Rig, IReadOnlyDictionary<string, RabbitClip> Clips, RabbitMovement Movement, IReadOnlyDictionary<string, RabbitMovement> IdlePoses, RabbitRetarget MovementRig, IReadOnlyDictionary<string, RabbitAttack> Attacks, IReadOnlySet<string> AttackStates, IReadOnlySet<string> UnweightedBones, string[] TorsoBones, RabbitLimbBone[][] Legs, RabbitLimbBone[][] Arms, float HipHalfLength, float AbdomenHalfLength, string HeadBone, float NeckHalfLength, RabbitHead Head, RabbitEar[] Ears, float[] BoneMass, float CharacterScale, float MovementScale, CharacterMorph[] Morphs )
+{
+	internal System.Func<string, Graph> PatrolGraph { get; private init; }
+	internal RabbitRetarget PatrolRig { get; private init; }
+	internal RagdollFallPose FallPose { get; private init; }
+	internal IReadOnlySet<string> ReactionStates { get; private init; }
+	internal RabbitRetarget RollRig { get; private init; }
+	internal RabbitTorso Torso { get; private init; }
+	internal RabbitLimbBone[] TailBones { get; private init; }
+	internal RabbitMovement RollMovement { get; private init; }
+	internal RabbitMovement AirMovement { get; private init; }
+	internal RabbitRetarget AirRig { get; private init; }
+	internal RabbitMovement WallMovement { get; private init; }
+	internal RabbitRetarget WallRig { get; private init; }
+	internal HashSet<string> RollBones { get; private init; }
+	internal string Species { get; private init; }
+	internal string CharacterSpecies { get; private init; }
+	internal (string Name, float Weight)[] PainMask { get; private init; }
+	internal Dictionary<string, RabbitReaction> Reactions { get; private init; }
+	internal Dictionary<string, RabbitAttack> KnifeSwings { get; private init; }
+	internal Dictionary<string, RabbitAttack.Pose[]> GrabStances { get; private init; }
+	internal string WeaponLabel { get; private init; }
+	internal string ThrowMaterialEvent { get; private init; }
+	public static RabbitGuardAnimations Create( GameMount mount, string path, XmlAsset character, CharacterAnimationLibrary library, Vector3 modelCenter, string species, XmlAsset item = null, string stanceOverride = null, string patrolGroup = null )
+	{
+		var clips = new Dictionary<string, RabbitClip>();
+		var fs = mount.FileSystem;
+		var rig = library.Rig;
+		var skeleton = library.Skeleton;
+		var scale = library.Scale;
+		var morphs = library.Morphs;
+		var painMask = library.PainMask;
+		var overrides = item?.Element( "anim_override" );
+		string AnimationPath( string slot ) => overrides?.Attribute( slot ) ?? (slot == "idle" ? stanceOverride : null) ?? character.RequireElement( "animations" ).Attribute( slot );
+		var flinchPath = AnimationPath( "blockflinch" );
+		var attackSlots = new Dictionary<string, string>
+		{
+			[RabbitGuard.Kick] = "stationary", [RabbitGuard.Knee] = "stationary_close",
+			[RabbitGuard.Jab] = "moving_close", [RabbitGuard.Roundhouse] = "moving",
+			[RabbitGuard.Sweep] = "low", [RabbitGuard.SoccerKick] = "moving_low"
+		};
+
+		var characterAttacks = character.Element( "attacks" );
+		var weaponAttacks = item?.Element( "attack_override" );
+		var attackPaths = attackSlots.ToDictionary( kv => kv.Key, kv => weaponAttacks?.Attribute( kv.Value ) ?? characterAttacks.Attribute( kv.Value ) );
+		var label = item?.Element( "label" )?.Value;
+		if ( label is "sword" or "rapier" ) attackPaths[RabbitGuard.SwordSlashRight] = "Data/Attacks/smallswordslashright.xml";
+		var attacks = attackPaths.ToDictionary( kv => kv.Key, kv => XmlAsset.Read( fs, kv.Value, "attack" ) );
+		var layeredSlots = attacks.Where( pair => pair.Value.RequireElement( "flags" ).Attribute( "as_layer" ) == "true" ).Select( pair => pair.Key ).ToHashSet();
+		bool usesKnife = layeredSlots.Count > 0;
+		var bodyAttacks = attacks.Where( pair => !layeredSlots.Contains( pair.Key ) ).ToDictionary();
+		string[] knifeLayers = usesKnife ? ["r_knifeslash", "r_knifebackslash"] : [];
+		var graph = new GraphBuilder().WithSkeleton( rig );
+		var overridesByPath = item?.Element( "reaction_override" )?.Elements( "reaction" )
+			.ToDictionary( entry => entry.Attribute( "old" ), entry => entry.Attribute( "new" ) );
+		var reactions = mount.AttackReactions.ToDictionary( file => file, file =>
+			RabbitReaction.Read( fs, overridesByPath?.GetValueOrDefault( file ) ?? file ) );
+		string Guard( XmlAsset attack )
+		{
+			var flags = attack.RequireElement( "flags" );
+			var height = flags.Attribute( "height" );
+			var side = flags.Attribute( "direction" ) == "left" ? "left" : "right";
+			return $"{(height == "medium" ? "med" : height)}{side}block";
+		}
+
+		var guards = (from heightName in new[] { "low", "med", "high" }
+			from side in new[] { "left", "right" }
+			let key = heightName + side + "block"
+			select (key, animation: System.IO.Path.GetFileNameWithoutExtension( AnimationPath( key ) )))
+			.ToDictionary( x => x.key, x => x.animation );
+		var blocked = bodyAttacks.ToDictionary( kv => kv.Key, kv => System.IO.Path.GetFileNameWithoutExtension( kv.Value.RequireElement( "animations" ).Attribute( "blocked" ) ) );
+		var throwAttack = XmlAsset.Read( fs, "Data/Attacks/throw.xml", "attack" );
+		var throwActions = throwAttack.Element( "animations" );
+		var throwClips = new[] { "throw", "thrown", "thrown_counter" }.ToDictionary( slot => slot, slot => System.IO.Path.GetFileNameWithoutExtension( throwActions.Attribute( slot ) ) );
+		var reactionNames = reactions.Values.SelectMany( reaction => reaction.Clips ).Concat( [RabbitGuard.StandFromBack, RabbitGuard.StandFromFront, RabbitGuard.BlockFromGround, RabbitGuard.DodgeHigh, RabbitGuard.DodgeMiddle, RabbitGuard.DodgeLow, RabbitGuard.SpearThrow, RabbitGuard.SwordThrow, RabbitGuard.CatchFront, RabbitGuard.CatchSide] ).ToHashSet();
+		bool wolf = species == "wolf";
+		if ( wolf ) reactionNames.UnionWith( ["w_slashedright", "w_slashedrighthard"] );
+		string[] wounded = wolf ? [] : [RabbitGuard.HalfWounded, RabbitGuard.Wounded];
+		string[] names = [RabbitGuard.Idle, RabbitGuard.PatrolIdle, RabbitGuard.Watch, RabbitGuard.Ready, RabbitGuard.Threat, RabbitGuard.DragStance, RabbitGuard.OneHandDragStance, RabbitGuard.Locomotion, RabbitGuard.FreeAir, RabbitGuard.Wall, RabbitGuard.ClimbUp, RabbitGuard.LedgeReach, RabbitGuard.LedgeHang, RabbitGuard.Roll, .. RabbitGuard.RearHoldPoses, .. wounded, .. bodyAttacks.Keys, .. throwClips.Keys, .. reactionNames, .. guards.Keys, .. blocked.Values.Distinct()];
+		var stance = graph.IdParameter( "stance", names );
+		var machine = graph.StateMachine();
+		var phase = graph.FloatParameter( "stride_phase" );
+		var wallPhase = graph.FloatParameter( "wall_phase" );
+		var wallSpeed = graph.FloatParameter( "wall_speed_coord" );
+		var wallDirection = graph.FloatParameter( "wall_dir_coord", -1f, 1f );
+		var speed = graph.FloatParameter( "ground_speed" );
+		var mirroredPose = graph.BoolParameter( "mirrored_pose" );
+		var mirroredFlinch = graph.BoolParameter( "mirrored_flinch" );
+		var flinchWeight = graph.FloatParameter( "block_flinch" );
+		var leftFootJump = graph.FloatParameter( "left_foot_jump" );
+		var painParameters = painMask.ToDictionary( group => group.Name, group => graph.FloatParameter( group.Name ) );
+		var pickupPhase = graph.FloatParameter( "pickup_phase" );
+		var jumpArmPhase = graph.FloatParameter( "jump_arm_phase" );
+		var jumpArmWeight = graph.FloatParameter( "jump_arm_weight" );
+		var drawPhase = graph.FloatParameter( "draw_phase" );
+		var drawWeights = RabbitGuard.HandAnimations.SelectMany( draw => new[] { RabbitGuard.DrawLayer( draw, false ), RabbitGuard.DrawLayer( draw, true ) } )
+			.ToDictionary( name => name, name => graph.FloatParameter( name ) );
+		var pickupRight = graph.FloatParameter( "pickup_right" );
+		var pickupLeft = graph.FloatParameter( "pickup_left" );
+		var backhandNewest = usesKnife ? graph.BoolParameter( "knife_backhand_newest" ) : default;
+		var swingParameters = knifeLayers.ToDictionary( name => name, name => (
+			Phase: graph.FloatParameter( name + "_phase" ),
+			Weight: graph.FloatParameter( name + "_weight" ), Left: graph.BoolParameter( name + "_left" ) ) );
+		var attackPhase = graph.FloatParameter( "attack_phase" );
+		var height = graph.FloatParameter( "attack_height_coord" );
+		var moves = new Dictionary<string, RabbitAttack>();
+		var ledgePhase = graph.FloatParameter( "ledge_phase" );
+		var reactionPhase = graph.FloatParameter( "reaction_phase" );
+		var grabPhase = graph.FloatParameter( "grab_phase" );
+		var capturePhase = graph.FloatParameter( "capture_phase" );
+		var captureStancePhase = graph.FloatParameter( "capture_stance_phase" );
+		var captureWeight = graph.FloatParameter( "capture_weight" );
+		var captureReturnWeight = graph.FloatParameter( "capture_return_weight" );
+		var grabStances = new Dictionary<string, RabbitAttack.Pose[]>();
+		var coordinates = new[] { "close_coord", "up_coord", "tuck_coord", "flail_coord", "air_phase", "tall_coord", "threat_coord", "forward_roll_coord", "roll_phase", "leg_support", "hang_active" }.ToDictionary( label => label, label => graph.FloatParameter( label ) );
+		coordinates["stride_phase"] = phase;
+		coordinates["speed_coord"] = speed;
+		GraphBuilder.Node AnimationGroup( string file, string time = null, bool inAir = false, bool mirrored = false, HashSet<RabbitRetarget> sources = null )
+		{
+			if ( file.EndsWith( ".anm", System.StringComparison.OrdinalIgnoreCase ) )
+			{
+				var name = file["Data/Animations/".Length..^4];
+				sources?.Add( library.SourceFor( name ) );
+				var key = name + (mirrored ? "_mirrored" : "");
+				if ( !clips.TryGetValue( key, out var clip ) )
+					clips[key] = clip = library.Clip( name, inAir ? RabbitClip.CenterMotion.None : RabbitClip.CenterMotion.Full, mirrored: mirrored );
+				return time is null ? graph.Clip( clip.Animation, new() { SampleRootMotion = false, Looping = clip.Looping } )
+					: graph.TimeControlledClip( clip.Animation, coordinates[time], new() { SampleRootMotion = false } );
+			}
+			var group = XmlAsset.Read( fs, file, "SyncedAnimationGroup" );
+			inAir |= group.Element( "InAir" )?.Value == "true";
+			var inputs = group.RequireElement( "Animations" ).Elements( "Animation" ).OrderBy( x => x.Number( "coord" ) ).ToArray();
+			GraphBuilder.Node Input( XmlAsset x ) => AnimationGroup( x.Attribute( "path" ), x.Attribute( "time_coord_label" ) is { } label && coordinates.ContainsKey( label ) ? label : time, inAir, mirrored, sources );
+			if ( inputs.Length == 1 ) return Input( inputs[0] );
+			var blend = graph.BlendSpace( coordinates.TryGetValue( group.RequireElement( "CoordLabel" ).Value, out var coord ) ? coord : graph.Constant( 0f ), looping: false );
+			foreach ( var input in inputs ) blend.Add( input.Number( "coord" ).Value, Input( input ) );
+			return blend;
+		}
+		var ordinaryPose = graph.Not( mirroredPose );
+		GraphBuilder.Node WithEquipment( GraphBuilder.Node pose, string slot, bool mirrored )
+		{
+			var path = item?.Element( "anim_blend" )?.Attribute( slot );
+			if ( path is null ) return pose;
+			var layer = AnimationGroup( path, "stride_phase", mirrored: mirrored );
+			var mask = mount.WeaponStances[path].Mask( graph, coordinates, mirrored );
+			return graph.Layers( pose ).AddLayer( layer, new() { BoneMask = mask, Weight = graph.Constant( 1f ), IgnoreEvents = true } );
+		}
+		GraphBuilder.Node CombatStance( GraphBuilder.Node ordinary, GraphBuilder.Node reflected ) =>
+			graph.Selector().Add( ordinary, ordinaryPose ).Add( reflected, mirroredPose );
+
+		RabbitClip CombatClip( string name, bool mobile, XmlAsset damage, bool bothSides, RabbitClip.PoseData data = RabbitClip.PoseData.Pose )
+		{
+			var motion = mobile ? RabbitClip.CenterMotion.Vertical : RabbitClip.CenterMotion.Full;
+			float min = damage?.Number( "min" ) ?? 0f, max = damage?.Number( "max" ) ?? 0f;
+			RabbitClip Side( bool left ) => library.Clip( name, motion, data, left ) with { DamageMin = min, DamageMax = max };
+			return Side( false ) with { Mirrored = bothSides ? Side( true ) : null };
+		}
+		GraphBuilder.Node CombatPose( RabbitClip clip, GraphBuilder.Node time )
+		{
+			GraphBuilder.Node Sample( RabbitClip pose ) => graph.TimeControlledClip( pose.Animation, time, new() { SampleRootMotion = false } );
+			return clip.Mirrored is null ? Sample( clip ) : CombatStance( Sample( clip ), Sample( clip.Mirrored ) );
+		}
+
+		var stanceWeight = graph.Switch( mirroredPose, 1f, 0f );
+		GraphBuilder.Node MovementStance( GraphBuilder.Node ordinary, GraphBuilder.Node reflected ) => graph.Blend( ordinary, reflected, stanceWeight );
+
+		RabbitClip GroundClip( string name )
+		{
+			if ( !clips.TryGetValue( name, out var cycle ) || cycle.Feet is null )
+			{
+				RabbitClip LoadCycle( bool left ) => library.Clip( name, data: RabbitClip.PoseData.Gait, mirrored: left );
+				clips[name] = cycle = LoadCycle( false ) with { Mirrored = LoadCycle( true ) };
+			}
+			return cycle;
+		}
+		string action = species is "cat" or "dog" or "wolf" or "rat" ? species + "_actionidle" :
+			label is "knife" or "sword" ? "r_actionidle_" + label : "r_actionidle";
+		RabbitMovement IdleTree( string file ) => RabbitMovement.Load( fs, file, GroundClip );
+		var idlePoses = new Dictionary<string, RabbitMovement>
+		{
+			[RabbitGuard.Idle] = IdleTree( "Data/Animations/r_relaxidle.xml" ),
+			[RabbitGuard.DragStance] = IdleTree( "Data/Animations/r_dragstance.xml" ),
+			[RabbitGuard.OneHandDragStance] = IdleTree( "Data/Animations/r_dragstanceone.xml" ),
+			[RabbitGuard.Ready] = IdleTree( $"Data/Animations/{action}.xml" ),
+			[RabbitGuard.Watch] = IdleTree( $"Data/Animations/{RabbitGuard.Watch}.anm" ),
+			[RabbitGuard.Threat] = IdleTree( AnimationPath( "idle" ) )
+		};
+		foreach ( var pose in wounded )
+		{
+			var injury = pose == RabbitGuard.Wounded ? "wounded" : "halfwounded";
+			idlePoses[pose] = IdleTree( $"Data/Animations/r_{injury}{(item is null ? "idle" : "armed")}.xml" );
+		}
+		GraphBuilder.Node IdlePose( RabbitMovement tree, bool mirrored ) =>
+			WithEquipment( tree.Build( graph, coord => coordinates[coord], phase, mirrored ), "idle", mirrored );
+		var movementRigs = new HashSet<RabbitRetarget>();
+		var movement = RabbitMovement.Load( fs, AnimationPath( "movement" ), name =>
+		{
+			movementRigs.Add( library.SourceFor( name ) );
+			return GroundClip( name );
+		} );
+		var movementRig = movementRigs.Count == 1 ? movementRigs.First() : null;
+		movementRig?.PrepareMirroredJoints( library.Mirror );
+		RabbitAttack ReadMove( string assetPath, XmlAsset attack, RabbitAttack.Pose[] poses )
+		{
+			var cut = attack.Element( "cut_plane" );
+			var block = attack.RequireElement( "block_damage" );
+			var direction = attack.Element( "impact_dir" );
+			var flags = attack.RequireElement( "flags" );
+			return new RabbitAttack( poses, attack.RequireElement( "reaction" ).Value, block.Number( "min" ).Value, block.Number( "max" ).Value, System.IO.Path.GetFileNameWithoutExtension( attack.RequireElement( "animations" ).Attribute( "blocked" ) ), Guard( attack ), flags.Attribute( "height" ), flags.Attribute( "direction" ),
+				new Vector3( direction?.Number( "z" ) ?? 0, direction?.Number( "x" ) ?? 0, direction?.Number( "y" ) ?? 0 ), attack.RequireElement( "force" ).Number( "val" ).Value, flags.Attribute( "swap_stance" ) == "true", flags.Attribute( "swap_stance_blocked" ) == "true" )
+			{
+				AssetPath = assetPath,
+				CutPlane = cut is null ? null : new Vector3( cut.Number( "z" ) ?? 0f, cut.Number( "x" ) ?? 0f, cut.Number( "y" ) ?? 0f ).Normal,
+				HeavyCut = cut?.Attribute( "type" ) is null or "light",
+				LightStab = attack.Element( "stab_dir" ) is { } stab ? stab.Attribute( "type" ) is not (null or "light") : null,
+				SharpMin = attack.Element( "sharp_damage" )?.Number( "min" ) ?? 0f,
+				SharpMax = attack.Element( "sharp_damage" )?.Number( "max" ) ?? 0f,
+				AsLayer = flags.Attribute( "as_layer" ) == "true",
+				Unblockable = flags.Attribute( "unblockable" ) == "true",
+				FleshUnblockable = flags.Attribute( "flesh_unblockable" ) == "true",
+				Special = flags.Attribute( "special" ),
+				MaterialEvent = attack.Element( "materialevent" )?.Value
+			};
+		}
+		(RabbitMovement Movement, RabbitRetarget Rig) LoadBlendedMovement( string action, RabbitClip.CenterMotion motion )
+		{
+			var sources = new HashSet<RabbitRetarget>();
+			var tree = RabbitMovement.Load( fs, AnimationPath( action ), name =>
+			{
+				sources.Add( library.SourceFor( name ) );
+				RabbitClip Side( bool mirrored ) => library.Clip( name, motion, RabbitClip.PoseData.Blend, mirrored );
+				return Side( false ) with { Mirrored = Side( true ) };
+			} );
+			var source = sources.Count == 1 ? sources.First() : null;
+			source?.PrepareMirroredJoints( library.Mirror );
+			return (tree, source);
+		}
+		var (air, airRig) = LoadBlendedMovement( "jump", RabbitClip.CenterMotion.None );
+		var (roll, rollRig) = LoadBlendedMovement( "roll", RabbitClip.CenterMotion.Full );
+		var wallRigs = new HashSet<RabbitRetarget>();
+		var wall = RabbitMovement.Load( fs, AnimationPath( "wall" ), name =>
+		{
+			wallRigs.Add( library.SourceFor( name ) );
+			return library.Clip( name, data: RabbitClip.PoseData.Gait );
+		} );
+		var reactionStates = reactionNames.Concat( guards.Keys ).Concat( throwClips.Keys ).ToHashSet();
+		var patrolRigs = patrolGroup is null ? null : new HashSet<RabbitRetarget>();
+		var grabCoordinates = new Dictionary<string, GraphBuilder.Node>();
+		foreach ( var name in new[] { RabbitGuard.ArmedHold, RabbitGuard.ArmedHeld } )
+		{
+			var group = XmlAsset.Read( fs, $"Data/Animations/{name}.xml", "SyncedAnimationGroup" );
+			grabCoordinates[name] = coordinates[group.RequireElement( "CoordLabel" ).Value];
+			grabStances[name] = group.RequireElement( "Animations" ).Elements( "Animation" )
+				.Select( x => new RabbitAttack.Pose( x.Number( "coord" ).Value,
+					CombatClip( System.IO.Path.GetFileNameWithoutExtension( x.Attribute( "path" ) ), true, null, true, RabbitClip.PoseData.ActionIK ) ) )
+				.OrderBy( p => p.Height ).ToArray();
+		}
+		GraphBuilder.Node ArmedStance( string name, GraphBuilder.Node time )
+		{
+			var blend = graph.BlendSpace( grabCoordinates[name], looping: false );
+			foreach ( var pose in grabStances[name] ) blend.Add( pose.Height, CombatPose( pose.Clip, time ) );
+			return blend;
+		}
+		GraphBuilder.Node BuildPose( string name )
+		{
+			if ( idlePoses.TryGetValue( name, out var idle ) )
+			{
+				if ( name == RabbitGuard.Watch ) return idle.Build( graph, coord => coordinates[coord], phase, false );
+				return MovementStance( IdlePose( idle, false ), IdlePose( idle, true ) );
+			}
+			if ( name == RabbitGuard.PatrolIdle )
+				return graph.ExternalGraphSlot( name, AnimationGroup( patrolGroup ?? "Data/Animations/r_relaxidle.xml", sources: patrolRigs ) );
+			if ( name == RabbitGuard.Roll )
+			{
+				GraphBuilder.Node Roll( bool mirrored ) => roll.Build( graph, label => coordinates.GetValueOrDefault( label ), coordinates["roll_phase"], mirrored );
+				return MovementStance( Roll( false ), Roll( true ) );
+			}
+			if ( name == RabbitGuard.LedgeHang )
+				return AnimationGroup( "Data/Animations/r_ledge.xml" );
+			if ( name is RabbitGuard.ClimbUp or RabbitGuard.LedgeReach )
+			{
+				var mode = name == RabbitGuard.ClimbUp ? RabbitClip.CenterMotion.Extract : RabbitClip.CenterMotion.Full;
+				var ledgeClip = clips[name] = library.Clip( name, mode, RabbitClip.PoseData.ActionIK ) with { Mirrored = library.Clip( name, mode, RabbitClip.PoseData.ActionIK, mirrored: true ) };
+				return CombatPose( ledgeClip, ledgePhase );
+			}
+			if ( name == RabbitGuard.Wall )
+				return wall.Build( graph, label => label == "dir_coord" ? wallDirection : wallSpeed, wallPhase, false );
+			if ( name == RabbitGuard.FreeAir )
+			{
+				GraphBuilder.Node Jump( bool mirrored ) => air.Build( graph, label => coordinates[label], coordinates["air_phase"], mirrored );
+				return graph.Blend( Jump( false ), Jump( true ), leftFootJump );
+			}
+			if ( name == RabbitGuard.Locomotion )
+			{
+				GraphBuilder.Node Gait( bool mirrored ) => WithEquipment( movement.Build( graph, label => coordinates[label], phase, mirrored ), "movement", mirrored );
+				return MovementStance( Gait( false ), Gait( true ) );
+			}
+			if ( bodyAttacks.TryGetValue( name, out var attack ) )
+			{
+				var pathToAnimation = attack.RequireElement( "animations" ).Attribute( "unblocked" );
+				var damage = attack.Element( "damage" );
+
+				RabbitAttack.Pose LoadPose( string file, float coordinate )
+				{
+					var clipName = System.IO.Path.GetFileNameWithoutExtension( file );
+					var animation = CombatClip( clipName, attack.RequireElement( "flags" ).Attribute( "mobile" ) == "true", damage, true, RabbitClip.PoseData.ActionIK );
+					return new( coordinate, animation );
+				}
+
+				RabbitAttack.Pose[] poses = pathToAnimation.EndsWith( ".xml" )
+					? XmlAsset.Read( fs, pathToAnimation, "SyncedAnimationGroup" ).RequireElement( "Animations" ).Elements( "Animation" )
+						.Select( x => LoadPose( x.Attribute( "path" ), x.Number( "coord" ).Value ) ).OrderBy( p => p.Height ).ToArray()
+					: [LoadPose( pathToAnimation, 0 )];
+
+				moves[name] = ReadMove( attackPaths[name], attack, poses );
+				if ( poses.Length == 1 )
+					return CombatPose( poses[0].Clip, attackPhase );
+
+				var blend = graph.BlendSpace( height, looping: false );
+				foreach ( var pose in poses )
+					blend.Add( pose.Height, CombatPose( pose.Clip, attackPhase ) );
+				return blend;
+			}
+
+			if ( RabbitGuard.RearHoldPoses.Contains( name ) )
+			{
+				if ( name is RabbitGuard.CutFromHold or RabbitGuard.CutInHold )
+				{
+					var cut = clips[name] = CombatClip( name, name == RabbitGuard.CutInHold, null, true, RabbitClip.PoseData.ActionIK );
+					return CombatPose( cut, reactionPhase );
+				}
+				if ( name is RabbitGuard.ArmedHold or RabbitGuard.ArmedHeld )
+					return ArmedStance( name, grabPhase );
+				var grip = clips[name] = CombatClip( name, name is not (RabbitGuard.RearHold or RabbitGuard.RearHoldRat), null, true, RabbitClip.PoseData.ActionIK );
+				if ( name is RabbitGuard.RearHoldRat or RabbitGuard.RatHeldByRabbit )
+				{
+					var action = clips[name == RabbitGuard.RearHoldRat ? RabbitGuard.RearHold : RabbitGuard.RearHeld];
+					var returning = graph.Blend( CombatPose( action, capturePhase ), CombatPose( grip, grabPhase ), captureReturnWeight );
+					return graph.Blend( CombatPose( grip, captureStancePhase ), returning, captureWeight );
+				}
+				if ( name is RabbitGuard.ArmedGrab or RabbitGuard.ArmedGrabbed )
+				{
+					var entry = ArmedStance( RabbitGuard.CaptureMovementStance( name ), captureStancePhase );
+					return graph.Blend( entry, CombatPose( grip, capturePhase ), captureWeight );
+				}
+				return CombatPose( grip, grabPhase );
+			}
+			var clipName = guards.GetValueOrDefault( name ) ?? throwClips.GetValueOrDefault( name, name );
+			bool mobile = throwClips.ContainsKey( name ) || reactionNames.Contains( name ) || blocked.Any( pair => pair.Value == name && attacks[pair.Key].RequireElement( "flags" ).Attribute( "mobile" ) == "true" );
+			var clip = CombatClip( clipName, mobile, null, name != RabbitGuard.Watch, RabbitClip.PoseData.ActionIK );
+			clips[name] = clip;
+			if ( blocked.ContainsValue( name ) )
+				return CombatPose( clip, attackPhase );
+			if ( reactionStates.Contains( name ) )
+				return CombatPose( clip, reactionPhase );
+			return graph.Clip( clip.Animation, new() { SampleRootMotion = false, Looping = clip.Looping } );
+		}
+
+		// Ordinary hits and blocks share their incoming blend and can run in a nested machine.
+		bool IsCommonReaction( string name ) => (reactionNames.Contains( name ) || guards.ContainsKey( name ))
+			&& !RabbitGuard.IsGetUp( name ) && !RabbitGuard.IsDodge( name )
+			&& name is not (RabbitGuard.SpearThrow or RabbitGuard.SwordThrow) && !blocked.ContainsValue( name );
+		var groups = names.Distinct().GroupBy( name => IsCommonReaction( name ) ? null : name )
+			.Select( group => group.ToArray() ).ToArray();
+		const float reactionBlend = 0.05f;
+		GraphBuilder.Node BuildGroup( string[] poses )
+		{
+			if ( poses.Length == 1 ) return BuildPose( poses[0] );
+			var reactionsMachine = graph.StateMachine();
+			var reactions = poses.Select( name => reactionsMachine.AddState( BuildPose( name ) ) ).ToArray();
+			for ( int i = 0; i < poses.Length; i++ )
+			{
+				var condition = graph.IdCompare( stance, poses[i] );
+				reactionsMachine.SetEntryCondition( reactions[i], condition );
+				foreach ( var previous in reactions )
+				{
+					if ( previous != reactions[i] )
+						reactionsMachine.AddTransition( previous, reactions[i], condition, new GraphBuilder.TransitionSettings { Duration = reactionBlend } );
+				}
+			}
+			return reactionsMachine.Build();
+		}
+
+		var states = groups.Select( group => machine.AddState( BuildGroup( group ) ) ).ToArray();
+		for ( int i = 0; i < groups.Length; i++ )
+		{
+			string target = groups[i][0];
+			var condition = graph.IdCompare( stance, groups[i] );
+			float duration = target is RabbitGuard.DragStance or RabbitGuard.OneHandDragStance ? 1f / 3f : target is RabbitGuard.ClimbUp or RabbitGuard.LedgeReach ? 0.125f : (RabbitGuard.IsDodge( target ) || target is RabbitGuard.SpearThrow or RabbitGuard.SwordThrow or RabbitGuard.CutFromHold or RabbitGuard.CutInHold) ? 0.1f : target == RabbitGuard.Roll ? 0.25f : RabbitGuard.IsGetUp( target ) ? 0f : (blocked.ContainsValue( target ) || target == "thrown_counter") ? 0.01f
+				: target is "throw" or RabbitGuard.FreeAir || attacks.ContainsKey( target ) || reactionNames.Contains( target ) || guards.ContainsKey( target ) ? reactionBlend : 0.2f;
+			bool groundPose = idlePoses.ContainsKey( target ) || target is RabbitGuard.PatrolIdle or RabbitGuard.Locomotion;
+			for ( int j = 0; j < groups.Length; j++ )
+			{
+				if ( i == j ) continue;
+				string previous = groups[j][0];
+				bool landing = groundPose && (previous is RabbitGuard.FreeAir or RabbitGuard.Wall);
+				bool waking = previous == RabbitGuard.PatrolIdle && RabbitGuard.IsGetUp( target );
+				machine.AddTransition( states[j], states[i], condition, new GraphBuilder.TransitionSettings
+				{
+					Duration = waking ? 0.05f : landing ? 0.1f : duration,
+					CanBeForced = RabbitGuard.IsGrabClip( previous ) && idlePoses.ContainsKey( target )
+				} );
+			}
+		}
+		var weighted = skeleton.AnimationWeightedBones ?? skeleton.GetWeightedBones();
+		var unweighted = Enumerable.Range( 0, weighted.Length ).Where( i => !weighted[i] ).Select( i => $"bone_{i}" ).ToHashSet();
+		var parents = skeleton.AnimationParents;
+		IEnumerable<string> ChainBones( string label )
+		{
+			if ( !skeleton.IKBones.TryGetValue( label, out var chain ) ) yield break;
+			for ( int i = 0, b = chain.BoneId; i < chain.ChainLength && b >= 0; i++, b = parents[b] ) yield return $"bone_{b}";
+		}
+		var rollBones = new[] { "left_leg", "right_leg", "torso", "head", "leftarm", "rightarm" }.SelectMany( ChainBones ).ToHashSet();
+		var torso = skeleton.IKBones["torso"];
+		var torsoBones = ChainBones( "torso" ).ToArray();
+		int hip = torso.BoneId;
+		for ( int i = 1; i < torsoBones.Length; i++ ) hip = parents[hip];
+		float HalfLength( int bone )
+		{
+			var (a, b) = skeleton.Bones[bone];
+			return skeleton.Points[a].Distance( skeleton.Points[b] ) * 20f * scale;
+		}
+		int head = skeleton.IKBones["head"].BoneId;
+		var neckBind = skeleton.BindPose[parents[head]];
+		var chestBind = skeleton.BindPose[torso.BoneId];
+		var neckRoot = chestBind.PointToLocal( neckBind.Position - neckBind.Rotation.Forward * HalfLength( parents[head] ) );
+		int torsoStart = new[] { "leftarm", "rightarm", "left_leg", "right_leg", "head", "leftear", "rightear" }.Sum( label => skeleton.IKBones[label].ChainLength );
+		var breathDirection = chestBind.Rotation.Inverse * skeleton.BindPose[torsoStart].Rotation * new Vector3( 1f, 0f, -0.3f ).Normal;
+		var headRig = new RabbitHead( neckRoot, HalfLength( head ), breathDirection, skeleton.IKBones["head"].ChainLength,
+			EyeRig.Load( character, modelCenter, skeleton.BindPose[head] ) );
+		var ears = new[] { "leftear", "rightear" }.Select( label =>
+		{
+			int tip = skeleton.IKBones[label].BoneId, root = parents[tip];
+			return new RabbitEar( $"bone_{root}", $"bone_{tip}", HalfLength( root ), HalfLength( tip ) );
+		} ).ToArray();
+		var output = machine.Build();
+		var jumpArms = clips[RabbitGuard.JumpArms] = library.Clip( RabbitGuard.JumpArms );
+		output = graph.Layers( output ).AddLayer( graph.TimeControlledClip( jumpArms.Animation, jumpArmPhase, new() { SampleRootMotion = false } ),
+			new() { BoneMask = graph.BoneMask( RabbitGuard.JumpArms ), Weight = jumpArmWeight, IgnoreEvents = true } );
+		if ( flinchPath is not null )
+		{
+			var flinch = clips["block_flinch"] = CombatClip( System.IO.Path.GetFileNameWithoutExtension( flinchPath ), false, null, true );
+
+			var layer = graph.Blend( graph.Clip( flinch.Animation ), graph.Clip( flinch.Mirrored.Animation ), graph.Switch( mirroredFlinch, 1f, 0f ) );
+			output = graph.Layers( output ).AddLayer( layer, new() { BoneMask = graph.BoneMask( flinchPath ),
+				Weight = flinchWeight, IgnoreEvents = true } );
+		}
+		var pickup = clips["pickup"] = CombatClip( "r_pickup", false, null, true );
+		foreach ( var draw in RabbitGuard.HandAnimations )
+		{
+			var drawClip = clips[draw] = CombatClip( draw, false, null, true );
+			foreach ( bool left in new[] { false, true } )
+			{
+				var name = RabbitGuard.DrawLayer( draw, left );
+				var pose = graph.TimeControlledClip( drawClip.ForSide( left ).Animation, drawPhase, new() { SampleRootMotion = false } );
+				output = graph.Layers( output ).AddLayer( pose, new() { BoneMask = graph.BoneMask( name ), Weight = drawWeights[name], IgnoreEvents = true } );
+			}
+		}
+		foreach ( var (side, pose, weight) in new[] { ("pickup_right", pickup, pickupRight), ("pickup_left", pickup.Mirrored, pickupLeft) } )
+		{
+			var layer = graph.TimeControlledClip( pose.Animation, pickupPhase, new() { SampleRootMotion = false } );
+			output = graph.Layers( output ).AddLayer( layer, new() { BoneMask = graph.BoneMask( side ), Weight = weight, IgnoreEvents = true } );
+		}
+		var knifeSwings = new Dictionary<string, RabbitAttack>();
+		var swingNodes = new Dictionary<string, (GraphBuilder.Node Pose, GraphBuilder.Node Mask)>();
+		foreach ( string name in knifeLayers )
+		{
+			var attackPath = $"Data/Attacks/{name[2..]}.xml";
+			var attack = XmlAsset.Read( fs, attackPath, "attack" );
+			var animation = XmlAsset.Read( fs, $"Data/Animations/{name}.xml", "SyncedAnimationGroup" );
+			var poses = animation.RequireElement( "Animations" ).Elements( "Animation" ).Select( a =>
+				new RabbitAttack.Pose( a.Number( "coord" ).Value, CombatClip( System.IO.Path.GetFileNameWithoutExtension( a.Attribute( "path" ) ), false, attack.Element( "damage" ), true ) ) ).ToArray();
+			knifeSwings[name] = ReadMove( attackPath, attack, poses ) with { AsLayer = true };
+			var controls = swingParameters[name];
+			GraphBuilder.Node Side( bool left )
+			{
+				var blend = graph.BlendSpace( height, looping: false );
+				foreach ( var pose in poses ) blend.Add( pose.Height, graph.TimeControlledClip( pose.Clip.ForSide( left ).Animation, controls.Phase, new() { SampleRootMotion = false } ) );
+				return blend;
+			}
+			swingNodes[name] = (graph.Blend( Side( false ), Side( true ), graph.Switch( controls.Left, 1f, 0f ) ),
+				graph.BoneMaskSwitch( controls.Left, graph.BoneMask( "knife_left" ), graph.BoneMask( "knife_right" ), new() { SwitchDynamically = true, BlendTime = 0f } ));
+		}
+		if ( usesKnife )
+		{
+			var layers = graph.Layers( output );
+			void AddSwing( string name, GraphBuilder.Node weight ) => layers.AddLayer( swingNodes[name].Pose,
+				new() { BoneMask = swingNodes[name].Mask, Weight = weight, IgnoreEvents = true } );
+			var forehandWeight = swingParameters["r_knifeslash"].Weight;
+			var zero = graph.Constant( 0f );
+			AddSwing( "r_knifeslash", graph.Switch( backhandNewest, zero, forehandWeight ) );
+			AddSwing( "r_knifebackslash", swingParameters["r_knifebackslash"].Weight );
+			AddSwing( "r_knifeslash", graph.Switch( backhandNewest, forehandWeight, zero ) );
+			output = layers;
+		}
+		foreach ( var slot in layeredSlots ) moves[slot] = knifeSwings["r_knifeslash"];
+		var painClip = clips["pain"] = CombatClip( "r_painflinch", false, null, false );
+		var painPose = graph.Clip( painClip.Animation, new() { SampleRootMotion = false } );
+		foreach ( var group in painMask )
+			output = graph.Layers( output ).AddLayer( painPose, new() { BoneMask = graph.BoneMask( group.Name ), Weight = painParameters[group.Name], IgnoreEvents = true } );
+		var patrolGraphs = new Dictionary<string, Graph>( System.StringComparer.OrdinalIgnoreCase );
+		Graph LoadPatrolGraph( string file )
+		{
+			if ( patrolGraphs.TryGetValue( file, out var cached ) ) return cached;
+			if ( !fs.FileExists( file ) ) return null;
+			var name = file["Data/Animations/".Length..^4];
+			var clip = library.Clip( name );
+			var builder = new GraphBuilder().WithSkeleton( rig );
+			return patrolGraphs[file] = builder.Create( builder.Clip( clip.Animation, new() { Looping = clip.Looping, SampleRootMotion = false } ) );
+		}
+		RagdollFallPose.Layer FallLayer( string name )
+		{
+			var clip = library.Clip( name );
+			var weights = RabbitClip.ReadLayerMask( fs, $"Data/Animations/{name}.anm", skeleton.Bones.Count );
+			return new( clip, Enumerable.Range( 0, rig.BoneCount ).Select( i => weights[$"bone_{i}"] ).ToArray() );
+		}
+		return new( graph.Create( output, path + "/guard.ag" ), rig, clips, movement, idlePoses, movementRig, moves, bodyAttacks.Keys.Concat( blocked.Values ).ToHashSet(), unweighted, torsoBones, [RabbitLimbBone.Chain( skeleton, parents, "left_leg", scale ), RabbitLimbBone.Chain( skeleton, parents, "right_leg", scale )], [RabbitLimbBone.Chain( skeleton, parents, "leftarm", scale ), RabbitLimbBone.Chain( skeleton, parents, "rightarm", scale )], HalfLength( hip ), HalfLength( parents[torso.BoneId] ), $"bone_{skeleton.IKBones["head"].BoneId}", HalfLength( parents[skeleton.IKBones["head"].BoneId] ), headRig, ears, skeleton.BoneMass.ToArray(), character.RequireElement( "appearance" ).Number( "default_scale" ) ?? 1f, scale, morphs ) {
+			PatrolGraph = LoadPatrolGraph,
+			PatrolRig = patrolRigs?.Count == 1 ? patrolRigs.First() : null,
+			Torso = new( skeleton.BindPose[hip], skeleton.BindPose[parents[torso.BoneId]], chestBind, HalfLength( parents[torso.BoneId] ), HalfLength( torso.BoneId ) ),
+			TailBones = skeleton.IKBones.TryGetValue( "tail", out var tail ) ? RabbitLimbBone.Chain( skeleton, parents, "tail", scale, tail.ChainLength ) : [],
+			FallPose = new( parents, FallLayer( "r_flail" ), FallLayer( "r_fetal" ), FallLayer( "r_catchfallfront" ), FallLayer( "r_writhe" ) ),
+			RollBones = rollBones,
+			RollMovement = roll,
+			RollRig = rollRig,
+			ReactionStates = reactionStates,
+			WeaponLabel = label,
+			WallMovement = wall,
+			AirMovement = air,
+			AirRig = airRig,
+			WallRig = wallRigs.Count == 1 ? wallRigs.First() : null,
+			PainMask = painMask,
+			KnifeSwings = knifeSwings,
+			GrabStances = grabStances,
+			Reactions = reactions,
+			Species = species,
+			CharacterSpecies = character.Element( "tags" )?.Attribute( "species" ),
+			ThrowMaterialEvent = throwAttack.Element( "materialevent" )?.Value,
+		};
+	}
+
+}

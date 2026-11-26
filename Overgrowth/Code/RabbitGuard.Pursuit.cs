@@ -1,0 +1,83 @@
+using System;
+
+namespace Overgrowth;
+
+public sealed partial class RabbitGuard
+{
+	readonly record struct Observation( float Time, Vector3 Position, Vector3 Velocity );
+	readonly Observation[] targetHistory = new Observation[16];
+	GameObject observedTarget;
+	int latestObservation, observationCount;
+	TimeUntil nextObservation;
+
+	void ObserveTarget( GameObject target, bool moving )
+	{
+		if ( target != observedTarget || enemy != target || observationCount == 0 )
+		{
+			observedTarget = target;
+			observationCount = 0;
+			latestObservation = -1;
+		}
+
+		latestObservation = (latestObservation + 1) % targetHistory.Length;
+		observationCount = Math.Min( observationCount + 1, targetHistory.Length );
+		targetHistory[latestObservation] = new( Time.Now, CharacterCenter( target ), moving ? TargetVelocity( target ) : Vector3.Zero );
+	}
+
+	Observation RecallTarget( float time )
+	{
+		var next = targetHistory[latestObservation];
+		for ( int age = 1; age < observationCount && next.Time > time; age++ )
+		{
+			var previous = targetHistory[(latestObservation + targetHistory.Length - age) % targetHistory.Length];
+			if ( previous.Time < time )
+			{
+				float t = (time - previous.Time) / (next.Time - previous.Time);
+				return new( time, Vector3.Lerp( previous.Position, next.Position, t ), Vector3.Lerp( previous.Velocity, next.Velocity, t ) );
+			}
+			next = previous;
+		}
+		return next;
+	}
+
+	Vector3 ChaseApproach( Vector3 fallback, out Vector3 point )
+	{
+		if ( !CombatAllowed && !ChaseAllowed )
+		{
+			point = WorldPosition;
+			return Vector3.Zero;
+		}
+		if ( airResponse == AirResponse.KnockOffLedge && observedTarget == enemy && observationCount > 0 )
+		{
+			var delta = RecallTarget( Time.Now - 0.1f ).Position - CharacterCenter( GameObject );
+			if ( delta.LengthSquared < 7f * 40f * 40f )
+			{
+				point = WorldPosition + delta;
+				return delta.Normal;
+			}
+		}
+		return CombatApproach( ChaseDestination( fallback ), out point );
+	}
+
+	Vector3 ChaseDestination( Vector3 fallback )
+	{
+		if ( observedTarget != enemy || observationCount == 0 ) return fallback;
+		const float reaction = 0.1f;
+		var observation = RecallTarget( Time.Now - reaction );
+		if ( NavPoint( observation.Position ) is not { } origin ) return observation.Position;
+		if ( observation.Velocity.WithZ( 0 ).IsNearlyZero() ) return origin;
+
+		var center = CharacterCenter( GameObject );
+		float elapsed = Time.Now - targetHistory[latestObservation].Time + reaction;
+		float distance = center.Distance( observation.Position );
+		var destination = origin;
+		for ( int i = 0; i < 4; i++ )
+		{
+			float horizon = Math.Min( 8f, distance / (GroundRunSpeed * 0.8f) + elapsed );
+			var predicted = origin + observation.Velocity * horizon;
+			destination = SlideOnNavMesh( origin, predicted );
+			distance = center.Distance( destination );
+		}
+		return destination;
+	}
+}

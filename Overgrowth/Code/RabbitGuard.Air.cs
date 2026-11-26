@@ -1,0 +1,387 @@
+using System;
+
+namespace Overgrowth;
+
+public sealed partial class RabbitGuard
+{
+	string GroundMaterialName => TerrainLoader.ContactSurface( GroundObject?.GetComponent<ModelCollider>(), WorldPosition, GroundSurface )?.ResourceName;
+	internal const string JumpArms = "r_jump_arms";
+	[Property] public float JumpInitialVelocity { get; set; } = 5f;
+	[Property] public float JumpAirControl { get; set; } = 3f;
+	[Property] public float JumpSustain { get; set; } = 5f;
+	[Property] public float JumpSustainBoost { get; set; } = 10f;
+	[Sync] TimeSince SinceJumpPreparation { get; set; } = 10f;
+	bool jumpArmsActive;
+	[Property] public SphereCollider AirHull { get; set; }
+
+	internal static SphereCollider CreateAirHull( CapsuleCollider standing )
+	{
+		var hull = new GameObject( standing.GameObject, true, "air collider" );
+		hull.LocalPosition = Vector3.Up * (LegRadius + 8f);
+		hull.LocalScale = new Vector3( 1f, 1f, 1.25f );
+		hull.Tags.Add( "playercontroller", CharacterCollisionRules.FighterHull );
+		var sphere = hull.AddComponent<SphereCollider>( false );
+		sphere.Radius = LegRadius;
+		sphere.Friction = 0f;
+		return sphere;
+	}
+
+	void UseAirHull( bool airborne )
+	{
+		if ( !MovementCapsule.IsValid() ) return;
+		if ( airborne && !AirHull.IsValid() ) AirHull = CreateAirHull( MovementCapsule );
+		if ( !AirHull.IsValid() || AirHull.Enabled == airborne ) return;
+		AirHull.Enabled = airborne;
+		MovementCapsule.Enabled = !airborne;
+	}
+
+	TimeUntil jumpNodeDelay;
+	internal bool CanLaunchJump( bool climb ) => boundAnimations is { Species: not "wolf" } && (climb || jumpNodeDelay <= 0f);
+
+	internal void AnnounceTargetedJump()
+	{
+		if ( !HasCombatTarget || enemy.GetComponent<RabbitGuard>() is not { } target || !target.enemy.IsValid() ) return;
+		var separation = (target.WorldPosition - target.TargetPosition( target.enemy )).WithZ( 0f );
+		if ( separation.LengthSquared < 400f * 400f ) target.jumpNodeDelay = 10f;
+	}
+
+	internal float PrepareJump()
+	{
+		SinceJumpPreparation = 0f;
+		duckVelocity = 30f * (1f - duckAmount * 0.6f);
+		return boundAnimations?.Species is "wolf" or "dog" ? 0.1f : 0.04f;
+	}
+
+	internal void StartJump( Vector3 velocity, bool climb, Vector3 releaseDrive )
+	{
+		keepJumpFacing = (climb ? ClimbJumpInput : velocity.WithZ( 0f ).Length / 40f) <= 0.4f;
+		JumpLaunch = 1f;
+		firstJumpPose = true;
+		if ( StandingPosition( WorldPosition ) is { } feet ) WorldPosition = feet;
+		if ( boundAnimations.CharacterSpecies != "rabbit" ) velocity.z *= 0.6f;
+		if ( climb ) StartLedgeApproach( velocity );
+		IncreaseBreathing( 2f );
+		LeftFootJump = nextJumpUsesLeft;
+		nextJumpUsesLeft = !nextJumpUsesLeft;
+		if ( WaterDepth( WorldPosition ) < 0.25f )
+			PlayMaterialEvent( "jump", WorldPosition, GroundMaterialName, boundAnimations.CharacterSpecies == "cat" ? 0.5f : 1f );
+		ReportBodySound( HeardSound.Footstep, 2f );
+		Launch( velocity + releaseDrive );
+		UseAirHull( true );
+	}
+
+	void UpdateJumpArms()
+	{
+		var duration = boundAnimations.Clips[JumpArms].Duration;
+		float age = SinceJumpPreparation;
+		float peak = Math.Min( 1f, (duration + 1f / 120f) * 2f );
+		float opacity = age < duration ? Math.Min( 1f, (age + 1f / 120f) * 2f ) : Math.Max( 0f, peak - (age - duration) * 2f );
+		if ( opacity <= 0f && !jumpArmsActive ) return;
+		Renderer.Animation.Parameters.Set( "jump_arm_phase", Math.Clamp( age / duration, 0f, 1f ) );
+		Renderer.Animation.Parameters.Set( "jump_arm_weight", opacity * 0.5f );
+		jumpArmsActive = opacity > 0f;
+	}
+
+	[Sync] bool LeftFootJump { get; set; }
+	bool nextJumpUsesLeft, keepJumpFacing;
+	[Sync] float JumpLaunch { get; set; }
+	bool firstJumpPose;
+	float pendingTuck;
+	AirCycle jumpCycle, wallCycle;
+
+	struct AirCycle
+	{
+		public float Phase;
+		float frequency;
+		TimeSince lastSample;
+
+		public float Advance( float rate )
+		{
+			frequency = rate;
+			lastSample = 0f;
+			float next = Phase + Time.Delta * rate;
+			Phase = next % 1f;
+			return next;
+		}
+
+		public void Fade( RabbitGuard guard, string channel )
+		{
+			if ( frequency > 0f && lastSample <= 0.25f )
+				guard.Renderer.Animation.Parameters.Set( channel, (Phase + lastSample * frequency) % 1f );
+		}
+	}
+	Vector3? airVelocity;
+	[Sync] float AirTuck { get; set; }
+	[Sync] Vector3 AirFlipAxis { get; set; }
+	[Sync( SyncFlags.Interpolate )] float AirFlipAngle { get; set; }
+	[Sync( SyncFlags.Interpolate )] float AirFlipTuck { get; set; }
+	float airFlipVelocity, airFlipProgress, airFlipRemainder;
+
+	void StartAttackRecoveryFlip()
+	{
+		if ( Animation.IsGrounded || boundAnimations.Species is not ("rabbit" or "cat") ) return;
+		AirFlipAxis = Vector3.Up.Cross( -WorldRotation.Forward ).Normal;
+		AirFlipAngle = airFlipProgress = airFlipRemainder = 0f;
+		AirFlipTuck = 0.5f;
+		airFlipVelocity = 0.1f;
+		PlayMaterialEvent( "flip", WorldPosition, GroundMaterialName, 1f );
+	}
+
+	void AdvanceAttackRecoveryFlip()
+	{
+		if ( AirFlipAxis.IsNearlyZero() ) return;
+		const float step = 4f / 120f;
+		airFlipRemainder += Time.Delta;
+		while ( airFlipRemainder >= step )
+		{
+			airFlipRemainder -= step;
+			airFlipProgress += step * 2.5f;
+			float tuck = Math.Clamp( airFlipVelocity, 0f, 1f );
+			if ( airFlipProgress <= 1f ) tuck = Math.Max( tuck, MathF.Sin( airFlipProgress * 3.1417f ) );
+			AirFlipTuck = tuck + (AirFlipTuck - tuck) * 0.7f;
+			airFlipVelocity += (1f - AirFlipAngle) * step * 50f;
+			AirFlipAngle += airFlipVelocity * step;
+			airFlipVelocity *= 0.89f * 0.89f * 0.89f * 0.89f;
+		}
+	}
+
+	BodyFallSounds bodySounds;
+	[Sync] bool ThrowGrounded { get; set; }
+	bool HasGroundSupport => InThrow ? ThrowGrounded : Animation.IsGrounded;
+
+	internal static float FallGravityScale( PhysicsWorld world ) => world.Gravity.Length > 0f ? 9.8f * 40f / world.Gravity.Length : 1f;
+
+	float terminalRemainder;
+
+	void UpdateAirborneVelocity()
+	{
+		if ( Downed || !IsAirborne || GetComponent<Rigidbody>() is not { MotionEnabled: true } body )
+		{
+			UseAirHull( false );
+			terminalRemainder = 0f;
+			return;
+		}
+		UseAirHull( !OnLedge && !IsTethered && !PhysicsCarrier.IsValid() );
+
+		const float step = 4f / 120f;
+		const float threshold = 50f * 40f;
+		var velocity = body.Velocity;
+		if ( approachingLedge ) velocity = AdvanceClimbVelocity( velocity, Time.Delta );
+		if ( ReactionPhase < 1f && !InThrow && !IsThrowingItem && !Held && !Holding && !IsGetUp( Stance ) )
+		{
+			velocity *= MathF.Pow( 0.95f, Time.Delta * 120f );
+			if ( body.Gravity ) body.ApplyForce( -Scene.PhysicsWorld.Gravity * (body.Mass * body.GravityScale) );
+		}
+		terminalRemainder += Time.Delta;
+		while ( terminalRemainder >= step )
+		{
+			terminalRemainder -= step;
+			if ( velocity.LengthSquared > threshold * threshold )
+				velocity *= 0.99f * 0.99f * 0.99f * 0.99f;
+		}
+		if ( velocity != body.Velocity ) body.Velocity = velocity;
+	}
+
+	void UpdateLanding()
+	{
+		if ( Downed || !Networking.IsHost )
+		{
+			if ( Networking.IsHost )
+			{
+				AirFlipAxis = default;
+				JumpLaunch = 0f;
+				UpdateWallContact( false );
+			}
+			airVelocity = null;
+			pendingTuck = 0f;
+			return;
+		}
+		bool grounded = Animation.IsGrounded;
+		if ( !grounded && InThrow && throwPartner.IsValid() )
+		{
+			var floor = TracePairedFloor();
+			grounded = floor.Hit && !floor.StartedSolid;
+		}
+		ThrowGrounded = InThrow && grounded;
+		UpdateWallContact( grounded );
+		if ( !grounded )
+		{
+			AdvanceAttackRecoveryFlip();
+			AirTuck = Math.Max( pendingTuck, airVelocity.HasValue ? AirTuck * MathF.Pow( 0.98f, Time.Delta * 120f ) : 0f );
+			pendingTuck = 0f;
+			airVelocity = Animation.MoveVelocity;
+			return;
+		}
+		pendingTuck = 0f;
+		float landingAngle = AirFlipAxis.IsNearlyZero() ? rollAngle : AirFlipAngle;
+		AirFlipAxis = default;
+		if ( airVelocity is not { } velocity ) return;
+		airVelocity = null;
+		JumpLaunch = 0f;
+		ApplyLandingShock( velocity );
+		if ( !IsValid || Health < 1f || Downed ) return;
+		if ( MathF.Abs( landingAngle - 0.5f ) < 0.3f || InAttackState )
+		{
+			KnockoutShield = Math.Max( 0, KnockoutShield - 1 );
+			GoLimp();
+		}
+		else Land( velocity );
+	}
+
+	sealed class LandingDamage : BluntDamage;
+
+	void ApplyLandingShock( Vector3 velocity )
+	{
+		float multiplier = Math.Max( 0.001f, FallDamageMultiplier );
+		float excess = -velocity.z / 40f * multiplier - 30f;
+		if ( excess <= 0f ) return;
+		((IDamageable)this).OnDamage( new LandingDamage { Damage = excess * 10f, Position = WorldPosition } );
+		if ( !IsValid || Health < 1f ) return;
+		PlayCombatSound( Unconscious || Downed ? "Data/Sounds/hit/hit_hard.xml" : "Data/Sounds/hit/hit_medium_juicy.xml", CharacterCenter( GameObject ) );
+		if ( Unconscious ) EnterInjuredRagdoll();
+	}
+
+	string AirPose()
+	{
+		if ( LedgeAnimation is not null ) return LedgeAnimation;
+		var pose = !Animation.IsGrounded && Stance is Idle or Ready or Watch or Threat or Locomotion or PatrolIdle ? FreeAir : Stance;
+
+		if ( pose == FreeAir )
+		{
+			if ( Networking.IsHost && JumpLaunch > 0f )
+			{
+				if ( !firstJumpPose ) JumpLaunch = Math.Max( 0f, JumpLaunch - Time.Delta * 2f );
+				firstJumpPose = false;
+			}
+			if ( !WallDirection.IsNearlyZero() ) return Wall;
+			if ( playing == FreeAir ) ReadAirPose();
+			var velocity = Animation.MoveVelocity / 40f;
+			if ( playing != FreeAir ) jumpCycle.Phase = 0f;
+			if ( Networking.IsHost && !keepJumpFacing && !touchedWall && AirFlipAxis.IsNearlyZero() )
+				TurnInAir( velocity, Time.Delta );
+
+			Renderer.Animation.Parameters.Set( "left_foot_jump", LeftFootJump ? 1f : 0f );
+			float up = Math.Min( 1.5f, velocity.z / Math.Max( 0.001f, JumpInitialVelocity ) + 0.5f ) + JumpLaunch * 0.5f;
+			float flail = Math.Min( 0.6f + MathF.Sin( Time.Now * 2f ) * 0.2f, Math.Clamp( (velocity.Length - 10f) * 0.05f, 0.3f, 1f ) );
+			up = Math.Clamp( 0.5f - up * 0.5f, 0f, 1f );
+			float tuck = AirFlipAxis.IsNearlyZero() ? AirTuck : Math.Max( AirTuck, AirFlipTuck );
+			var controls = new RabbitMovement.Controls { Flail = flail, Tuck = tuck, Up = up };
+			float frequency = boundAnimations.AirMovement.Evaluate( controls, jumpCycle.Phase, LeftFootJump ).Frequency;
+			Renderer.Animation.Parameters.Set( "tuck_coord", tuck );
+			jumpCycle.Advance( frequency );
+			Renderer.Animation.Parameters.Set( "up_coord", up );
+			Renderer.Animation.Parameters.Set( "flail_coord", flail );
+			Renderer.Animation.Parameters.Set( "air_phase", jumpCycle.Phase );
+		}
+		return pose;
+	}
+
+	void ReadAirPose()
+	{
+		var parameters = Renderer.Animation.Parameters;
+		parameters.TryGetFloat( "air_phase", out var phase );
+		parameters.TryGetFloat( "flail_coord", out var flail );
+		parameters.TryGetFloat( "up_coord", out var up );
+		parameters.TryGetFloat( "tuck_coord", out var tuck );
+		parameters.TryGetFloat( "left_foot_jump", out var mirrored );
+		ReadMovementPose( boundAnimations.AirMovement, boundAnimations.AirRig, new() { Flail = flail, Up = up, Tuck = tuck }, phase, mirrored > 0.5f );
+	}
+
+	void TurnInAir( Vector3 velocity, float delta )
+	{
+		var direction = velocity.WithZ( 0f ).Normal;
+		if ( direction.IsNearlyZero() ) return;
+		float retention = MathF.Pow( 0.85f, delta * 120f );
+		FaceInAir( InterpolateFacing( direction, WorldRotation.Forward.WithZ( 0f ).Normal, retention ) );
+	}
+
+	internal static Rotation InterpolateFacing( Vector3 from, Vector3 direction, float blend )
+	{
+		if ( direction.Dot( from ) < -0.8f )
+		{
+			var perpendicular = Vector3.Up.Cross( from );
+			direction = perpendicular.Dot( direction ) < 0f ? -perpendicular : perpendicular;
+		}
+		return Rotation.LookAt( Vector3.Lerp( from, direction, blend ) );
+	}
+
+	void FaceInAir( Rotation facing )
+	{
+		if ( GetComponent<Rigidbody>()?.PhysicsBody is { MotionEnabled: true } body ) body.Rotation = facing;
+		else WorldRotation = facing;
+	}
+
+	internal void OnAirContact( Collision collision )
+	{
+		if ( !Networking.IsHost || Downed || Health < 1f || airVelocity is not { } before || collision.Other.IsTrigger ) return;
+		if ( !collision.Self.Body.IsValid() || collision.Other.GameObject.IsValid() && collision.Other.GameObject.Tags.Has( "npc" ) ) return;
+		float impact = before.Distance( collision.Self.Body.Velocity ) / 40f;
+		flinchSpring = Math.Max( flinchSpring, Math.Min( 1f, impact * 2f - 1f ) );
+		pendingTuck = Math.Max( pendingTuck, Math.Min( 0.4f, impact * 0.1f ) );
+		if ( SelectBodyImpact( impact ) is { } sound )
+			PlayMaterialEvent( sound, collision.Contact.Point, TerrainLoader.ContactSurface( collision.Other.Collider as ModelCollider, collision.Contact.Point, collision.Other.Surface )?.ResourceName, 1f );
+	}
+
+	string SelectBodyImpact( float impact )
+	{
+		string sound;
+		if ( impact > 12f && bodySounds.Normal <= 0f ) { sound = "bodyfall"; bodySounds.Normal = 0.6f; }
+		else if ( impact > 6f && bodySounds.Heavy <= 0f ) { sound = "bodyfall_heavy"; bodySounds.Heavy = 0.2f; }
+		else if ( impact > 4f && bodySounds.Medium <= 0f ) { sound = "bodyfall_medium"; bodySounds.Medium = 0.2f; }
+		else if ( impact > 2f && bodySounds.Light <= 0f ) { sound = "bodyfall_light"; bodySounds.Light = 0.2f; }
+		else return null;
+		return sound;
+	}
+
+	void Land( Vector3 airVelocity )
+	{
+		EndRoll();
+		if ( Stance == Roll ) Stance = Locomotion;
+		rollAngle = 1f;
+		var floor = Scene.Trace.Ray( WorldPosition + Vector3.Up * 12f, WorldPosition + Vector3.Down * 32f )
+			.IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "trigger" ).Run();
+		if ( !floor.Hit ) return;
+		bool hard = (-airVelocity).Dot( floor.Normal ) > 0.3f * 40f;
+		if ( hard )
+		{
+			duckAmount = CrouchAmount = 1f;
+			duckVelocity = 3f;
+		}
+		bool quiet = boundAnimations.CharacterSpecies == "cat";
+		if ( !hard || WaterDepth( WorldPosition ) < 0.25f )
+		{
+			if ( !quiet || hard )
+				ReportBodySound( hard && !quiet ? HeardSound.LoudFoley : HeardSound.Footstep, hard && !quiet ? 5f : 2f );
+			PlayMaterialEvent( hard ? "land" : "land_soft", floor.EndPosition, TerrainLoader.ContactSurface( floor, floor.EndPosition )?.ResourceName, quiet ? 0.5f : 1f );
+		}
+		if ( hard )
+		{
+			float slide = 1f - (-airVelocity.Normal).Dot( floor.Normal );
+			float gain = Math.Min( 1f, slide * slide * (airVelocity.Length / 40f) * 0.2f );
+			if ( quiet ) gain *= 0.5f;
+			if ( gain > 0.2f ) PlayMaterialEvent( "slide", floor.EndPosition, TerrainLoader.ContactSurface( floor, floor.EndPosition )?.ResourceName, gain );
+		}
+		if ( InspectingBody ) duckVelocity = Math.Max( 6f, duckVelocity );
+	}
+
+	void PlayMaterialEvent( string step, Vector3 point, string surface, float gain ) =>
+		EmitMaterialEvent( step, point, surface ?? "default", gain );
+
+	[Rpc.Broadcast( NetFlags.HostOnly )]
+	void EmitMaterialEvent( string step, Vector3 point, string surface, float gain )
+	{
+		if ( Renderer.IsValid() && Renderer.Model.IsValid() && Sandbox.Mounting.Directory.Get( "overgrowth" ) is GameMount mount &&
+			mount.GetByPath( Renderer.Model.ResourcePath ) is CharacterLoader character )
+			mount.PlayMaterialEvent( character, GameObject, surface, step, point, gain );
+	}
+}
+
+internal sealed class RabbitAirContact : Component, Component.ICollisionListener
+{
+	[Property] public RabbitGuard Fighter { get; set; }
+
+	void ICollisionListener.OnCollisionStart( Collision collision )
+	{
+		if ( Fighter.IsValid() ) Fighter.OnAirContact( collision );
+	}
+}
