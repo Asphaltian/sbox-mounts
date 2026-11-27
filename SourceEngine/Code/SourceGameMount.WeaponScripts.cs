@@ -7,7 +7,7 @@ public abstract partial class SourceGameMount
 	private void ReadWeaponScripts( MountContext context, FileIndex files )
 	{
 		files.Weapons.Clear();
-		var skill = new SourceSkillConfig();
+		var skill = new SkillConfig();
 		// Expose supplemental game settings independently. Importing an Episode's
 		// resources must not replace the base game's weapon balance globally.
 		foreach ( var entry in files.Files.Where( x => x.Key.StartsWith( "cfg/skill", StringComparison.OrdinalIgnoreCase )
@@ -15,18 +15,18 @@ public abstract partial class SourceGameMount
 		{
 			using var stream = entry.Value.Open();
 			using var reader = new StreamReader( stream );
-			var values = SourceSkillConfig.Parse( reader.ReadToEnd() );
+			var values = SkillConfig.Parse( reader.ReadToEnd() );
 			if ( entry.Key.Equals( "cfg/skill.cfg", StringComparison.OrdinalIgnoreCase ) ) skill = values;
 			if ( values.Values.Count > 0 ) context.Add( ResourceType.Text, entry.Key + ".json", new SkillConfigLoader( values ) );
 		}
-		var ammoResources = new Dictionary<string, SourceAmmoLoader>( StringComparer.OrdinalIgnoreCase );
+		var ammoResources = new Dictionary<string, AmmoLoader>( StringComparer.OrdinalIgnoreCase );
 		var waveEvents = new HashSet<string>( StringComparer.OrdinalIgnoreCase );
 		var hudFonts = new Lazy<HudFonts>( () => ReadHudFonts( files ) );
 		string AmmoResource( string name )
 		{
 			if ( (skill.AmmoCapacity( name ) ?? AmmoCarryLimit( name )) is not { } capacity ) return null;
 			var path = $"scripts/ammo/{Uri.EscapeDataString( name.ToLowerInvariant() )}.ammo";
-			ammoResources.TryAdd( path, new SourceAmmoLoader( name, capacity ) );
+			ammoResources.TryAdd( path, new AmmoLoader( name, capacity ) );
 			return $"mount://{Ident}/{path}";
 		}
 		foreach ( var entry in WeaponScriptFiles( files ) )
@@ -36,8 +36,8 @@ public abstract partial class SourceGameMount
 				using var stream = entry.Value.Open();
 				var bytes = new byte[checked((int)stream.Length)];
 				stream.ReadExactly( bytes );
-				var root = SourceWeaponScript.Parse( SourceWeaponScript.Decode( bytes, entry.Key, WeaponScriptKey ), entry.Key );
-				var data = SourceWeaponScript.Read( root, entry.Key, skill );
+				var root = WeaponScript.Parse( WeaponScript.Decode( bytes, entry.Key, WeaponScriptKey ), entry.Key );
+				var data = WeaponScript.Read( root, entry.Key, skill );
 				if ( data is null ) continue;
 				data.Icon = MountWeaponIcon( context, files, entry.Key, SourceHudTexture.Read( root, "weapon" ), hudFonts );
 				data.PrimaryAmmoResource = AmmoResource( data.PrimaryAmmo );
@@ -57,7 +57,7 @@ public abstract partial class SourceGameMount
 					}
 					data.Sounds[role] = $"mount://{Ident}/{path}";
 				}
-				context.Add( ResourceType.Text, entry.Key + ".json", new SourceWeaponScriptLoader( data ) );
+				context.Add( ResourceType.Text, entry.Key + ".json", new WeaponScriptLoader( data ) );
 				foreach ( var model in new[] { data.ViewModel, data.WorldModel }.Where( x => x is not null ).Distinct() )
 				{
 					if ( !files.Weapons.TryGetValue( model, out var definitions ) ) files.Weapons.Add( model, definitions = [] );

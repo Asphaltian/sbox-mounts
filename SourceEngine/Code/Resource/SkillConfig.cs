@@ -3,7 +3,7 @@ using System;
 namespace Source1;
 
 /// <summary>Exposes the parsed settings to gameplay and the individual config as a mounted text resource.</summary>
-internal sealed class SkillConfigLoader( SourceSkillConfig config ) : ResourceLoader<SourceGameMount>
+internal sealed class SkillConfigLoader( SkillConfig config ) : ResourceLoader<SourceGameMount>
 {
 	internal IReadOnlyDictionary<string, float> Values => config.Values;
 	IReadOnlyDictionary<string, float> merged;

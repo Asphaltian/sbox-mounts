@@ -4,7 +4,7 @@ using System.Text;
 namespace Source1;
 
 /// <summary>Reads a Source <c>WeaponData</c> script. Sound roles map to script sound names, not mounted resources.</summary>
-internal static class SourceWeaponScript
+internal static class WeaponScript
 {
 	internal static string Decode( byte[] data, string path, string iceKey )
 	{
@@ -17,7 +17,7 @@ internal static class SourceWeaponScript
 		return Encoding.UTF8.GetString( data ).TrimEnd( '\0' );
 	}
 
-	internal static SourceModelWeaponData Read( string text, string path, SourceSkillConfig skill ) => Read( Parse( text, path ), path, skill );
+	internal static SourceModelWeaponData Read( string text, string path, SkillConfig skill ) => Read( Parse( text, path ), path, skill );
 
 	/// <summary>The script's <c>WeaponData</c> block, or null.</summary>
 	internal static VmtNode Parse( string text, string path ) =>
@@ -25,7 +25,7 @@ internal static class SourceWeaponScript
 		VmtFile.ParseKeyValues( text, path, diagnostic => Log.Trace( $"{diagnostic.Path}:{diagnostic.Line}: {diagnostic.Message}" ), escapeSequences: false )
 			.FirstOrDefault( x => x.IsBlock && x.Name.Equals( "WeaponData", StringComparison.OrdinalIgnoreCase ) );
 
-	internal static SourceModelWeaponData Read( VmtNode root, string path, SourceSkillConfig skill )
+	internal static SourceModelWeaponData Read( VmtNode root, string path, SkillConfig skill )
 	{
 		if ( root is null )
 			return null;

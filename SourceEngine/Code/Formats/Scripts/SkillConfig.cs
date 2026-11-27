@@ -5,14 +5,14 @@ using System.Text.RegularExpressions;
 namespace Source1;
 
 /// <summary>Reads numeric skill defaults as data. Config commands are never executed.</summary>
-internal sealed class SourceSkillConfig
+internal sealed class SkillConfig
 {
 	private readonly Dictionary<string, float> values = new( StringComparer.OrdinalIgnoreCase );
 	internal IReadOnlyDictionary<string, float> Values => values;
 
-	internal static SourceSkillConfig Parse( string text )
+	internal static SkillConfig Parse( string text )
 	{
-		var result = new SourceSkillConfig();
+		var result = new SkillConfig();
 		foreach ( var commandLine in text.Split( ["\r\n", "\n", "\r"], StringSplitOptions.None ) )
 		{
 			var line = commandLine;
@@ -28,18 +28,26 @@ internal sealed class SourceSkillConfig
 		return result;
 	}
 
+	ILookup<string, KeyValuePair<string, float>> _byName;
+
+	IEnumerable<KeyValuePair<string, float>> Matching( string name )
+	{
+		_byName ??= values.ToLookup( p => p.Key.Replace( "_", "" ), StringComparer.OrdinalIgnoreCase );
+		return _byName[name.Replace( "_", "" )];
+	}
+
 	internal int? AmmoCapacity( string ammo )
 	{
 		if ( string.IsNullOrWhiteSpace( ammo ) ) return null;
-		// Source's crossbow ammo identifier differs from its skill convar suffix.
-		var key = Normalize( ammo.Equals( "XBowBolt", StringComparison.OrdinalIgnoreCase ) ? "crossbow" : ammo );
-		foreach ( var entry in values )
+		foreach ( var (name, value) in Matching( $"sk_max_{AmmoName( ammo )}" ) )
 		{
-			if ( !entry.Key.StartsWith( "sk_max_", StringComparison.OrdinalIgnoreCase ) || Normalize( entry.Key[7..] ) != key ) continue;
-			if ( entry.Value > 0 && entry.Value < int.MaxValue && entry.Value == MathF.Truncate( entry.Value ) ) return (int)entry.Value;
+			if ( name.StartsWith( "sk_max_", StringComparison.OrdinalIgnoreCase ) && value > 0 && value < int.MaxValue && value == MathF.Truncate( value ) )
+				return (int)value;
 		}
 		return null;
 	}
+
+	static string AmmoName( string ammo ) => string.Equals( ammo, "XBowBolt", StringComparison.OrdinalIgnoreCase ) ? "crossbow" : ammo;
 
 	internal float? WeaponDamage( string ammo, string weaponClass, bool npc = false )
 		=> WeaponValue( ammo, weaponClass, npc ? "sk_npc_dmg_" : "sk_plr_dmg_", "" );
@@ -52,15 +60,14 @@ internal sealed class SourceSkillConfig
 		// These Source identifiers are aliases of the config's authored names.
 		if ( weapon?.Equals( "frag", StringComparison.OrdinalIgnoreCase ) == true ) weapon = "fraggrenade";
 		if ( weapon?.Equals( "stunstick_player", StringComparison.OrdinalIgnoreCase ) == true ) weapon = "stunstick";
-		if ( ammo?.Equals( "XBowBolt", StringComparison.OrdinalIgnoreCase ) == true ) ammo = "crossbow";
-		foreach ( var name in new[] { weapon, ammo }.Where( x => !string.IsNullOrWhiteSpace( x ) ) )
-		{
-			var key = Normalize( prefix + name + suffix );
-			foreach ( var entry in values )
-				if ( Normalize( entry.Key ) == key && entry.Value >= 0 ) return entry.Value;
-		}
-		return null;
-	}
+		return Find( weapon ) ?? Find( AmmoName( ammo ) );
 
-	private static string Normalize( string value ) => value.Replace( "_", "" ).ToLowerInvariant();
+		float? Find( string name )
+		{
+			if ( string.IsNullOrWhiteSpace( name ) ) return null;
+			foreach ( var entry in Matching( prefix + name + suffix ) )
+				if ( entry.Value >= 0 ) return entry.Value;
+			return null;
+		}
+	}
 }

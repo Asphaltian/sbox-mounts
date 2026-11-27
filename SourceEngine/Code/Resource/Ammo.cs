@@ -1,6 +1,6 @@
 namespace Source1;
 
-internal sealed class SourceAmmoLoader( string name, int maxReserve ) : ResourceLoader<SourceGameMount>
+internal sealed class AmmoLoader( string name, int maxReserve ) : ResourceLoader<SourceGameMount>
 {
 	protected override object Load()
 	{
