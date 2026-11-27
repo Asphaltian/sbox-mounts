@@ -1,3 +1,5 @@
+using System;
+
 namespace Source1.Hl2.Prefabs;
 
 [Library]
@@ -5,8 +7,8 @@ public static class Weapons
 {
 	[Entities.Definitions]
 	public static IEnumerable<EntityDefinition> Weapon357() =>
-		EntityPrefab.WeaponSet<BulletWeapon>( "hl2", "357", ".357 Magnum",
-			"models/weapons/w_357.mdl", "models/weapons/c_357.mdl", w =>
+		Define<BulletWeapon>( "357", ".357 Magnum", "357",
+			w =>
 			{
 				w.DeployTime = 0.25f;
 				w.PreferredSlot = 2;
@@ -20,7 +22,6 @@ public static class Weapons
 				w.PunchRoll = new( 0, 0 );
 				w.RecoilPitch = new( -1, 1 );
 				w.RecoilYaw = new( -1, 1 );
-				w.DisplayName = "HL2 .357 Magnum";
 				w.TracerFrequency = 4;
 				w.HoldType = "pistol_two_handed";
 				w.Npc = w.Npc with { MinRange = 65, MaxRange = 1024 };
@@ -29,16 +30,13 @@ public static class Weapons
 				w.StartingAmmo = 36;
 			}, v =>
 			{
-				v.DrawPlaybackRate = 4;
-				v.MuzzleEffect = GameObject.GetPrefab( "prefabs/effects/default_muzzleflash.prefab" );
-				v.TracerEffect = GameObject.GetPrefab( "prefabs/effects/default_tracer.prefab" );
 				v.Fire = "fire";
-			}, fallback: "models/weapons/v_357.mdl", worldEffects: true );
+			}, bulletEffects: true );
 
 	[Entities.Definitions]
 	public static IEnumerable<EntityDefinition> Ar2() =>
-		EntityPrefab.WeaponSet<BulletWeapon>( "hl2", "ar2", "Pulse Rifle",
-			"models/weapons/w_irifle.mdl", "models/weapons/c_irifle.mdl", w =>
+		Define<BulletWeapon>( "ar2", "Pulse Rifle", "irifle",
+			w =>
 			{
 				w.DeployTime = 0.208333f;
 				w.PreferredSlot = 2;
@@ -48,7 +46,6 @@ public static class Weapons
 				w.EmptyClickInterval = 0.5f;
 				w.SecondaryAutomatic = true;
 				w.FiresUnderwater = false;
-				w.DisplayName = "HL2 Pulse Rifle";
 				w.MachineGunKick = new( 8, 5 );
 				w.HoldType = "rifle";
 				w.Npc = w.Npc with { MinRange = 65, MaxRange = 2048 };
@@ -57,26 +54,21 @@ public static class Weapons
 				w.StartingAmmo = 90;
 			}, v =>
 			{
-				v.DrawPlaybackRate = 4;
 				v.ResetRecoilOnRelease = true;
-				v.MuzzleEffect = GameObject.GetPrefab( "prefabs/effects/default_muzzleflash.prefab" );
-				v.TracerEffect = GameObject.GetPrefab( "prefabs/effects/default_tracer.prefab" );
 				v.Idle = "IR_idle";
 				v.Draw = "IR_draw";
 				v.Fire = "IR_fire";
 				v.Reload = "IR_reload";
-			}, fallback: "models/weapons/v_irifle.mdl", worldEffects: true );
+			}, bulletEffects: true );
 
 	[Entities.Definitions]
 	public static IEnumerable<EntityDefinition> Bugbait() =>
-		EntityPrefab.WeaponSet<ProjectileWeapon>( "hl2", "bugbait", "Bugbait",
-			"models/weapons/w_bugbait.mdl", "models/weapons/c_bugbait.mdl", w =>
+		Define<ProjectileWeapon>( "bugbait", "Bugbait", "bugbait",
+			w =>
 			{
 				w.Ballistics = w.Ballistics with { Damage = 8, Force = 300 };
-				w.CanCancelReload = false;
 				w.ClipMaxSize = 1;
 				w.DeployTime = 0.291667f;
-				w.DisplayName = "HL2 Bugbait";
 				w.Handedness = BaseCombatWeapon.WeaponHandedness.Right;
 				w.RecoilPitch = new( 0, 0 );
 				w.RecoilYaw = new( 0, 0 );
@@ -91,28 +83,23 @@ public static class Weapons
 				w.StartingAmmo = 12;
 				w.UsableByNpcs = false;
 				w.UsesAmmo = false;
-				w.Value = 10;
 				w.Kind = Projectile.Kinds.Bugbait;
 				w.ProjectileModel = "models/weapons/w_bugbait.mdl";
 				w.ProjectileDamage = 0;
 			}, v =>
 			{
-				v.DrawPlaybackRate = 4;
 				v.Fire = "throw";
 				v.Reload = "draw";
-				v.EjectBrass = null;
-			}, fallback: "models/weapons/v_bugbait.mdl" );
+			} );
 
 	[Entities.Definitions]
 	public static IEnumerable<EntityDefinition> Crossbow() =>
-		EntityPrefab.WeaponSet<ProjectileWeapon>( "hl2", "crossbow", "Crossbow",
-			"models/weapons/w_crossbow.mdl", "models/weapons/c_crossbow.mdl", w =>
+		Define<ProjectileWeapon>( "crossbow", "Crossbow", "crossbow",
+			w =>
 			{
 				w.Ballistics = w.Ballistics with { Damage = 8, Force = 300 };
-				w.CanCancelReload = false;
 				w.ClipMaxSize = 1;
 				w.DeployTime = 0.25f;
-				w.DisplayName = "HL2 Crossbow";
 				w.EmptyClickInterval = 0.5f;
 				w.HoldType = "shotgun";
 				w.Npc = w.Npc with { MinRange = 65, MaxRange = 1024 };
@@ -125,89 +112,71 @@ public static class Weapons
 				w.RecoilPitch = new( 0, 0 );
 				w.RecoilYaw = new( 0, 0 );
 				w.ReloadTime = 1.7f;
-				w.SecondaryDelay = 1;
 				w.StartingAmmo = 12;
-				w.Value = 10;
 				w.ProjectileModel = "models/crossbow_bolt.mdl";
 				w.Secondary = Weapon.SecondaryFires.Zoom;
 			}, v =>
 			{
-				v.DrawPlaybackRate = 4;
 				v.Idle = "idle";
 				v.Fire = "fire";
-				v.EjectBrass = null;
-			}, fallback: "models/weapons/v_crossbow.mdl" );
+			} );
 
 	[Entities.Definitions]
 	public static IEnumerable<EntityDefinition> Crowbar() =>
-		EntityPrefab.WeaponSet<MeleeWeapon>( "hl2", "crowbar", "Crowbar",
-			"models/weapons/w_crowbar.mdl", "models/weapons/c_crowbar.mdl", w =>
+		Define<MeleeWeapon>( "crowbar", "Crowbar", "crowbar",
+			w =>
 			{
 				w.Ballistics = w.Ballistics with { Damage = 8, Force = 300 };
-				w.CanCancelReload = false;
 				w.ClipMaxSize = 1;
 				w.DeployTime = 0.233333f;
-				w.DisplayName = "HL2 Crowbar";
 				w.Handedness = BaseCombatWeapon.WeaponHandedness.Right;
 				w.HoldType = "melee";
 				w.PreferredSlot = 0;
 				w.PrimaryDelay = 0.4f;
 				w.ReloadTime = 1.7f;
-				w.SecondaryDelay = 1;
 				w.StartingAmmo = 12;
 				w.UsableByNpcs = false;
-				w.Value = 10;
 				w.Damage = 10;
 				w.Range = 75;
 				w.SwingDelay = 0.4f;
 				w.MissSwingDelay = 0.4f;
 			}, v =>
 			{
-				v.DrawPlaybackRate = 4;
 				v.Fire = "misscenter1";
 				v.Reload = null;
-				v.EjectBrass = null;
-			}, fallback: "models/weapons/v_crowbar.mdl" );
+			} );
 
 	[Entities.Definitions]
 	public static IEnumerable<EntityDefinition> GravityGun() =>
-		EntityPrefab.WeaponSet<GravityWeapon>( "hl2", "gravity_gun", "Gravity Gun",
-			"models/weapons/w_physics.mdl", "models/weapons/c_physcannon.mdl", w =>
+		Define<GravityWeapon>( "gravity_gun", "Gravity Gun", "physcannon",
+			w =>
 			{
 				w.Ballistics = w.Ballistics with { Damage = 8, Force = 300 };
-				w.CanCancelReload = false;
 				w.ClipMaxSize = 1;
 				w.DeployTime = 0;
-				w.DisplayName = "HL2 Gravity Gun";
 				w.HoldType = "tool";
 				w.PreferredSlot = 4;
 				w.PrimaryDelay = 0.5f;
 				w.ReloadTime = 1.7f;
-				w.SecondaryDelay = 1;
 				w.StartingAmmo = 12;
 				w.UsableByNpcs = false;
 				w.UsesAmmo = false;
-				w.Value = 10;
 			}, v =>
 			{
-				v.DrawPlaybackRate = 4;
 				v.Idle = "idle";
 				v.Fire = "fire";
 				v.Reload = null;
-				v.EjectBrass = null;
-			}, fallback: "models/weapons/v_physcannon.mdl" );
+			}, worldModel: "physics" );
 
 	[Entities.Definitions]
 	public static IEnumerable<EntityDefinition> Grenade() =>
-		EntityPrefab.WeaponSet<ProjectileWeapon>( "hl2", "grenade", "Frag Grenade",
-			"models/weapons/w_grenade.mdl", "models/weapons/c_grenade.mdl", w =>
+		Define<ProjectileWeapon>( "grenade", "Frag Grenade", "grenade",
+			w =>
 			{
 				w.Ballistics = w.Ballistics with { Damage = 8, Force = 300 };
-				w.CanCancelReload = false;
 				w.ClipMaxSize = 1;
 				w.DeployTime = 0.316667f;
 				w.EmptyClickInterval = 0.5f;
-				w.DisplayName = "HL2 Frag Grenade";
 				w.Handedness = BaseCombatWeapon.WeaponHandedness.Right;
 				w.RecoilPitch = new( 0, 0 );
 				w.RecoilYaw = new( 0, 0 );
@@ -218,25 +187,21 @@ public static class Weapons
 				w.PrimaryDelay = 0.8f;
 				w.ReloadTime = 0.5f;
 				w.SecondaryAutomatic = true;
-				w.SecondaryDelay = 1;
 				w.StartingAmmo = 5;
 				w.UsableByNpcs = false;
-				w.Value = 10;
 				w.Kind = Projectile.Kinds.Grenade;
 				w.ProjectileModel = "models/weapons/w_npcnade.mdl";
 				w.ProjectileDamage = 150;
 			}, v =>
 			{
-				v.DrawPlaybackRate = 4;
 				v.Fire = "throw";
 				v.Reload = "draw";
-				v.EjectBrass = null;
-			}, fallback: "models/weapons/v_grenade.mdl" );
+			} );
 
 	[Entities.Definitions]
 	public static IEnumerable<EntityDefinition> Pistol() =>
-		EntityPrefab.WeaponSet<BulletWeapon>( "hl2", "pistol", "Pistol",
-			"models/weapons/w_pistol.mdl", "models/weapons/c_pistol.mdl", w =>
+		Define<BulletWeapon>( "pistol", "Pistol", "pistol",
+			w =>
 			{
 				w.PreferredSlot = 2;
 				w.Ballistics = w.Ballistics with { Damage = 8, Range = 56755.84f, Radius = 0, Force = 667.973f, SpreadBase = new( 1, 1 ), SpreadGrowth = new( 5, 5 ), SpreadRecovery = 1.5f };
@@ -247,7 +212,6 @@ public static class Weapons
 				w.PunchRoll = new( 0, 0 );
 				w.RecoilPitch = new( 0, 0 );
 				w.RecoilYaw = new( 0, 0 );
-				w.DisplayName = "HL2 Pistol";
 				w.Handedness = BaseCombatWeapon.WeaponHandedness.Right;
 				w.HoldType = "pistol";
 				w.Npc = w.Npc with { MinRange = 24, MaxRange = 1500, BurstMin = 1, BurstMax = 3 };
@@ -260,25 +224,20 @@ public static class Weapons
 				w.StartingAmmo = 150;
 			}, v =>
 			{
-				v.DrawPlaybackRate = 4;
-				v.MuzzleEffect = GameObject.GetPrefab( "prefabs/effects/default_muzzleflash.prefab" );
-				v.TracerEffect = GameObject.GetPrefab( "prefabs/effects/default_tracer.prefab" );
 				v.Fire = "fire";
 				v.DryFire = "fireempty";
 				v.RecoilResetTime = 0.5f;
-			}, fallback: "models/weapons/v_pistol.mdl", worldEffects: true );
+			}, bulletEffects: true );
 
 	[Entities.Definitions]
 	public static IEnumerable<EntityDefinition> Rpg() =>
-		EntityPrefab.WeaponSet<ProjectileWeapon>( "hl2", "rpg", "RPG",
-			"models/weapons/w_rocket_launcher.mdl", "models/weapons/c_rpg.mdl", w =>
+		Define<ProjectileWeapon>( "rpg", "RPG", "rpg",
+			w =>
 			{
 				w.Ballistics = w.Ballistics with { Damage = 8, Force = 300 };
-				w.CanCancelReload = false;
 				w.ClipMaxSize = 1;
 				w.DeployTime = 0.275f;
 				w.EmptyClickInterval = 0.5f;
-				w.DisplayName = "HL2 RPG";
 				w.RecoilPitch = new( 0, 0 );
 				w.RecoilYaw = new( 0, 0 );
 				w.PunchRoll = new( 0, 0 );
@@ -287,24 +246,20 @@ public static class Weapons
 				w.PreferredSlot = 4;
 				w.PrimaryDelay = 0.5f;
 				w.ReloadTime = 2.2f;
-				w.SecondaryDelay = 1;
 				w.StartingAmmo = 3;
-				w.Value = 10;
 				w.Kind = Projectile.Kinds.Rocket;
 				w.ProjectileModel = "models/weapons/w_missile.mdl";
 				w.ProjectileDamage = 150;
 			}, v =>
 			{
-				v.DrawPlaybackRate = 4;
 				v.Idle = "idle1";
 				v.Fire = "fire";
-				v.EjectBrass = null;
-			}, fallback: "models/weapons/v_rpg.mdl" );
+			}, worldModel: "rocket_launcher" );
 
 	[Entities.Definitions]
 	public static IEnumerable<EntityDefinition> Shotgun() =>
-		EntityPrefab.WeaponSet<BulletWeapon>( "hl2", "shotgun", "Shotgun",
-			"models/weapons/w_shotgun.mdl", "models/weapons/c_shotgun.mdl", w =>
+		Define<BulletWeapon>( "shotgun", "Shotgun", "shotgun",
+			w =>
 			{
 				w.DeployTime = 0.183333f;
 				w.PreferredSlot = 2;
@@ -318,7 +273,6 @@ public static class Weapons
 				w.RecoilPitch = new( 0, 0 );
 				w.RecoilYaw = new( 0, 0 );
 				w.FiresUnderwater = false;
-				w.DisplayName = "HL2 Shotgun";
 				w.TracerFrequency = 4;
 				w.HoldType = "shotgun";
 				w.Npc = w.Npc with { MaxRange = 500, BurstMin = 1, BurstMax = 1, RestMin = 0.75f, RestMax = 1.2f };
@@ -329,19 +283,16 @@ public static class Weapons
 				w.SecondaryAutomatic = true;
 			}, v =>
 			{
-				v.DrawPlaybackRate = 4;
-				v.MuzzleEffect = GameObject.GetPrefab( "prefabs/effects/default_muzzleflash.prefab" );
-				v.TracerEffect = GameObject.GetPrefab( "prefabs/effects/default_tracer.prefab" );
 				v.Reload = "reload1";
 				v.ReloadInsert = "reload2";
 				v.ReloadEnd = "reload3";
 				v.Pump = "pump";
-			}, fallback: "models/weapons/v_shotgun.mdl", worldEffects: true );
+			}, bulletEffects: true );
 
 	[Entities.Definitions]
 	public static IEnumerable<EntityDefinition> Smg() =>
-		EntityPrefab.WeaponSet<BulletWeapon>( "hl2", "smg", "SMG",
-			"models/weapons/w_smg1.mdl", "models/weapons/c_smg1.mdl", w =>
+		Define<BulletWeapon>( "smg", "SMG", "smg1",
+			w =>
 			{
 				w.DeployTime = 0.208333f;
 				w.PreferredSlot = 2;
@@ -352,7 +303,6 @@ public static class Weapons
 				w.FiresUnderwater = false;
 				w.CanLaunchDuringReload = true;
 				w.PrimaryDelayAfterLaunch = 0.5f;
-				w.DisplayName = "HL2 SMG";
 				w.MachineGunKick = new( 1, 2 );
 				w.HoldType = "smg";
 				w.ContinuousFireRate = true;
@@ -362,41 +312,53 @@ public static class Weapons
 				w.StartingAmmo = 135;
 			}, v =>
 			{
-				v.DrawPlaybackRate = 4;
 				v.RecoilStages = [1, 3];
 				v.ResetRecoilOnRelease = true;
-				v.MuzzleEffect = GameObject.GetPrefab( "prefabs/effects/default_muzzleflash.prefab" );
-				v.TracerEffect = GameObject.GetPrefab( "prefabs/effects/default_tracer.prefab" );
-			}, fallback: "models/weapons/v_smg1.mdl", worldEffects: true );
+			}, bulletEffects: true );
 
 	[Entities.Definitions]
 	public static IEnumerable<EntityDefinition> Stunstick() =>
-		EntityPrefab.WeaponSet<Stunstick>( "hl2", "stunstick", "Stunstick",
-			"models/weapons/w_stunbaton.mdl", "models/weapons/c_stunstick.mdl", w =>
+		Define<Stunstick>( "stunstick", "Stunstick", "stunstick",
+			w =>
 			{
 				w.Ballistics = w.Ballistics with { Damage = 8, Force = 300 };
-				w.CanCancelReload = false;
 				w.ClipMaxSize = 1;
 				w.DeployTime = 0.233333f;
-				w.DisplayName = "HL2 Stunstick";
 				w.Handedness = BaseCombatWeapon.WeaponHandedness.Right;
 				w.HoldType = "melee";
 				w.PreferredSlot = 0;
 				w.PrimaryDelay = 0.8f;
 				w.ReloadTime = 1.7f;
-				w.SecondaryDelay = 1;
 				w.StartingAmmo = 12;
 				w.UsableByNpcs = false;
-				w.Value = 10;
 				w.Damage = 10;
 				w.Range = 75;
 				w.SwingDelay = 0.8f;
 				w.MissSwingDelay = 0.8f;
 			}, v =>
 			{
-				v.DrawPlaybackRate = 4;
 				v.Fire = "misscenter1";
 				v.Reload = null;
-				v.EjectBrass = null;
-			}, fallback: "models/weapons/v_stunstick.mdl" );
+			}, worldModel: "stunbaton" );
+
+	static IEnumerable<EntityDefinition> Define<T>( string name, string title, string model, Action<T> configure,
+		Action<ViewModel> configureView, bool bulletEffects = false, string worldModel = null ) where T : Weapon, new() =>
+		EntityPrefab.WeaponSet<T>( "hl2", name, title, $"models/weapons/w_{worldModel ?? model}.mdl", $"models/weapons/c_{model}.mdl", w =>
+		{
+			w.DisplayName = $"HL2 {title}";
+			w.Value = 10;
+			w.CanCancelReload = false;
+			w.SecondaryDelay = 1;
+			configure( w );
+		}, v =>
+		{
+			v.DrawPlaybackRate = 4;
+			if ( bulletEffects )
+			{
+				v.MuzzleEffect = GameObject.GetPrefab( "prefabs/effects/default_muzzleflash.prefab" );
+				v.TracerEffect = GameObject.GetPrefab( "prefabs/effects/default_tracer.prefab" );
+			}
+			else v.EjectBrass = null;
+			configureView( v );
+		}, fallback: $"models/weapons/v_{model}.mdl", worldEffects: bulletEffects );
 }
