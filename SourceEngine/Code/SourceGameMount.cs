@@ -138,7 +138,7 @@ public abstract partial class SourceGameMount : BaseGameMount
 		ReadWeaponScripts( context, current );
 		MountSpeech( context, current );
 		MountParticles( context, current );
-		MountEntities( context, current );
+		MountEntities( context );
 		try
 		{
 			MountSurfaces( context, current );
