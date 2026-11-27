@@ -181,9 +181,9 @@ public abstract class Weapon : BaseCombatWeapon
 	protected override bool OnAdding( BaseInventoryComponent inventory )
 	{
 		Setup.ConfigureAmmo( this );
-		var consumeDuplicate = ContentMount?.ConsumeDuplicateWeapon;
+		var duplicate = ContentMount?.GameRules.DuplicateWeapons ?? GameRules.DuplicatePickup.Inventory;
 		var secondary = UsesSecondaryClip ? Clip2 : SecondaryPickupAmmo;
-		if ( consumeDuplicate is null && secondary <= 0 ) return base.OnAdding( inventory );
+		if ( duplicate == GameRules.DuplicatePickup.Inventory && secondary <= 0 ) return base.OnAdding( inventory );
 
 		foreach ( var held in inventory.GetComponentsInChildren<Weapon>( true ) )
 		{
@@ -193,7 +193,7 @@ public abstract class Weapon : BaseCombatWeapon
 			var primary = UsesClips ? (Clip1 < 0 ? ClipMaxSize : Clip1) : StartingAmmo;
 			var given = held.UsesAmmo ? inventory.GiveAmmo( held.PrimaryAmmoType, primary ) : 0;
 			var alternateGiven = inventory.GiveAmmo( held.SecondaryAmmoType, secondary );
-			if ( given > 0 || alternateGiven > 0 || consumeDuplicate == true )
+			if ( given > 0 || alternateGiven > 0 || duplicate == GameRules.DuplicatePickup.AlwaysConsume )
 				GameObject.Destroy();
 			return false;
 		}
@@ -420,7 +420,7 @@ public abstract class Weapon : BaseCombatWeapon
 
 	protected virtual void StartDrop( Vector3 velocity )
 	{
-		if ( ContentMount is { DropPickupDelay: > 0 } mount ) _touchPickupAllowed = mount.DropPickupDelay;
+		if ( ContentMount?.GameRules.DroppedWeaponPickupDelay is > 0 and var delay ) _touchPickupAllowed = delay;
 		if ( GetComponent<Rigidbody>( true ) is { } body )
 		{
 			body.Velocity = velocity;
