@@ -89,13 +89,16 @@ public class GameMount : BaseGameMount
 		return false;
 	}
 
-	private static readonly Dictionary<string, ResourceType> FileTypes = new( StringComparer.OrdinalIgnoreCase )
+	private static ResourceType GetFileType( string extension ) => extension.ToLowerInvariant() switch
 	{
-		{ ".model", ResourceType.Model },
-		{ ".dds", ResourceType.Texture },
-		{ ".material", ResourceType.Material },
-		{ ".fsb", ResourceType.Sound },
-		{ ".level", ResourceType.Scene },
+		".cinematic" => ResourceType.Binary,
+		".model" => ResourceType.Model,
+		".animation_graph" => ResourceType.AnimationGraph,
+		".dds" => ResourceType.Texture,
+		".material" => ResourceType.Material,
+		".fsb" => ResourceType.Sound,
+		".level" => ResourceType.Scene,
+		_ => ResourceType.None
 	};
 
 	protected override Task Mount( MountContext context )
@@ -103,18 +106,61 @@ public class GameMount : BaseGameMount
 		if ( FileSystem is null )
 			return Task.CompletedTask;
 
+		Skulk.RegisterSounds( context );
+		Fade.RegisterSounds( context );
+		Gorge.RegisterSounds( context );
+		Lerk.RegisterSounds( context );
+		Babbler.RegisterSounds( context );
+		Hydra.RegisterSounds( context );
+		Mac.RegisterSounds( context );
+		foreach ( var cue in new[] { Mac.PainSound, Drifter.PainSound, Hydra.PainSound, Harvester.PainSound, Crag.PainSound, Hive.PainSound, Hive.DeathSound } )
+			context.Add( ResourceType.GameResource, $"sounds/{cue}.sound", new SparkSoundLoader( cue, 0 ) );
+		context.Add( ResourceType.GameResource, $"sounds/{Mac.PainSound}_impact.sound", new SparkSoundLoader( Mac.PainSound, 1 ) );
+		Marine.RegisterRifleSounds( context );
+		foreach ( var cue in new[] { Marine.PistolSound, "marine/rifle/reload", "marine/pistol/reload",
+			"marine/pistol/idle_spin", "marine/pistol/idle_gangster", "marine/common/sprint_start", "marine/common/sprint_tired",
+			"marine/common/health", "marine/common/pickup_ammo", "marine/common/wound", "marine/common/wound_serious", "marine/common/spore_wound", "marine/common/death" } )
+			context.Add( ResourceType.GameResource, $"sounds/{cue}.sound", new SparkSoundLoader( cue ) );
+		context.Add( ResourceType.GameResource, $"sounds/{Drifter.ConstructSound}.sound", new SparkSoundLoader( Drifter.ConstructSound ) );
+		context.Add( ResourceType.GameResource, "sounds/alien/common/regeneration_ability.sound", new SparkSoundLoader( "alien/common/regeneration_ability" ) );
+		Exo.RegisterSounds( context );
+		Onos.RegisterSounds( context );
+		var npcModels = new HashSet<string>( StringComparer.OrdinalIgnoreCase )
+		{
+			NpcPrefab.Register( context, "Skulk", Skulk.Configure ),
+			NpcPrefab.Register( context, "Fade", Fade.Configure ),
+			NpcPrefab.Register( context, "Gorge", Gorge.Configure ),
+			NpcPrefab.Register( context, "Lerk", Lerk.Configure ),
+			NpcPrefab.Register( context, "Drifter", Drifter.Configure, "ns2_drifter", painSound: Drifter.PainSound ),
+			NpcPrefab.Register( context, "Harvester", Harvester.Configure, "ns2_harvester", painSound: Harvester.PainSound ),
+			NpcPrefab.Register( context, "Hive", Hive.Configure, "ns2_hive", painSound: Hive.PainSound ),
+			NpcPrefab.Register( context, "Crag", Crag.Configure, "ns2_crag", painSound: Crag.PainSound ),
+			NpcPrefab.Register( context, "Marine", Marine.Configure, "ns2_marine", "marine", "male/male" ),
+			NpcPrefab.Register( context, "Minigun Exo", ( root, renderer ) => Exo.Configure( root, renderer, false ), "ns2_exo", "marine", "exosuit/exosuit_mm" ),
+			NpcPrefab.Register( context, "Railgun Exo", ( root, renderer ) => Exo.Configure( root, renderer, true ), "ns2_exo", "marine", "exosuit/exosuit_rr" ),
+			NpcPrefab.Register( context, "Armory", Armory.Configure, "ns2_armory", "marine" ),
+			NpcPrefab.Register( context, "MAC", Mac.Configure, "ns2_mac", "marine", painSound: Mac.PainSound ),
+			NpcPrefab.Register( context, "Hydra", Hydra.Configure, "ns2_hydra", painSound: Hydra.PainSound ),
+			NpcPrefab.Register( context, "Babbler", Babbler.Configure, "ns2_babbler" ),
+			NpcPrefab.Register( context, "Onos", ( root, renderer ) => Onos.Configure( root, renderer, this ) )
+		};
 		foreach ( var path in FileSystem.FindFile( "", "*", true ) )
 		{
-			var ext = Path.GetExtension( path );
-			if ( string.IsNullOrWhiteSpace( ext ) )
-				continue;
-
-			if ( !FileTypes.TryGetValue( ext, out var resourceType ) )
-				continue;
+			var resourceType = GetFileType( Path.GetExtension( path ) );
 
 			if ( resourceType == ResourceType.Model )
 			{
-				context.Add( resourceType, path, new ModelLoader( path ) );
+				context.Add( resourceType, path, new ModelLoader( path ) { IsNpc = npcModels.Contains( path ) } );
+			}
+			else if ( resourceType == ResourceType.AnimationGraph )
+			{
+				var model = Path.ChangeExtension( path, ".model" );
+				if ( GetByPath( $"mount://{Ident}/{path}.ag" ) is null && FileSystem.FileExists( model ) )
+					context.Add( resourceType, path, new AnimationGraphLoader( model, path ) );
+			}
+			else if ( resourceType == ResourceType.Binary )
+			{
+				context.Add( resourceType, path, new CinematicLoader( path ) );
 			}
 			else if ( resourceType == ResourceType.Texture )
 			{

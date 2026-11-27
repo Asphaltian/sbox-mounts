@@ -13,6 +13,7 @@ class MapLoader( string filePath ) : SceneLoader<GameMount>
 	string FilePath { get; } = filePath;
 
 	internal const float Scale = 40.0f;
+	const string DoorLeafTag = "ns2_door_leaf";
 
 	readonly List<Model> renderModels = [];
 	readonly HashSet<PhysicsGroupDescription> physicsResources = [];
@@ -31,8 +32,14 @@ class MapLoader( string filePath ) : SceneLoader<GameMount>
 		var root = new GameObject( true, System.IO.Path.GetFileNameWithoutExtension( FilePath ) );
 		// SceneLoader serializes the children of this temporary scene. Activate their physics and rendering on the real load.
 		root.Scene.Enabled = false;
-		root.Scene.NavMesh.IsEnabled = true;
-		root.Scene.NavMesh.GenerateLinks = true;
+		var nav = root.Scene.NavMesh;
+		nav.IsEnabled = true;
+		nav.GenerateLinks = true;
+		nav.ExcludedBodies.Add( DoorLeafTag );
+		nav.AgentHeight = 2 * Scale;
+		nav.AgentRadius = 0.6f * Scale;
+		nav.AgentStepSize = 0.9f * Scale;
+		nav.AgentMaxSlope = 45;
 
 		var postProcessing = new GameObject( true, "NS2 post processing" ) { Parent = root };
 		postProcessing.AddComponent<PostProcessVolume>().SceneVolume = new SceneVolume { Type = SceneVolume.VolumeTypes.Infinite };
@@ -47,6 +54,9 @@ class MapLoader( string filePath ) : SceneLoader<GameMount>
 		var decals = new Dictionary<string, DecalDefinition>( StringComparer.OrdinalIgnoreCase );
 		var staticProps = new Dictionary<string, ModelLoader.StaticProp>( StringComparer.OrdinalIgnoreCase );
 
+		float cellHeight = 0.4f * Scale;
+		List<MapLocations.Volume> locations = [];
+		List<(Vector3 Position, int Priority)> landmarks = [];
 		foreach ( var entity in level.Entities )
 		{
 			if ( level.Groups.TryGetValue( entity.GroupId, out var group ) )
@@ -59,12 +69,60 @@ class MapLoader( string filePath ) : SceneLoader<GameMount>
 					continue;
 			}
 
+			if ( entity.Name == "pathing_settings" )
+			{
+				// NS2 overrides the default agent radius whenever a map supplies pathing settings.
+				nav.AgentRadius = 0.75f * Scale;
+				if ( entity.Has( "option_cell_height" ) ) cellHeight = entity.Get( "option_cell_height" ).AsFloat() * Scale;
+				if ( entity.Has( "option_agent_height" ) ) nav.AgentHeight = entity.Get( "option_agent_height" ).AsFloat() * Scale;
+				if ( entity.Has( "option_agent_max_climb" ) ) nav.AgentStepSize = entity.Get( "option_agent_max_climb" ).AsFloat() * Scale;
+				if ( entity.Has( "option_agent_max_slope" ) ) nav.AgentMaxSlope = entity.Get( "option_agent_max_slope" ).AsFloat();
+				continue;
+			}
+			if ( entity.Name == "location" )
+			{
+				var name = entity.Get( "name" ).AsString();
+				var half = ScaleOf( entity ) * (0.2395f * Scale);
+				if ( !string.IsNullOrWhiteSpace( name ) && half.x > 0 && half.y > 0 && half.z > 0 )
+					locations.Add( new( name, new Transform( Origin( entity ) + Vector3.Up * half.z, Angles( entity ), half ) ) );
+				continue;
+			}
+			int priority = entity.Name switch { "tech_point" => 3, "resource_point" => 2, "power_point" => 1, _ => 0 };
+			if ( priority > 0 ) landmarks.Add( (Origin( entity ), priority) );
 			if ( entity.Name == "decal" )
 				AddDecal( entity, root, decals );
 			else
 				BuildEntity( entity, root, geometry, staticProps );
 		}
 
+		var ventPath = System.IO.Path.ChangeExtension( FilePath.Replace( "/maps/", "/fastload/maps/" ), "level-server-alien.tile_cache_grid" );
+		bool hasVents = Host.FileSystem.FileExists( ventPath );
+		if ( locations.Count > 0 || hasVents || landmarks.Any( x => x.Priority >= 2 ) )
+		{
+			var map = root.AddComponent<MapLocations>();
+			if ( hasVents ) map.AlienGridPath = ventPath;
+			var gridPath = System.IO.Path.ChangeExtension( FilePath.Replace( "/maps/", "/fastload/maps/" ), "level-server.tile_cache_grid" );
+			if ( Host.FileSystem.FileExists( gridPath ) ) map.GridPath = gridPath;
+			map.CellHeight = cellHeight;
+			map.ResourcePoints = landmarks.Where( x => x.Priority == 2 ).Select( x => x.Position ).ToArray();
+			map.TechPoints = landmarks.Where( x => x.Priority == 3 ).Select( x => x.Position ).ToArray();
+			map.Volumes = locations.ToArray();
+			// Spark visits rooms in landmark order, including when two exploration targets have equal weight.
+			var destinations = new Dictionary<string, MapLocations.Destination>();
+			foreach ( var group in landmarks.GroupBy( x => map.LocationAt( x.Position ) ) )
+			{
+				if ( group.Key is null ) continue;
+				var anchor = group.MaxBy( x => x.Priority );
+				destinations.Add( group.Key, new( group.Key, anchor.Position, anchor.Priority >= 2 ) );
+			}
+			foreach ( var group in locations.GroupBy( v => v.Name ) )
+			{
+				if ( destinations.ContainsKey( group.Key ) ) continue;
+				var center = group.Aggregate( Vector3.Zero, (sum, v) => sum + v.Bounds.Position.WithZ( 0 ) ) / group.Count();
+				destinations.Add( group.Key, new( group.Key, center, false ) );
+			}
+			map.Destinations = destinations.Values.ToArray();
+		}
 		geometry.Build( world, FilePath, renderModels );
 		AddPhysics( world, geometry.CreatePhysics( FilePath ) );
 	}
@@ -75,7 +133,7 @@ class MapLoader( string filePath ) : SceneLoader<GameMount>
 			return;
 
 		var data = LevelMesh.Read( bytes, level.Version, level.WorldMesh.Offset, level.WorldMesh.Length, level.Groups, level.Layers );
-		if ( data.Triangles.Length == 0 || data.Positions.Length == 0 )
+		if ( data.Triangles.Count == 0 || data.Positions.Count == 0 )
 			return;
 
 		int faceCount = data.FaceMaterial.Length;
@@ -89,7 +147,7 @@ class MapLoader( string filePath ) : SceneLoader<GameMount>
 		{
 			if ( (uint)tri.Face >= (uint)faceCount || faceHasNormal[tri.Face] )
 				continue;
-			if ( !InRange( tri, data.Positions.Length ) )
+			if ( !InRange( tri, data.Positions.Count ) )
 				continue;
 
 			var p0 = data.Positions[tri.V0];
@@ -115,7 +173,7 @@ class MapLoader( string filePath ) : SceneLoader<GameMount>
 
 		var byMaterial = new Dictionary<(int Material, bool ShadowOnly, Vector3Int Cell), List<WorldVertex>>();
 		var allVertices = new List<Vector3>();
-		var collisionVertex = new int[data.Positions.Length];
+		var collisionVertex = new int[data.Positions.Count];
 		Array.Fill( collisionVertex, -1 );
 		var allIndices = new List<uint>();
 		var triangleSurfaces = new List<byte>();
@@ -124,7 +182,7 @@ class MapLoader( string filePath ) : SceneLoader<GameMount>
 		var materials = new Dictionary<int, Material>();
 		foreach ( var tri in data.Triangles )
 		{
-			if ( (uint)tri.Face >= (uint)faceCount || !faceHasNormal[tri.Face] || !InRange( tri, data.Positions.Length ) )
+			if ( (uint)tri.Face >= (uint)faceCount || !faceHasNormal[tri.Face] || !InRange( tri, data.Positions.Count ) )
 				continue;
 
 			bool hidden = tri.Face < data.FaceHidden.Length && data.FaceHidden[tri.Face];
@@ -347,7 +405,7 @@ class MapLoader( string filePath ) : SceneLoader<GameMount>
 			renderer.Sequence.Name = "opened";
 			renderer.Sequence.Looping = false;
 			go.Tags.Add( "world" );
-			AddAnimatedMapCollision( renderer );
+			AddAnimatedMapCollision( renderer, movingBoneTag: DoorLeafTag );
 			go.AddComponent<MapDoor>().Renderer = renderer;
 			return;
 		}
@@ -477,7 +535,7 @@ class MapLoader( string filePath ) : SceneLoader<GameMount>
 	}
 
 	// These hulls follow the animation. Giving the bones rigidbodies would let the physgun unfreeze them.
-	static void AddAnimatedMapCollision( SkinnedModelRenderer renderer )
+	static void AddAnimatedMapCollision( SkinnedModelRenderer renderer, string movingBoneTag = null )
 	{
 		var model = renderer.Model;
 		if ( model.Physics is null ) return;
@@ -487,6 +545,9 @@ class MapLoader( string filePath ) : SceneLoader<GameMount>
 		{
 			var bone = model.Bones.GetBone( part.BoneName );
 			var target = bone is null ? renderer.GameObject : bones[bone];
+			// The door frame belongs to the root bone. Only the sliding leaves should be ignored by navigation.
+			if ( movingBoneTag is not null && bone?.Parent is not null )
+				target.Tags.Add( movingBoneTag );
 			foreach ( var hull in part.Hulls )
 			{
 				var collider = target.AddComponent<HullCollider>();
@@ -535,9 +596,9 @@ class MapLoader( string filePath ) : SceneLoader<GameMount>
 	// light to full brightness across the inner 40% of its radius and runs ~3x hot through the
 	// midrange - that is what made converted maps look blown out.
 	const float FalloffK = 7.4f;
-	const float FalloffGain = 0.55f;
+	internal const float FalloffGain = 0.55f;
 
-	static float AttenuationFor( float radius ) => FalloffK * 10000f / (radius * radius);
+	internal static float AttenuationFor( float radius ) => FalloffK * 10000f / (radius * radius);
 
 	void BuildLight( LevelEntity entity, GameObject parent )
 	{

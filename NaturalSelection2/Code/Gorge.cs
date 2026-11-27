@@ -1,0 +1,320 @@
+using System;
+using Sandbox.Npcs;
+using Sandbox.Npcs.Layers;
+
+namespace NS2;
+
+[Title( "Gorge" ), Category( "Natural Selection 2" )]
+public sealed partial class Gorge : AlienLifeform
+{
+	protected override Vector3 GetEngagementPoint() => WorldPosition + Vector3.Up * (0.28f * Scale);
+
+	protected override int BaseHealth => 160;
+	protected override int HealthPerBiomass => 2;
+
+	protected override int MaxArmor => GetArmorLimit( 50, 12, 2 );
+
+	const float Scale = MapLoader.Scale;
+	static readonly SparkAnimationGraph.PoseParameters Locomotion = new( 0 ), ActionLayer = new( 1 );
+	[Sync( SyncFlags.FromHost )] SparkAnimationGraph.Playback.LayerPose movePose { get; set; }
+	[Sync( SyncFlags.FromHost )] SparkAnimationGraph.Playback.LayerPose attackPose { get; set; }
+	SparkAnimationGraph.Playback weapon;
+	Action<string> worldTag, weaponTag;
+	Rotation aim;
+	[Property, Range( 1, 7 )] public int AimSkillTier { get; set; } = 1;
+	readonly BotWeaponAim acquisition = new( 95 );
+	float energy = 100;
+	[Property] public bool BileBombUnlocked { get; set; } = true;
+	bool firing, primaryHeld, bombarding;
+	float ShotCost => bombarding ? 20 : 7;
+	TimeUntil repath;
+
+	internal static void RegisterSounds( MountContext context )
+	{
+		AlienFootsteps.Register( context, "gorge" );
+		foreach ( var cue in new[] { "spit", "spit_hit", "babbler_ball_spit", "bilebomb", "bilebomb_hit", "heal_spray", "slide_loop", "create_structure_start", "spawn", "wound", "wound_serious", "death" } )
+		{
+			var id = $"alien/gorge/{cue}";
+			context.Add( ResourceType.GameResource, $"sounds/{id}.sound", new SparkSoundLoader( id ) );
+		}
+	}
+
+	internal static void Configure( GameObject root, SkinnedModelRenderer renderer )
+	{
+		var hull = new GameObject( root, true, "Collider" );
+		hull.Tags.Add( "playercontroller" );
+		var sphere = hull.AddComponent<SphereCollider>();
+		sphere.Center = Vector3.Up * (0.475f * Scale);
+		sphere.Radius = 0.5f * Scale;
+		var body = root.AddComponent<Rigidbody>();
+		body.MassOverride = 80;
+		body.EnableImpactDamage = false;
+		var agent = root.AddComponent<NavMeshAgent>();
+		agent.Radius = sphere.Radius;
+		agent.Height = 0.95f * Scale;
+		agent.Enabled = false;
+		root.AddComponent<NavigationLayer>().RunSpeed = 6 * Scale;
+		var senses = root.AddComponent<SensesLayer>();
+		senses.SightRange = 30 * Scale;
+		senses.FieldOfView = 360;
+		root.AddComponent<AnimationLayer>().EnableFootstepSounds = false;
+		var npc = root.AddComponent<Gorge>();
+		npc.Faction = Factions.Monster;
+		npc.Health = npc.BaseHealth;
+		npc.EyeHeight = 0.6f * Scale;
+		npc.DisplayName = "Gorge";
+		npc.Renderer = renderer;
+	}
+
+	protected override void OnStart()
+	{
+		base.OnStart();
+		if ( !Networking.IsHost ) return;
+		world = CreatePlayback( Renderer.Model.ResourcePath );
+		weapon = CreatePlayback( "mount://ns2/ns2/models/alien/gorge/gorge_view.model.vmdl" );
+		worldTag = tag => AlienFootsteps.OnTag( this, "gorge", tag );
+		weaponTag = OnWeaponTag;
+		AnimationTime = 0;
+		aim = WorldRotation;
+		nextHatch = 2.5f;
+		PlayCue( "spawn", WorldPosition );
+	}
+
+	protected override void Think()
+	{
+		var targeting = AlienTargeting.ForTeam( this );
+		var enemy = targeting.FindEnemy( this, out var lastSeen, static ( obj, _ ) =>
+			obj.Tags.HasAny( "structure", "ns2_mac" ) );
+		var threatPosition = enemy?.WorldPosition;
+		float combatWeight = AttackWeight( enemy );
+		bool fleeThrow = combatWeight < 20 && CanFleeThrow( enemy, enemy.IsValid() && lastSeen is null );
+		if ( fleeThrow ) combatWeight = 20;
+		bool structureThrow = false;
+		bool bombard = false;
+		if ( BileBombUnlocked || CanThrowBabblers( 4 ) )
+		{
+			var target = targeting.FindEnemy( this, out var lastSeenBile, static ( obj, _ ) =>
+				!obj.Tags.HasAny( "ns2_mac", "ns2_exo", "structure" ) || obj.GetComponent<AlienStructure>() is { IsBuilt: false } );
+			if ( target.IsValid() )
+			{
+				float bileWeight = BileBombUnlocked ? BombardWeight( target ) : 0;
+				float throwWeight = StructureThrowWeight( target, target.WorldPosition, threatPosition );
+				float weight = Math.Max( bileWeight, throwWeight );
+				if ( weight > combatWeight )
+				{
+					enemy = target;
+					lastSeen = lastSeenBile;
+					combatWeight = weight;
+					structureThrow = throwWeight > bileWeight;
+					bombard = !structureThrow;
+				}
+			}
+		}
+		var recipient = combatWeight < 5 ? FindDonationTarget( threatPosition ) : null;
+		const float followWeight = 1.25f;
+		var friend = combatWeight <= followWeight && !recipient.IsValid() ? FindEscort() : null;
+		bool visible = enemy.IsValid() && lastSeen is null;
+		bombarding = false;
+		float competingWeight = recipient.IsValid() ? 5 : combatWeight;
+		if ( friend.IsValid() ) competingWeight = followWeight;
+		const float plantWeight = 2.5f;
+		bool plant = competingWeight <= plantWeight && CanPlantHydra( threatPosition );
+		if ( plant ) competingWeight = plantWeight;
+		float retreatWeight = RetreatWeight();
+		if ( SupportAlly( Math.Max( retreatWeight, competingWeight ) ) )
+		{
+			throwing = false;
+			return;
+		}
+		if ( retreatWeight > competingWeight )
+		{
+			Retreat();
+			return;
+		}
+		if ( plant )
+		{
+			throwing = false;
+			PlantHydra();
+			return;
+		}
+		if ( recipient.IsValid() )
+		{
+			throwing = firing = true;
+			Movement.Stop();
+			Animation.SetLookTarget( recipient.GameObject );
+			return;
+		}
+		if ( friend.IsValid() )
+		{
+			assignedTarget = friend.GameObject;
+			throwing = firing = false;
+			FollowLifeform( friend );
+			return;
+		}
+		assignedTarget = enemy;
+		bombarding = bombard && visible && WorldPosition.Distance( enemy.WorldPosition ) <= 12 * Scale;
+		var goal = bombard || structureThrow ? enemy.WorldPosition : lastSeen ?? enemy?.WorldPosition;
+		throwing = fleeThrow || structureThrow && visible && WorldPosition.DistanceSquared( goal.Value ) <= 14 * 14 * Scale * Scale;
+		firing = structureThrow ? throwing : visible && (bombard ? bombarding : EyePosition.Distance( goal.Value ) <= 20 * Scale);
+		if ( goal is null )
+		{
+			Animation.SetLookTarget( null );
+			GameObject.GetOrAddComponent<AlienExploration>().Explore( Scale );
+			return;
+		}
+		Animation.SetLookTarget( visible && (!structureThrow || throwing) ? enemy : null );
+		if ( repath > 0 ) return;
+		repath = 0.2f;
+		float distance = EyePosition.Distance( goal.Value ) / Scale;
+		if ( structureThrow )
+		{
+			if ( throwing ) Movement.Stop();
+			else Movement.MoveTo( goal.Value, Scale );
+		}
+		else if ( fleeThrow )
+			Movement.MoveTo( WorldPosition + (WorldPosition - goal.Value).WithZ( 0 ).Normal * (3 * Scale), 0, faceTarget: enemy );
+		else if ( bombarding && distance < 8 && Random.Shared.NextSingle() < 0.9f )
+			Movement.MoveTo( WorldPosition - WorldRotation.Forward * (0.75f * Scale), 0, faceTarget: enemy );
+		else if ( !bombarding && visible && distance is > 5 and < 15 )
+			Movement.MoveTo( WorldPosition - WorldRotation.Forward * (1.5f * Scale), 0, faceTarget: enemy );
+		else if ( firing ) Movement.Stop();
+		else Movement.MoveTo( goal.Value, Scale, faceTarget: visible ? enemy : null );
+	}
+
+	float BombardWeight( GameObject target )
+	{
+		float health = HealthFraction( this );
+		float weight = 2.5f + StructureUrgency( target ) + personality.Aggression - (1 - health);
+		return underFire > 0 ? weight * 0.25f * health : weight;
+	}
+
+	static float StructureUrgency( GameObject target ) => target.Tags.Has( "ns2_exo" ) ? 2.5f : target.Tags.Has( "ns2_mac" ) ? 0.4f : 0;
+
+	BaseNpc escort;
+	TimeUntil checkEscort;
+
+	BaseNpc FindEscort()
+	{
+		if ( checkEscort > 0 ) return escort.IsValid() && escort.Health > 0 && !AlienTargeting.HasResponders( this, escort, 1 ) ? escort : null;
+		checkEscort = 0.25f;
+		escort = null;
+		float nearest = 30 * Scale;
+		foreach ( var npc in Scene.GetAllComponents<BaseNpc>() )
+		{
+			if ( npc is not (Skulk or Onos or Fade or Lerk) || npc.Health <= 0 || npc.Faction != Faction ||
+				npc.GameObject.Tags.Has( "ns2_hallucination" ) ) continue;
+			float distance = npc.WorldPosition.Distance( WorldPosition );
+			if ( distance > nearest || AlienTargeting.HasResponders( this, npc, 1 ) ) continue;
+			nearest = distance;
+			escort = npc;
+		}
+		return escort;
+	}
+
+	void FollowLifeform( BaseNpc escort )
+	{
+		float nearest = WorldPosition.Distance( escort.WorldPosition );
+		Animation.SetLookTarget( nearest >= 2.5f * Scale && nearest <= 6 * Scale ? escort.GameObject : null );
+		if ( nearest > 6 * Scale ) Movement.MoveTo( escort.WorldPosition, 0 );
+		else if ( nearest < 2.5f * Scale ) Movement.MoveTo( WorldPosition + (WorldPosition - escort.WorldPosition).Normal * (2 * Scale), 0 );
+		else Movement.Stop();
+	}
+
+	protected override void OnUpdate()
+	{
+		if ( GameObject.IsDestroyed ) return;
+		base.OnUpdate();
+		UpdateSlideSound();
+		var output = Renderer.Animation.IsValid ? Renderer.Animation.Parameters : null;
+		output?.Set( "belly_yaw", bellyYaw * 45 );
+		output?.Set( "move_speed", Animation.MoveVelocity.Length / (6 * Scale) );
+		if ( !Networking.IsHost )
+		{
+			if ( output is null ) return;
+			movePose.Write( Locomotion, output, AnimationTime );
+			attackPose.Write( ActionLayer, output, AnimationTime );
+			return;
+		}
+		if ( Health <= 0 ) return;
+		UpdateBrood();
+		if ( wounds.Update() is { } cue ) PlayCue( cue, WorldPosition );
+		Regenerate( underFire > 0 );
+		if ( world is null || weapon is null ) return;
+		energy = Math.Min( 100, energy + GetEnergyRechargeRate( 13 ) * Time.Delta );
+		var target = Animation.LookObject;
+		var direction = target.IsValid() ? CalculateAimPoint( target ) - EyePosition : WorldRotation.Forward;
+		if ( wantsSpray && target.IsValid() )
+		{
+			float distance = Math.Min( EyePosition.Distance( target.WorldPosition ) / Scale, 1 );
+			var velocity = target.GetComponent<BaseNpc>()?.Animation?.MoveVelocity ?? target.GetComponent<Rigidbody>()?.Velocity ?? Vector3.Zero;
+			direction += velocity * (distance * 0.6f);
+		}
+		if ( bombarding )
+		{
+			float speed = 11 * Scale + Animation.MoveVelocity.Length;
+			float time = direction.WithZ( 0 ).Length / speed;
+			direction.z += 0.5f * 9.81f * Scale * time * time;
+		}
+		bool ready = false;
+		if ( target.IsValid() && (firing || wantsSpray) && AllowsAttack( target ) )
+		{
+			if ( throwing && IsFleeTarget( target ) )
+				ready = Vector3.Dot( aim.Forward, direction.Normal ) > 0.9f;
+			else if ( !bombarding || energy > ShotCost )
+			{
+				var point = EyePosition + (bombarding ? direction.Normal * Scale : direction);
+				ready = acquisition.Track( this, target, point, aim, AimSkillTier, BotWeaponAim.Weapon.Spit, out var sampled );
+				if ( sampled.HasValue && !(ready && wantsSpray) ) direction = sampled.Value - EyePosition;
+			}
+		}
+		aim = AlienAim.Turn( aim, direction, acquisition.TurnRate );
+		primaryHeld = firing && ready && (bombarding ? energy > ShotCost : energy >= ShotCost);
+		UpdateSprayInput( ready );
+		var activity = secondaryAttacking && energy >= 10 || sprayAnimation > 0 ? "secondary" : primaryHeld ? "primary" : "none";
+		var move = sliding ? "belly" : !Animation.IsGrounded ? "jump" : Movement.IsMoving ? "run" : "idle";
+		world.Set( "move", move );
+		world.Set( "alive", 1 );
+		world.Set( "ability", bombarding ? "bomb" : "spit" );
+		world.Set( "attack_speed", 1 );
+		world.Set( "activity", activity );
+		world.Update( AnimationTime, output, worldTag );
+		movePose = world.GetPose( 0 );
+		attackPose = world.GetPose( 1 );
+		weapon.Set( "move", move );
+		weapon.Set( "ability", bombarding ? "bomb" : "spit" );
+		weapon.Set( "attack_speed", 1 );
+		weapon.Set( "activity", activity );
+		weapon.Update( AnimationTime, tag: weaponTag );
+	}
+
+	internal void RecordSpit( bool hit ) => acquisition.Record( hit );
+
+	internal void DirectBabblersTo( GameObject enemy )
+	{
+		foreach ( var babbler in brood )
+			if ( babbler.IsValid() && babbler.ClingSlot == 0 && babbler.WorldPosition.DistanceSquared( WorldPosition ) <= 8 * 8 * Scale * Scale )
+				babbler.Dispatch( enemy, enemy.WorldPosition );
+	}
+
+	void OnWeaponTag( string tag )
+	{
+		if ( tag == "heal" && secondaryAttacking && energy >= 10 ) Spray();
+		if ( tag != "shoot" || !primaryHeld || energy < ShotCost ) return;
+		energy -= ShotCost;
+		if ( throwing ) ThrowBabblers();
+		else GorgeProjectile.Fire( this, aim, bombarding );
+	}
+
+	protected override void OnDeath( IDamageable.DeathEvent e )
+	{
+		PlayCue( "death", WorldPosition );
+		base.OnDeath( e );
+	}
+
+	[Rpc.Broadcast( NetFlags.HostOnly )]
+	internal static void PlayCue( string cue, Vector3 position )
+	{
+		if ( GameResource.Load<SoundEvent>( $"mount://ns2/sounds/alien/gorge/{cue}.sound" ) is { } sound )
+			Sound.Play( sound, position );
+	}
+}

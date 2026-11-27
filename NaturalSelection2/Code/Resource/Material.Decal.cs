@@ -8,7 +8,12 @@ public partial class MaterialLoader
 	protected override ResourceLoader ResolveChild( string name, out ResourceType type )
 	{
 		type = ResourceType.GameResource;
-		return name == "projected.decal" ? new ProjectedDecalLoader() : null;
+		return name switch
+		{
+			"projected.decal" => new ProjectedDecalLoader(),
+			"particle.sprite" => new ParticleSpriteLoader(),
+			_ => null
+		};
 	}
 
 	sealed class ProjectedDecalLoader : ResourceLoader<GameMount>
@@ -16,7 +21,7 @@ public partial class MaterialLoader
 		protected override object Load()
 		{
 			var material = (MaterialLoader)Parent;
-			var properties = Parse( Host.ReadAllBytes( material.FilePath ) );
+			var properties = material.Properties;
 			var shader = System.IO.Path.GetFileNameWithoutExtension( Find( properties, "shader" ).String )?.ToLowerInvariant();
 			var wet = shader is "wetmap" or "wetmapdecal";
 			var lettering = shader == "name_decals";

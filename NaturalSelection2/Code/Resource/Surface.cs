@@ -12,6 +12,9 @@ internal sealed class SurfaceLoader( string name ) : ResourceLoader<GameMount>
 	internal static string PathFor( string name ) => $"mount://ns2/surfaces/ns2_{name}.surface";
 	internal static string Normalize( string name ) => Array.IndexOf( Names, name ) >= 0 ? name : "metal";
 
+	internal static string FootstepMaterial( Surface surface ) =>
+		surface?.ResourceName is { } name && name.StartsWith( "ns2_", StringComparison.Ordinal ) ? Footsteps( name[4..] ) : "metal";
+
 	static string Footsteps( string surface ) => surface switch
 	{
 		"organic" or "infestation" => "organic",
@@ -29,7 +32,7 @@ internal sealed class SurfaceLoader( string name ) : ResourceLoader<GameMount>
 		_ => "organic" // DamageEffects.lua's generic bullet impact.
 	};
 
-	static string SoundPath( string id ) => $"sounds/surfaces/{id}.sound";
+	internal static string SoundPath( string id ) => $"sounds/surfaces/{id}.sound";
 
 	internal static void Register( MountContext context )
 	{
@@ -39,14 +42,14 @@ internal sealed class SurfaceLoader( string name ) : ResourceLoader<GameMount>
 			context.Add( ResourceType.GameResource, $"surfaces/ns2_{name}.surface", new SurfaceLoader( name ) );
 			var steps = Footsteps( name );
 			var impact = Impact( name );
-			foreach ( var slot in new[] { "footstep_left", "footstep_right", "fall" } )
+			foreach ( var slot in new[] { "footstep_left", "footstep_right", "footstep_left_for_enemy", "footstep_right_for_enemy", "backpedal_left", "backpedal_right", "fall" } )
 				sounds.Add( $"materials/{steps}/{slot}" );
 			sounds.Add( $"materials/{impact}/ricochet" );
 			sounds.Add( $"materials/{(impact == "door" ? "organic" : impact)}/bash" );
 		}
 		sounds.Add( "marine/common/jump" );
 		foreach ( var id in sounds )
-			context.Add( ResourceType.GameResource, SoundPath( id ), new SurfaceSoundLoader( id ) );
+			context.Add( ResourceType.GameResource, SoundPath( id ), new SparkSoundLoader( id ) );
 	}
 
 	protected override object Load()
@@ -60,6 +63,8 @@ internal sealed class SurfaceLoader( string name ) : ResourceLoader<GameMount>
 			"thin_metal" or "light_metal" => "metal.sheet", _ => "metal"
 		};
 		var basis = GameResource.Load<Surface>( $"surfaces/{baseName}.surface" );
+		// During game bootstrap the core surfaces may not be mounted yet. Let the resource load retry then.
+		if ( basis is null ) return null;
 		var sounds = basis.SoundCollection;
 		SoundEvent Sound( string id ) => GameResource.Load<SoundEvent>( $"mount://ns2/{SoundPath( id )}" );
 		sounds.FootLeft = Sound( $"materials/{steps}/footstep_left" );
@@ -78,15 +83,27 @@ internal sealed class SurfaceLoader( string name ) : ResourceLoader<GameMount>
 	}
 }
 
-internal sealed class SurfaceSoundLoader( string id ) : ResourceLoader<GameMount>
+internal sealed class SparkSoundLoader( string id, int? layerIndex = null ) : ResourceLoader<GameMount>
 {
 	protected override object Load()
 	{
 		var e = Host.FindSoundEvent( $"sound/NS2.fev/{id}" );
 		var sound = new SoundEvent { Sounds = [], SelectionMode = SoundEvent.SoundSelectionMode.RandomExclusive };
-		var layer = e?.Layers.FirstOrDefault( x => x.Playlist.Waves.Length > 0 );
+		var layer = layerIndex is int index ? e?.Layers.ElementAtOrDefault( index ) : e?.Layers.FirstOrDefault( x => x.Playlist.Waves.Length > 0 );
 		if ( layer is null ) return sound; // Some shipped event slots are empty.
 		var settings = layer.Playlist.Settings;
+		if ( layerIndex.HasValue )
+		{
+			if ( settings.Order == 3 ) sound.SelectionMode = SoundEvent.SoundSelectionMode.Random;
+			var volumeCurve = layer.Envelopes.FirstOrDefault( x => x.ParameterName == "(distance)" && x.Effect == SoundProject.Effect.Volume );
+			if ( volumeCurve is { Max: > 0 } )
+			{
+				sound.Distance = volumeCurve.Max * MapLoader.Scale;
+				sound.FalloffMode = SoundFalloffMode.Curve;
+				sound.Falloff = new Curve( volumeCurve.Points.Select( p => new Curve.Frame(
+					(volumeCurve.Min + p.x * (volumeCurve.Max - volumeCurve.Min)) / volumeCurve.Max, p.y ) { Mode = Curve.HandleMode.Linear } ) );
+			}
+		}
 		var volume = e.Volume * layer.Volume * settings.Volume;
 		var pitch = e.Pitch + layer.Pitch + settings.Pitch;
 		var variation = e.PitchRandom + settings.PitchRandom;
@@ -94,7 +111,8 @@ internal sealed class SurfaceSoundLoader( string id ) : ResourceLoader<GameMount
 		sound.Pitch = new RangedFloat( MathF.Pow( 2, pitch - variation ), MathF.Pow( 2, pitch + variation ) );
 		foreach ( var wave in layer.Playlist.Waves )
 		{
-			var file = SoundFile.Load( $"mount://ns2/{wave.Path}.vsnd" );
+			var path = $"mount://ns2/{wave.Path}.vsnd";
+			var file = SoundFile.Load( layer.LoopsWave ? $"{path}/loop.vsnd" : path );
 			if ( file is not null ) sound.Sounds.Add( file );
 		}
 		return sound;

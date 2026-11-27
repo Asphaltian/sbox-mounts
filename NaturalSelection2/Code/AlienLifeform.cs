@@ -1,0 +1,113 @@
+using System;
+
+namespace NS2;
+
+public abstract partial class AlienLifeform : AlienNpc, Component.IDamageable, Component.IDamageable.IEvents
+{
+	private protected SparkAnimationGraph.Playback world;
+	[Sync( SyncFlags.FromHost )] protected TimeSince AnimationTime { get; set; }
+	bool railgunDeath;
+
+	private protected readonly AlienWounds wounds = new();
+	protected TimeUntil underFire;
+	protected Vector3 LastDamageOrigin { get; private set; }
+	TimeUntil dealtDamageRecently;
+
+	void IDamageable.IEvents.OnDamaged( IDamageable.DamageEvent hit )
+	{
+		if ( !Networking.IsHost || hit.AcceptedDamage <= 0 ) return;
+		if ( hit.Instigator == GameObject ) dealtDamageRecently = 3;
+	}
+
+	internal bool InCombat => underFire > 0 || dealtDamageRecently > 0;
+
+	protected override void OnDamaging( IDamageable.DamageEvent hit )
+	{
+		float armor = ((IDamageable)this).Armour;
+		// Armor-only hits with armor remaining are settled in OnDamaged.
+		if ( shieldAtRefresh > 0 && (armor <= 0 || AlienArmor.ArmorOnlyScale( hit.DamageInfo ) == 0) )
+			hit.AcceptedDamage = AbsorbOverShield( hit.DamageInfo, hit.AcceptedDamage );
+		hit.AcceptedDamage *= AlienArmor.UmbraScale( hit );
+		AbsorbBabblerShield( hit );
+		AlienArmor.ApplyPlayerRules( hit, this, armor );
+		if ( hit.Cancelled || hit.AcceptedDamage <= 0 ) return;
+		hit.AcceptedDamage = BlockDamage( hit.DamageInfo, hit.AcceptedDamage );
+		AlienArmor.Absorb( hit, armor );
+	}
+
+	protected virtual float BlockDamage( DamageInfo hit, float damage ) => damage;
+
+	protected override void OnDamaged( IDamageable.DamageEvent hit )
+	{
+		float armorOnlyScale = AlienArmor.ArmorOnlyScale( hit.DamageInfo );
+		float armorOnlyDamage = armorOnlyScale > 0 ? AbsorbOverShield( hit.DamageInfo, hit.DamageInfo.Damage ) * armorOnlyScale * AlienArmor.UmbraScale( hit ) : 0;
+		var hp = (IDamageable)this;
+		if ( armorOnlyDamage > 0 ) armorOnlyDamage = BlockDamage( hit.DamageInfo, Math.Min( armorOnlyDamage, hp.Armour * 2 ) );
+		if ( hit.AcceptedDamage <= 0 && armorOnlyDamage <= 0 ) return;
+		hp.Armour -= wounds.ApplyDamage( hit, hp.Armour, MaxHealth, hp.MaxArmour, armorOnlyDamage );
+		RecordIncomingDamage( hit.DamageInfo );
+	}
+
+	void RecordIncomingDamage( DamageInfo hit )
+	{
+		LastDamageOrigin = hit.Attacker.IsValid() && hit.Weapon == hit.Attacker ? hit.Attacker.WorldPosition : hit.Origin;
+		underFire = 3;
+	}
+
+	protected abstract int BaseHealth { get; }
+	protected abstract int MaxArmor { get; }
+	[Property, Range( 0, 3 ), Sync( SyncFlags.FromHost )] public int CarapaceShells { get; set; }
+	[Sync( SyncFlags.FromHost )] float armorFraction { get; set; } = 1;
+
+	public float Armor => armorFraction * MaxArmor;
+	float IDamageable.MaxArmour => MaxArmor;
+	float IDamageable.Armour { get => Armor; set => armorFraction = Math.Clamp( value / MaxArmor, 0, 1 ); }
+
+	protected int GetArmorLimit( int baseArmor, int carapaceBonus, float bonusPerBiomass )
+	{
+		float bonus = carapaceBonus + Math.Clamp( BiomassLevel, 0, 12 ) * bonusPerBiomass;
+		return baseArmor + (int)(bonus * Math.Clamp( CarapaceShells, 0, 3 ) / 3);
+	}
+
+	[Property, Range( 0, 3 ), Sync( SyncFlags.FromHost )] public int CeleritySpurs { get; set; }
+	protected int CelerityLevel => Math.Clamp( CeleritySpurs, 0, 3 );
+	protected float CeleritySpeedBonus => CelerityLevel * 0.5f;
+
+	[Property, Range( 0, 3 ), Sync( SyncFlags.FromHost )] public int AdrenalineSpurs { get; set; }
+
+	protected float GetEnergyRechargeRate( float fullAdrenalineRate )
+		=> 10 + (fullAdrenalineRate - 10) * Math.Clamp( AdrenalineSpurs, 0, 3 ) / 3;
+
+	[Property, Range( 0, 3 ), Sync( SyncFlags.FromHost )] public int RegenerationShells { get; set; }
+	[Sync( SyncFlags.FromHost )] TimeUntil nextHeal { get; set; }
+
+	protected void Regenerate( bool underFire )
+	{
+		if ( nextHeal > 0 ) return;
+		nextHeal = 2;
+		if ( underFire ) return;
+
+		int shells = Math.Clamp( RegenerationShells, 0, 3 );
+		float amount = shells == 0 ? Math.Clamp( BaseHealth * 0.02f, 1, 20 )
+			: Math.Clamp( BaseHealth * 0.06f, 6, 80 ) * shells / 3;
+		AlienHealing.Restore( this, amount, 0.5f, feedback: shells > 0 ? HealFeedback.Self : HealFeedback.Hidden );
+	}
+
+	protected override void OnDeath( IDamageable.DeathEvent e )
+	{
+		while ( brood.Count > 0 ) BreakBabbler( brood[0] );
+		railgunDeath = e.DamageInfo.Tags.Has( "railgun" );
+		if ( railgunDeath ) ShowRailgunDeath( GetType().Name.ToLowerInvariant(), WorldPosition );
+		base.OnDeath( e );
+	}
+
+	[Rpc.Broadcast( NetFlags.HostOnly )]
+	static void ShowRailgunDeath( string lifeform, Vector3 position ) =>
+		CinematicLoader.Play( $"cinematics/alien/{lifeform}/explode.cinematic", position, Rotation.Identity );
+
+	protected override GameObject CreateRagdoll()
+	{
+		if ( world is null ) return railgunDeath ? null : NpcCorpse.Attach( base.CreateRagdoll(), 3f );
+		return NpcCorpse.AnimatePlayer( Renderer, world, AnimationTime, railgunDeath );
+	}
+}
