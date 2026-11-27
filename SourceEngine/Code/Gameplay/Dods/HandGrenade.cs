@@ -13,6 +13,7 @@ public sealed class HandGrenade : Weapon
 
 	public override bool CanPrimaryAttack() => _dropAt is null && base.CanPrimaryAttack();
 	public override bool CanSecondaryAttack() => false;
+	internal override bool ShouldPlayIdle => _dropAt is null;
 	internal override bool UseEmptyAttack => Live;
 	internal override bool UseEmptyIdle => Live || _dropAt.HasValue;
 
