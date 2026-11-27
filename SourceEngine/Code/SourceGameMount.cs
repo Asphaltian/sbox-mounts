@@ -7,6 +7,7 @@ public abstract partial class SourceGameMount : BaseGameMount
 	public abstract long AppId { get; }
 	public override long? SteamAppId => AppId;
 	protected abstract string ContentDirectory { get; }
+	protected internal virtual string FallbackCubemap => null;
 
 	private FileIndex index = new();
 	private readonly object indexLock = new();

@@ -79,16 +79,17 @@ internal sealed partial class SourceMaterialBuilder
 	private SurfaceTexture LoadEnvironmentTexture( string path, int frame )
 	{
 		path = VmtFile.NormalizePath( path, ".vtf" );
-		var hdr = path.EndsWith( ".hdr.vtf", System.StringComparison.OrdinalIgnoreCase ) ? path : path[..^4] + ".hdr.vtf";
-		if ( Host.GetContentPath( hdr, contentRoot ) is not null )
-			path = hdr;
-		else if ( Host.GetContentPath( path, contentRoot ) is null && Host is GarrysMod.Mount )
-		{
-			Log.Trace( $"{FullPath}: environment texture '{path}' was not found; using GMod's default cubemap." );
-			path = Host.GetContentPath( "materials/engine/defaultcubemap.hdr.vtf", contentRoot ) is not null
-				? "materials/engine/defaultcubemap.hdr.vtf" : "materials/engine/defaultcubemap.vtf";
-		}
+		path = PreferHdr( path );
+		if ( Host.FallbackCubemap is { } fallback && Host.GetContentPath( path, contentRoot ) is null )
+			path = PreferHdr( fallback );
 		return LoadSurfaceTexture( path, frame );
+
+		string PreferHdr( string path )
+		{
+			if ( path.EndsWith( ".hdr.vtf", System.StringComparison.OrdinalIgnoreCase ) ) return path;
+			var hdr = path[..^4] + ".hdr.vtf";
+			return Host.GetContentPath( hdr, contentRoot ) is null ? path : hdr;
+		}
 	}
 
 	private static bool IsFramebufferTexture( string path ) => path?.Trim().Equals( "_rt_fullframefb", System.StringComparison.OrdinalIgnoreCase ) == true;

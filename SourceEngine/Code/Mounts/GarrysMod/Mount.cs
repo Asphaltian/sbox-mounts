@@ -4,6 +4,7 @@ namespace Source1.GarrysMod;
 
 public sealed class Mount : SourceGameMount
 {
+	protected internal override string FallbackCubemap => "materials/engine/defaultcubemap.vtf";
 	protected override string ContentDirectory => "garrysmod";
 	protected override string WeaponScriptPrefix => "scripts/weapons/";
 	public override string Ident => "gmod";
