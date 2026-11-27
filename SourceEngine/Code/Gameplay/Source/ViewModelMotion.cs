@@ -35,7 +35,7 @@ public sealed class ViewModelMotion : Component
 		angles += new Angles( -vertical * 0.4f, -lateral * 0.3f, vertical * 0.5f );
 	}
 
-	internal void Apply( ref CameraView eye, PlayerController owner, bool mirrored )
+	internal void Apply( ref CameraView eye, PlayerController owner, bool mirrored, float sway )
 	{
 		var now = Time.NowDouble;
 		var angles = eye.Rotation.Angles();
@@ -61,6 +61,6 @@ public sealed class ViewModelMotion : Component
 		var turn = angles - lagged.Angles();
 		if ( mirrored ) turn.yaw = -turn.yaw;
 		if ( float.IsFinite( SwayScale ) )
-			eye.Position += rotation * ((Vector3.Forward - turn.Forward) * SwayScale);
+			eye.Position += rotation * ((Vector3.Forward - turn.Forward) * (SwayScale * sway));
 	}
 }

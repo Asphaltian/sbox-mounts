@@ -5,6 +5,7 @@ public class Rifle : Firearm
 	[Sync, Change( nameof( OnAimChanged ) )] public bool Aiming { get; protected set; }
 
 	TimeSince _sinceAimChanged = 1;
+	float _zoomStart;
 	protected virtual float SightFov => 55;
 	protected bool Sighted => Aiming && _sinceAimChanged >= 0.3f;
 	protected override float? Accuracy => Sighted ? Setup.Data?.SecondaryAccuracy ?? base.Accuracy : base.Accuracy;
@@ -19,7 +20,11 @@ public class Rifle : Firearm
 		SetNextSecondaryFire( 0.5f );
 	}
 
-	void OnAimChanged( bool before, bool after ) => _sinceAimChanged = 0;
+	void OnAimChanged( bool before, bool after )
+	{
+		_zoomStart = ZoomAt( before );
+		_sinceAimChanged = 0;
+	}
 
 	protected override void OnHolstered()
 	{
@@ -33,18 +38,34 @@ public class Rifle : Firearm
 		base.OnReloadStarted();
 	}
 
-	internal override Vector3 ViewOffset( Vector3 offset ) => SightOffset( offset, AimFraction( 0, 0.3f ) );
-
-	float AimFraction( float delay, float duration )
+	internal override Vector3 ViewOffset( Vector3 offset )
 	{
-		var t = (((float)_sinceAimChanged - delay) / duration).Clamp( 0, 1 );
-		return Aiming ? t : 1 - t;
+		var t = ((float)_sinceAimChanged / 0.3f).Clamp( 0, 1 );
+		return SightOffset( offset, Aiming ? t : 1 - t );
 	}
+
+	protected float ZoomFraction => ZoomAt( Aiming );
+
+	float ZoomAt( bool aiming )
+	{
+		var t = (((float)_sinceAimChanged - (aiming ? 0.3f : 0)) / 0.1f).Clamp( 0, 1 );
+		return float.Lerp( _zoomStart, aiming ? 1 : 0, t * t * (3 - 2 * t) );
+	}
+
+	internal override float ViewModelFovOffset => (90 - SightFov) * ZoomFraction;
+	internal override float ViewModelSway => Sighted ? 0 : 1;
+
+	protected override float LookScale => float.Lerp( 1, SightFov / 90, ZoomFraction );
 
 	protected override void ModifyCamera( CameraComponent camera, ref CameraView view )
 	{
 		base.ModifyCamera( camera, ref view );
-		view.FieldOfView = float.Lerp( view.FieldOfView, ZoomedFov( view.FieldOfView, SightFov ), AimFraction( Aiming ? 0.3f : 0, 0.1f ) );
+		var fraction = ZoomFraction;
+		if ( fraction <= 0 ) return;
+		var rect = camera.ScreenRect;
+		var aspect = rect.Height > 0 ? rect.Width / rect.Height : Screen.Aspect;
+		var scale = camera.FovAxis == CameraComponent.Axis.Vertical ? 0.75f : aspect * 0.75f;
+		view.FieldOfView = float.Lerp( view.FieldOfView, Screen.CreateVerticalFieldOfView( SightFov, scale ), fraction );
 	}
 
 	public override void DrawCrosshair( Painter painter, Vector2 center )

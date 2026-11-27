@@ -6,6 +6,7 @@ public sealed class ScopedRifle : BoltRifle
 	[Property] public bool DrawScopeLines { get; set; }
 
 	protected override float SightFov => 20;
+	internal override float ViewModelFovOffset => 0;
 	TimeUntil? _reaim;
 	Texture[] _quadrants;
 
@@ -36,7 +37,7 @@ public sealed class ScopedRifle : BoltRifle
 		base.OnHolstered();
 	}
 
-	bool ShowScope => Sighted && Owner.IsValid() && !Owner.ThirdPerson;
+	bool ShowScope => ZoomFraction > 0 && Owner.IsValid() && !Owner.ThirdPerson;
 
 	protected override void OnUpdate()
 	{
@@ -54,27 +55,30 @@ public sealed class ScopedRifle : BoltRifle
 			MountedEffects.SpriteTexture( $"sprites/scopes/{ScopeSprite}_{corner}", MountContent.OfWeapon( this ) ) ).ToArray();
 
 		var size = Scene.Camera.ScreenRect.Size;
-		var half = new Vector2( size.y * 2 / 3, size.y / 2 );
-		var left = size.x / 2 - half.x;
+		var center = new Vector2( (int)size.x / 2, (int)size.y / 2 );
+		var halfWidth = (int)(size.y / 3) * 2;
+		var left = center.x - halfWidth;
+		var right = center.x + halfWidth;
 		using var scope = painter.Scope();
 		painter.Fill = Color.Black;
 		painter.Stroke = Stroke.None;
 		if ( left > 0 )
 		{
-			painter.Rect( new Rect( 0, 0, left, size.y ) );
-			painter.Rect( new Rect( size.x - left, 0, left, size.y ) );
+			painter.Rect( new Rect( 0, 0, left + 1, size.y ) );
+			painter.Rect( new Rect( right - 1, 0, size.x - right + 1, size.y ) );
 		}
 		for ( var i = 0; i < _quadrants.Length; i++ )
 		{
 			if ( !_quadrants[i].IsValid() ) continue;
-			var position = new Vector2( left + (i % 2) * half.x, (i / 2) * half.y );
-			painter.Texture( _quadrants[i], new Rect( position, half ), Color.Black );
+			var x = i % 2 == 0 ? left : center.x;
+			var y = i < 2 ? 0 : center.y;
+			var height = i < 2 ? center.y : size.y - center.y;
+			painter.Texture( _quadrants[i], new Rect( x, y, halfWidth, height ), Color.Black );
 		}
 		if ( DrawScopeLines )
 		{
-			painter.Stroke = Stroke.Solid( Color.Black, 1 );
-			painter.Line( new( 0, half.y ), new( size.x, half.y ) );
-			painter.Line( new( size.x / 2, 0 ), new( size.x / 2, size.y ) );
+			painter.Rect( new Rect( 0, center.y, size.x, 1 ) );
+			painter.Rect( new Rect( center.x, 0, 1, size.y ) );
 		}
 	}
 }

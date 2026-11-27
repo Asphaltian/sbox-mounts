@@ -4,6 +4,7 @@ public sealed class RocketLauncher : Firearm
 {
 	[Property] public string RocketModel { get; set; }
 	[Sync, Change( nameof( OnShouldered ) )] public bool Shouldered { get; private set; }
+	protected override float LookScale => Shouldered ? 0.6f : 1;
 	internal override bool UsesDeployedClips => Shouldered;
 
 	public override bool HasSecondaryAmmo() => true;

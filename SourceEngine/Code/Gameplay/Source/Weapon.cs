@@ -82,6 +82,8 @@ public abstract class Weapon : BaseCombatWeapon
 
 	internal virtual string BrassForEvent( SourceModelSequenceData.Event e ) => null;
 	internal virtual bool UsesDeployedClips => false;
+	internal virtual float ViewModelFovOffset => 0;
+	internal virtual float ViewModelSway => 1;
 	internal virtual Vector3 ViewOffset( Vector3 offset ) => offset;
 
 	internal virtual bool UseEmptyAttack => false;
@@ -308,10 +310,10 @@ public abstract class Weapon : BaseCombatWeapon
 
 		var placement = _viewModelView;
 		var owner = Owner;
-		if ( owner.IsValid() ) owner.GetOrAddComponent<ViewModelMotion>().Apply( ref placement, owner, model.Mirrored );
+		if ( owner.IsValid() ) owner.GetOrAddComponent<ViewModelMotion>().Apply( ref placement, owner, model.Mirrored, ViewModelSway );
 		model.Place( placement );
 		model.FollowCameraEffects( camera, view );
-		model.ApplyLens( camera, view, owner?.GetComponent<Zoom>()?.ViewModelFovOffset ?? 0 );
+		model.ApplyLens( camera, view, ViewModelFovOffset + (owner?.GetComponent<Zoom>()?.ViewModelFovOffset ?? 0) );
 		OnViewModelPlaced( model );
 	}
 

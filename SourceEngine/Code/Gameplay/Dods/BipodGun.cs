@@ -6,6 +6,7 @@ public class BipodGun : Firearm
 
 	Vector3 _rest;
 	TimeUntil _checkRest;
+	protected override float LookScale => Deployed ? 0.9f : 1;
 	internal override bool UsesDeployedClips => Deployed;
 	protected override float? Accuracy => Deployed ? Setup.Data?.SecondaryAccuracy : base.Accuracy;
 

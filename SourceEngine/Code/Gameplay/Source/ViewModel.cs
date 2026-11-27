@@ -64,6 +64,7 @@ public sealed class ViewModel : BaseWeaponModel
 
 	Vector2 _lookAngles;
 	Vector2 _lookVelocity;
+	Vector3 _placementOffset;
 	bool _lookInertiaFirstUpdate = true;
 	AnimationPlayer _animation;
 	WeaponClips _clips;
@@ -249,6 +250,9 @@ public sealed class ViewModel : BaseWeaponModel
 		var lens = MathF.Tan( (Math.Clamp( FieldOfView - fovOffset, 0.1f, 179f ) * 0.5f).DegreeToRadian() ) * 0.75f;
 		var stretch = tangent / lens;
 		WorldScale = new Vector3( 1, stretch, stretch );
+		// The viewmodel lens projects translations from the eye as well as the mesh itself.
+		var fromEye = view.Rotation.Inverse * _placementOffset;
+		WorldPosition += view.Rotation * (fromEye * WorldScale - fromEye);
 		UpdateWorldMuzzle();
 		foreach ( var (attachment, anchor) in _effectAnchors )
 			PlaceEffectAnchor( attachment, anchor );
@@ -721,7 +725,8 @@ public sealed class ViewModel : BaseWeaponModel
 			_lookVelocity = Vector2.Zero;
 		}
 
-		WorldPosition = view.Position + pivotOffset + rotation * (_weapon is Weapon weaponWithOffset ? weaponWithOffset.ViewOffset( PositionOffset ) : PositionOffset);
+		_placementOffset = rotation * (_weapon is Weapon weaponWithOffset ? weaponWithOffset.ViewOffset( PositionOffset ) : PositionOffset);
+		WorldPosition = view.Position + pivotOffset + _placementOffset;
 		WorldRotation = rotation;
 	}
 

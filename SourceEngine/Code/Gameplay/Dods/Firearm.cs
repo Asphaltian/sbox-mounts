@@ -2,7 +2,7 @@ using System;
 
 namespace Source1.Dods;
 
-public class Firearm : BulletWeapon
+public class Firearm : BulletWeapon, PlayerController.IEvents
 {
 	internal override string BrassForEvent( SourceModelSequenceData.Event e ) => e.Id == 6002 ? e.Options switch
 	{
@@ -14,6 +14,13 @@ public class Firearm : BulletWeapon
 	} : null;
 
 	protected override bool UseSpreadDisk => true;
+
+	protected virtual float LookScale => 1;
+
+	void PlayerController.IEvents.OnEyeAngles( ref Angles input )
+	{
+		if ( IsActive ) input *= LookScale;
+	}
 
 	protected virtual float? Accuracy => Setup.Data?.Accuracy;
 
