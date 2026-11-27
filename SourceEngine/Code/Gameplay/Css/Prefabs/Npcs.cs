@@ -27,9 +27,9 @@ public static class Npcs
 				var npc = p.Npc<CombatNpc>();
 				p.Navigation( radius: 16, run: 180, walk: 85 );
 				p.Root.GetComponent<SensesLayer>( true ).SightRange = 8192;
-				var npcSpawnChoice = p.Root.AddComponent<NpcSpawnChoice>();
-				npcSpawnChoice.ModelChoices = [.. models];
-				npcSpawnChoice.Team = team;
+				var choice = p.Root.AddComponent<SpawnChoice>();
+				choice.ModelChoices = [.. models];
+				choice.Team = team;
 
 				npc.Friendly = friendly;
 				npc.PatrolRadius = 2048;
