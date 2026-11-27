@@ -389,7 +389,7 @@ static partial class WeaponEffects
 		}
 		var go = new GameObject( false, "HL2 shell" );
 		go.NetworkMode = NetworkMode.Never;
-		go.Tags.Add( "debris" );
+		go.Tags.Add( "debris", "nocollide_props" );
 		go.WorldTransform = new Transform( position, facing );
 		go.AddComponent<ModelRenderer>().Model = mesh;
 		var collider = go.AddComponent<BoxCollider>();
