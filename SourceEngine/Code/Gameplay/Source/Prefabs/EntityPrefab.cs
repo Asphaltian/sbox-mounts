@@ -108,7 +108,8 @@ internal sealed class EntityPrefab( GameObject root, SourceGameMount mount, Enti
 		var view = root.AddComponent<ViewModel>();
 		AddModel( new GameObject( root, true, "Viewmodel" ), bones: true );
 		Renderer.RenderOptions.Game = false;
-		Renderer.RenderOptions.Overlay = true;
+		// The viewmodel enables the overlay when it initializes its first pose.
+		Renderer.RenderOptions.Overlay = false;
 		Renderer.RenderType = ModelRenderer.ShadowRenderType.Off;
 		view.Renderer = Renderer;
 		view.MuzzleEffect = view.TracerEffect = null;

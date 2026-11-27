@@ -142,6 +142,7 @@ public sealed class ViewModel : BaseWeaponModel
 		_animation?.Dispose();
 		_animation = new();
 		_animation.EventFired += OnSequenceEvent;
+		Renderer.RenderOptions.Overlay = true;
 		UpdateHands();
 	}
 
@@ -292,7 +293,7 @@ public sealed class ViewModel : BaseWeaponModel
 			DrawnDirection( port.Up ), speed, Scene.Camera.WorldRotation, inherited, _mount );
 	}
 
-	void Play( string name, bool redraw = false )
+	void Play( string name, bool redraw = false, bool restart = true )
 	{
 		_pending = name;
 		_animation ??= new();
@@ -304,7 +305,7 @@ public sealed class ViewModel : BaseWeaponModel
 			var duration = name == _clips.Reload && _clips.Incremental ? weapon.ReloadStartTime : weapon.ReloadTime;
 			rate = duration > 0 ? clip.Duration / duration : 1;
 		}
-		_animation.Play( name, rate, restart: true );
+		_animation.Play( name, rate, restart );
 		if ( name == _clips.Pump ) Sounds.PlayWeaponSound( weapon, "special1" );
 		_pending = null;
 	}
@@ -360,7 +361,7 @@ public sealed class ViewModel : BaseWeaponModel
 		if ( ResetRecoilOnRelease && !Input.Down( "attack1" ) ) _burstShots = 0;
 		ResolveAttachments();
 		UpdateScopeVisibility();
-		if ( _pending is not null ) Play( _pending );
+		if ( _pending is not null ) Play( _pending, restart: false );
 		else if ( _reloadFinish is not null && _animation.Finished )
 		{
 			var finish = _reloadFinish;
