@@ -23,8 +23,6 @@ sealed class WeaponSetup
 
 	static string WorldModelPath( BaseCombatWeapon weapon ) => weapon.WorldModelPrefab?.GetComponentInChildren<MountedModel>()?.ModelPath;
 
-	static string ViewModelPath( MountedModel definition ) => $"mount://{definition.MountName}/{definition.ResolvedModelPath}.vmdl";
-
 	public static WeaponSetup Of( BaseCombatWeapon weapon )
 	{
 		if ( !weapon.IsValid() ) return null;
@@ -82,8 +80,7 @@ sealed class WeaponSetup
 	{
 		var definition = weapon.ViewModelPrefab?.GetComponentInChildren<MountedModel>();
 		if ( !definition.IsValid() ) return null;
-		var mount = Sandbox.Mounting.Directory.Get( definition.MountName ) as SourceGameMount;
-		return mount?.FindWeaponScript( definition.ModelPath, WorldModelPath( weapon ), definition.FallbackModelPath );
+		return definition.SourceMount?.FindWeaponScript( definition.ModelPath, WorldModelPath( weapon ), definition.FallbackModelPath );
 	}
 
 	internal static void ApplyInventoryData( BaseCombatWeapon weapon, SourceModelWeaponData data )
@@ -154,7 +151,7 @@ sealed class WeaponSetup
 		if ( !definition.IsValid() || !names.IsValid() ) return true;
 		var mount = await Sandbox.Mounting.Directory.Mount( definition.MountName );
 		if ( !weapon.IsValid() || mount?.IsMounted != true ) return false;
-		var model = await Model.LoadAsync( ViewModelPath( definition ) );
+		var model = await Model.LoadAsync( definition.ResourcePath );
 		if ( !weapon.IsValid() || !model.IsValid() || model.IsError ) return false;
 		var worldModel = WorldModelPath( weapon );
 		Data ??= ReadData( weapon );

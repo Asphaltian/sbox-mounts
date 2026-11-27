@@ -1,5 +1,4 @@
 using System;
-using System.Text;
 
 namespace Source1;
 
@@ -37,9 +36,7 @@ public abstract partial class SourceGameMount
 		{
 			try
 			{
-				using var stream = schemeFile.Open();
-				using var reader = new StreamReader( stream, Encoding.UTF8 );
-				scheme = SourceClientScheme.Parse( reader.ReadToEnd(), schemePath );
+				scheme = SourceClientScheme.Parse( schemeFile.ReadText(), schemePath );
 			}
 			catch ( Exception e ) when ( e is IOException or InvalidDataException or NotSupportedException )
 			{

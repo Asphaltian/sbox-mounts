@@ -27,14 +27,14 @@ public abstract partial class SourceGameMount
 		if ( !files.Files.ContainsKey( manifest ) )
 			return;
 
-		foreach ( var path in ScriptManifest.Read( Read( manifest ), manifest, "surfaceproperties_manifest", "file" ) )
+		foreach ( var path in ScriptManifest.Read( files.Files[manifest].ReadText(), manifest, "surfaceproperties_manifest", "file" ) )
 		{
 			if ( !files.Files.ContainsKey( path ) )
 			{
 				Log.Trace( $"{Title}: surface manifest references missing script '{path}'; those definitions were not imported." );
 				continue;
 			}
-			SourceSurfaceDefinition.Parse( Read( path ), path, files.Surfaces, message => Log.Trace( message ) );
+			SourceSurfaceDefinition.Parse( files.Files[path].ReadText(), path, files.Surfaces, message => Log.Trace( message ) );
 		}
 
 		var wanted = files.Surfaces.Values.SelectMany( surface => SurfaceSoundKeys.Select( key => surface.Parameters.String( key ) ) )
@@ -46,7 +46,7 @@ public abstract partial class SourceGameMount
 		{
 			if ( wanted.Count > 0 && files.Files.ContainsKey( soundsManifest ) )
 			{
-				foreach ( var path in ScriptManifest.Read( Read( soundsManifest ), soundsManifest, "game_sounds_manifest", "precache_file", "declare_file", "preload_file" ) )
+				foreach ( var path in ScriptManifest.Read( files.Files[soundsManifest].ReadText(), soundsManifest, "game_sounds_manifest", "precache_file", "declare_file", "preload_file" ) )
 				{
 					if ( !files.Files.ContainsKey( path ) )
 					{
@@ -55,7 +55,7 @@ public abstract partial class SourceGameMount
 					}
 					try
 					{
-						foreach ( var root in ScriptManifest.Parse( Read( path ), path, message => Log.Trace( message ) ) )
+						foreach ( var root in ScriptManifest.Parse( files.Files[path].ReadText(), path, message => Log.Trace( message ) ) )
 							if ( root.IsBlock && wanted.Contains( root.Name ) )
 								scripts.TryAdd( root.Name, (root, path) );
 					}
@@ -112,13 +112,6 @@ public abstract partial class SourceGameMount
 				context.Add( ResourceType.GameResource, path,
 					new SurfaceSoundLoader( sound with { Volume = (volume, volume) } ) );
 			}
-		}
-
-		string Read( string path )
-		{
-			using var stream = files.Files[path].Open();
-			using var reader = new StreamReader( stream );
-			return reader.ReadToEnd();
 		}
 	}
 

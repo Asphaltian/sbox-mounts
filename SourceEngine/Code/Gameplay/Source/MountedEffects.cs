@@ -40,14 +40,15 @@ static class MountedEffects
 	internal static Texture SpriteTexture( string name, string mountName, out SourceMaterial material, bool forSprite = false )
 	{
 		var mount = Sandbox.Mounting.Directory.Get( mountName );
-		material = mount is SourceGameMount source && mount.GetByPath( $"mount://{mountName}/materials/{name}.vmt.vmat" ) is not null
+		var source = mount as SourceGameMount;
+		material = source?.GetByPath( $"mount://{mountName}/materials/{name}.vmt.vmat" ) is not null
 			? source.GetSourceMaterial( name ) : null;
 		var texture = material is null ? name : material.BaseTexturePath;
 		if ( string.IsNullOrWhiteSpace( texture ) ) return null;
 		var path = $"mount://{mountName}/{VmtFile.NormalizePath( texture, ".vtf" )}.vtex";
 		if ( mount?.GetByPath( path ) is null ) return null;
 		if ( forSprite && material?.SamplesLinear == true )
-			return ((SourceGameMount)mount).GetSourceTexture( texture, material.ContentRoot ).GetLinearSprite();
+			return source.GetSourceTexture( texture, material.ContentRoot ).GetLinearSprite();
 		return Texture.Load( path );
 	}
 

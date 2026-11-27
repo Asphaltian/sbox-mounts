@@ -14,9 +14,7 @@ public abstract partial class SourceGameMount
 		{
 			try
 			{
-				using var stream = files.Files[script].Open();
-				using var reader = new StreamReader( stream );
-				files.Decals = SourceDecalLibrary.Parse( reader.ReadToEnd(), script, message => Log.Trace( message ) );
+				files.Decals = SourceDecalLibrary.Parse( files.Files[script].ReadText(), script, message => Log.Trace( message ) );
 			}
 			catch ( Exception e ) when ( e is IOException or InvalidDataException or NotSupportedException )
 			{

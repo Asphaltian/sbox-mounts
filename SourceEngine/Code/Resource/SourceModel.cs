@@ -5,10 +5,6 @@ namespace Source1;
 internal sealed class SourceModel( SourceGameMount mount, string path, (MdlFile Mdl, VtxFile Vtx, PhyFile Physics) source,
 	Transform[] referencePose = null, MdlFile.ImportedAnimations animations = null )
 {
-	// Included animation models, shared by every model of a mount that includes them.
-	// Entries live as long as a model still has clips to decode from them.
-	private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<SourceGameMount, Dictionary<string, WeakReference<MdlFile.AnimationFile>>> AnimationFiles = new();
-
 	internal (MdlFile Mdl, VtxFile Vtx, PhyFile Physics) Source { get; } = source;
 	internal Transform[] ReferencePose { get; } = referencePose;
 
@@ -21,11 +17,8 @@ internal sealed class SourceModel( SourceGameMount mount, string path, (MdlFile 
 		=> new SourceModelBuilder( mount, path ).CreateStaticPropModel( Source, contentRoot, index, flags, hdr,
 			diskLighting, transform, lightingOrigin, fallback, shadows, ReferencePose, vertexLitMaterials );
 
-	internal static SourceModel Read( SourceGameMount mount, string filename, bool readLighting = false )
-		=> mount.ReadSourceModel( filename, readLighting: readLighting );
-
 	internal static SourceModel Read( SourceGameMount mount, string filename, bool readLighting,
-		Func<string, Stream> open, Func<string, Stream> tryOpen, bool animated = false )
+		Func<string, Stream> open, Func<string, Stream> tryOpen, Dictionary<string, WeakReference<MdlFile.AnimationFile>> animationFiles )
 	{
 		filename = filename.Replace( '\\', '/' );
 		using var mdlStream = open( filename );
@@ -64,12 +57,11 @@ internal sealed class SourceModel( SourceGameMount mount, string path, (MdlFile 
 			}
 		}
 		MdlFile.ImportedAnimations animations = null;
-		if ( animated )
+		if ( animationFiles is not null )
 		{
 			try
 			{
-				var shared = mount is null ? null : AnimationFiles.GetValue( mount, _ => new( StringComparer.OrdinalIgnoreCase ) );
-				animations = mdl.ReadAnimations( mdlStream, filename, open, shared );
+				animations = mdl.ReadAnimations( mdlStream, filename, open, animationFiles );
 			}
 			catch ( Exception e ) when ( MdlFile.IsDataError( e ) )
 			{

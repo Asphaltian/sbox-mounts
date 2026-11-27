@@ -18,6 +18,9 @@ public sealed class MountedModel : Component
 	bool _unavailable;
 	BoxCollider _bounds;
 
+	internal SourceGameMount SourceMount => Sandbox.Mounting.Directory.Get( MountName ) as SourceGameMount;
+	internal string ResourcePath => $"mount://{MountName}/{ResolvedModelPath}.vmdl";
+
 	/// <summary>The model this mount provides: <see cref="ModelPath"/>, else <see cref="FallbackModelPath"/>.</summary>
 	public string ResolvedModelPath => string.IsNullOrEmpty( FallbackModelPath )
 		|| Sandbox.Mounting.Directory.Get( MountName )?.GetByPath( $"mount://{MountName}/{ModelPath}.vmdl" ) is not null ? ModelPath : FallbackModelPath;
@@ -39,8 +42,7 @@ public sealed class MountedModel : Component
 				_unavailable = true;
 				return;
 			}
-			var path = $"mount://{MountName}/{ResolvedModelPath}.vmdl";
-			var model = await Model.LoadAsync( path );
+			var model = await Model.LoadAsync( ResourcePath );
 			if ( !IsValid || !Renderer.IsValid() || requested != ModelPath ) return;
 			if ( !model.IsValid() || model.IsError )
 			{

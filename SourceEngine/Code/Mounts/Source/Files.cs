@@ -9,6 +9,12 @@ public abstract partial class SourceGameMount
 	internal readonly record struct SourceFile( string Filename, IContentArchive Package, BaseFileSystem FileSystem = null )
 	{
 		public Stream Open() => Package is null ? FileSystem.OpenRead( Filename ) : Package.OpenFile( Filename );
+		public string ReadText()
+		{
+			using var reader = new StreamReader( Open() );
+			return reader.ReadToEnd();
+		}
+
 		public Stream OpenHeader( int length ) => Package is null ? FileSystem.OpenRead( Filename ) : Package.OpenFileHeader( Filename, length );
 	}
 
@@ -111,6 +117,7 @@ public abstract partial class SourceGameMount
 		public readonly List<string> Errors = [];
 		public readonly Dictionary<string, SourceSurfaceDefinition> Surfaces = new( StringComparer.OrdinalIgnoreCase );
 		public readonly Dictionary<string, SourceSoundDefinition> SurfaceSounds = new( StringComparer.OrdinalIgnoreCase );
+		public readonly Dictionary<string, WeakReference<MdlFile.AnimationFile>> AnimationFiles = new( StringComparer.OrdinalIgnoreCase );
 		public readonly Dictionary<string, List<SourceModelWeaponData>> Weapons = new( StringComparer.OrdinalIgnoreCase );
 		public SourceDecalLibrary Decals = new();
 		public readonly Dictionary<string, SourceDecalMaterial> DecalMaterials = new( StringComparer.OrdinalIgnoreCase );

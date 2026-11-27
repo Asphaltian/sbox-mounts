@@ -13,15 +13,7 @@ public abstract partial class SourceGameMount
 	{
 		bool Exists( string path ) => files.Files.ContainsKey( path );
 
-		string Read( string path )
-		{
-			if ( !files.Files.TryGetValue( path, out var file ) )
-				return null;
-
-			using var stream = file.Open();
-			using var reader = new StreamReader( stream );
-			return reader.ReadToEnd();
-		}
+		string Read( string path ) => files.Files.TryGetValue( path, out var file ) ? file.ReadText() : null;
 
 		try
 		{

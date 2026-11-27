@@ -7,28 +7,10 @@ public abstract partial class SourceGameMount
 	private void ReadWeaponScripts( MountContext context, FileIndex files )
 	{
 		files.Weapons.Clear();
-		var skill = new SkillConfig();
-		// Expose supplemental game settings independently. Importing an Episode's
-		// resources must not replace the base game's weapon balance globally.
-		foreach ( var entry in files.Files.Where( x => x.Key.StartsWith( "cfg/skill", StringComparison.OrdinalIgnoreCase )
-			&& x.Key.EndsWith( ".cfg", StringComparison.OrdinalIgnoreCase ) ) )
-		{
-			using var stream = entry.Value.Open();
-			using var reader = new StreamReader( stream );
-			var values = SkillConfig.Parse( reader.ReadToEnd() );
-			if ( entry.Key.Equals( "cfg/skill.cfg", StringComparison.OrdinalIgnoreCase ) ) skill = values;
-			if ( values.Values.Count > 0 ) context.Add( ResourceType.Text, entry.Key + ".json", new SkillConfigLoader( values ) );
-		}
-		var ammoResources = new Dictionary<string, AmmoLoader>( StringComparer.OrdinalIgnoreCase );
+		var skill = ReadSkillConfigs( context, files );
+		var ammoResources = new HashSet<string>( StringComparer.OrdinalIgnoreCase );
 		var waveEvents = new HashSet<string>( StringComparer.OrdinalIgnoreCase );
 		var hudFonts = new Lazy<HudFonts>( () => ReadHudFonts( files ) );
-		string AmmoResource( string name )
-		{
-			if ( (skill.AmmoCapacity( name ) ?? AmmoCarryLimit( name )) is not { } capacity ) return null;
-			var path = $"scripts/ammo/{Uri.EscapeDataString( name.ToLowerInvariant() )}.ammo";
-			ammoResources.TryAdd( path, new AmmoLoader( name, capacity ) );
-			return $"mount://{Ident}/{path}";
-		}
 		foreach ( var entry in WeaponScriptFiles( files ) )
 		{
 			try
@@ -40,23 +22,9 @@ public abstract partial class SourceGameMount
 				var data = WeaponScript.Read( root, entry.Key, skill );
 				if ( data is null ) continue;
 				data.Icon = MountWeaponIcon( context, files, entry.Key, SourceHudTexture.Read( root, "weapon" ), hudFonts );
-				data.PrimaryAmmoResource = AmmoResource( data.PrimaryAmmo );
-				data.SecondaryAmmoResource = AmmoResource( data.SecondaryAmmo );
-				foreach ( var (role, sound) in data.Sounds.ToArray() )
-				{
-					var path = $"sounds/events/{Uri.EscapeDataString( sound.ToLowerInvariant() )}.sound";
-					if ( sound.EndsWith( ".wav", StringComparison.OrdinalIgnoreCase ) || sound.EndsWith( ".mp3", StringComparison.OrdinalIgnoreCase ) )
-					{
-						var definition = ResolveSurfaceSound( SourceSoundDefinition.FromWave( sound, entry.Key ) );
-						if ( definition is null )
-						{
-							data.Sounds.Remove( role );
-							continue;
-						}
-						if ( waveEvents.Add( path ) ) context.Add( ResourceType.GameResource, path, new SurfaceSoundLoader( definition ) );
-					}
-					data.Sounds[role] = $"mount://{Ident}/{path}";
-				}
+				data.PrimaryAmmoResource = AmmoResource( context, data.PrimaryAmmo );
+				data.SecondaryAmmoResource = AmmoResource( context, data.SecondaryAmmo );
+				RegisterWeaponSounds( context, data, entry.Key, waveEvents );
 				context.Add( ResourceType.Text, entry.Key + ".json", new WeaponScriptLoader( data ) );
 				foreach ( var model in new[] { data.ViewModel, data.WorldModel }.Where( x => x is not null ).Distinct() )
 				{
@@ -69,7 +37,48 @@ public abstract partial class SourceGameMount
 				Log.Trace( $"{Title}: weapon script '{entry.Key}' was not imported: {e.Message}" );
 			}
 		}
-		foreach ( var ammo in ammoResources ) context.Add( ResourceType.GameResource, ammo.Key, ammo.Value );
+
+		string AmmoResource( MountContext context, string name )
+		{
+			if ( (skill.AmmoCapacity( name ) ?? AmmoCarryLimit( name )) is not { } capacity ) return null;
+			var path = $"scripts/ammo/{Uri.EscapeDataString( name.ToLowerInvariant() )}.ammo";
+			if ( ammoResources.Add( path ) ) context.Add( ResourceType.GameResource, path, new AmmoLoader( name, capacity ) );
+			return $"mount://{Ident}/{path}";
+		}
+	}
+
+	private static SkillConfig ReadSkillConfigs( MountContext context, FileIndex files )
+	{
+		var skill = new SkillConfig();
+		// Expose supplemental game settings independently. Importing an Episode's
+		// resources must not replace the base game's weapon balance globally.
+		foreach ( var entry in files.Files.Where( x => x.Key.StartsWith( "cfg/skill", StringComparison.OrdinalIgnoreCase )
+			&& x.Key.EndsWith( ".cfg", StringComparison.OrdinalIgnoreCase ) ) )
+		{
+			var values = SkillConfig.Parse( entry.Value.ReadText() );
+			if ( entry.Key.Equals( "cfg/skill.cfg", StringComparison.OrdinalIgnoreCase ) ) skill = values;
+			if ( values.Values.Count > 0 ) context.Add( ResourceType.Text, entry.Key + ".json", new SkillConfigLoader( values ) );
+		}
+		return skill;
+	}
+
+	private void RegisterWeaponSounds( MountContext context, SourceModelWeaponData data, string script, HashSet<string> registered )
+	{
+		foreach ( var (role, sound) in data.Sounds.ToArray() )
+		{
+			var path = $"sounds/events/{Uri.EscapeDataString( sound.ToLowerInvariant() )}.sound";
+			if ( sound.EndsWith( ".wav", StringComparison.OrdinalIgnoreCase ) || sound.EndsWith( ".mp3", StringComparison.OrdinalIgnoreCase ) )
+			{
+				var definition = ResolveSurfaceSound( SourceSoundDefinition.FromWave( sound, script ) );
+				if ( definition is null )
+				{
+					data.Sounds.Remove( role );
+					continue;
+				}
+				if ( registered.Add( path ) ) context.Add( ResourceType.GameResource, path, new SurfaceSoundLoader( definition ) );
+			}
+			data.Sounds[role] = $"mount://{Ident}/{path}";
+		}
 	}
 
 	protected internal virtual bool KeepAttackCooldown( BaseCombatWeapon weapon ) => false;

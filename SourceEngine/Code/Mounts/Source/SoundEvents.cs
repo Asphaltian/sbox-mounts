@@ -11,12 +11,12 @@ public abstract partial class SourceGameMount
 		var names = new HashSet<string>( StringComparer.OrdinalIgnoreCase );
 		try
 		{
-			foreach ( var path in ScriptManifest.Read( Read( manifest ), manifest, "game_sounds_manifest", "precache_file", "declare_file", "preload_file" ) )
+			foreach ( var path in ScriptManifest.Read( files.Files[manifest].ReadText(), manifest, "game_sounds_manifest", "precache_file", "declare_file", "preload_file" ) )
 			{
 				if ( !files.Files.ContainsKey( path ) ) continue;
 				try
 				{
-					foreach ( var root in ScriptManifest.Parse( Read( path ), path, message => Log.Trace( message ) ).Where( x => x.IsBlock ) )
+					foreach ( var root in ScriptManifest.Parse( files.Files[path].ReadText(), path, message => Log.Trace( message ) ).Where( x => x.IsBlock ) )
 					{
 						if ( names.Contains( root.Name ) ) continue;
 						try
@@ -47,13 +47,6 @@ public abstract partial class SourceGameMount
 		catch ( Exception e ) when ( e is IOException or InvalidDataException or NotSupportedException )
 		{
 			Log.Trace( $"{Title}: sound-event manifest was not imported: {e.Message}" );
-		}
-
-		string Read( string path )
-		{
-			using var stream = files.Files[path].Open();
-			using var reader = new StreamReader( stream );
-			return reader.ReadToEnd();
 		}
 	}
 }

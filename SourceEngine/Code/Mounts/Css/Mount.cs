@@ -11,19 +11,6 @@ public sealed class Mount : SourceGameMount
 	protected override string ContentDirectory => "cstrike";
 	public override string Ident => "css";
 
-	protected internal override string[] VoicePatterns( VoiceLine line ) => line switch
-	{
-		VoiceLine.Alert => ["Radio.EnemySpotted"],
-		VoiceLine.AlertNpc => ["Radio.EnemySpotted"],
-		VoiceLine.Pain => ["Radio.TakingFire"],
-		VoiceLine.Kill => ["Radio.EnemyDown"],
-		VoiceLine.Reload => ["Radio.CoverMe"],
-		VoiceLine.Cover => ["Radio.NeedBackup"],
-		VoiceLine.Grenade => ["Radio.FireInTheHole"],
-		VoiceLine.Idle => ["Radio.ReportingIn", "Radio.SectorClear", "Radio.InPosition"],
-		_ => []
-	};
-
 	public override string Title => "Counter-Strike: Source";
 	public override long AppId => 240;
 	protected override string WeaponScriptKey => "d7NSuLq2";
@@ -63,6 +50,18 @@ public sealed class Mount : SourceGameMount
 	};
 
 	private protected override int? AmmoCarryLimit( string ammo ) => ammo is not null && AmmoCarry.TryGetValue( ammo, out var limit ) ? limit : null;
+
+	protected internal override string[] VoicePatterns( VoiceLine line ) => line switch
+	{
+		VoiceLine.Alert or VoiceLine.AlertNpc => ["Radio.EnemySpotted"],
+		VoiceLine.Pain => ["Radio.TakingFire"],
+		VoiceLine.Kill => ["Radio.EnemyDown"],
+		VoiceLine.Reload => ["Radio.CoverMe"],
+		VoiceLine.Cover => ["Radio.NeedBackup"],
+		VoiceLine.Grenade => ["Radio.FireInTheHole"],
+		VoiceLine.Idle => ["Radio.ReportingIn", "Radio.SectorClear", "Radio.InPosition"],
+		_ => []
+	};
 
 	private protected override IEnumerable<ContentSource> FindContent( InitializeContext context ) =>
 		FindContent( context.GetFileSystem( AppId ), context.GetFileSystem( GarrysMod.Mount.SteamId ) );

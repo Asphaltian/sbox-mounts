@@ -59,7 +59,8 @@ public abstract partial class SourceGameMount
 		using var files = AcquireIndex();
 		return SourceModel.Read( this, ResolveContentFile( files, path, contentRoot ), readLighting,
 			file => OpenContentFile( files, file ),
-			file => FindContentFile( files, file ) is { } filename ? files.Files[filename].Open() : null, animated );
+			file => FindContentFile( files, file ) is { } filename ? files.Files[filename].Open() : null,
+			animated ? files.AnimationFiles : null );
 	}
 
 	internal SourceTexture GetSourceTexture( string path, string contentRoot = "" )

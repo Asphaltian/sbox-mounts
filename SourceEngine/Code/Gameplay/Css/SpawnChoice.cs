@@ -70,7 +70,7 @@ public sealed class SpawnChoice : Component, Component.INetworkSpawn
 			return true;
 
 		var path = $"mount://{mounted.MountName}/{mounted.ModelPath}.vmdl";
-		var mount = Sandbox.Mounting.Directory.Get( mounted.MountName ) as SourceGameMount;
+		var mount = mounted.SourceMount;
 		if ( mount?.GetByPath( path ) is null )
 			return false;
 
