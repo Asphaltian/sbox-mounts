@@ -204,49 +204,11 @@ public sealed partial class PhysicsGun : Weapon, PlayerController.IEvents
 
 		var ray = AimRay;
 		var yaw = Owner.EyeAngles.yaw;
-		if ( !HeldTarget.IsValid() )
-		{
-			if ( _borrowed.IsValid() ) Release();
-			var hit = TraceTarget( ray, MaxRange * 2 );
-			if ( !hit.Hit ) return;
-			BeamOn = true;
-			var body = hit.GameObject?.GetComponentInParent<Rigidbody>();
-			Component target = (Component)body ?? hit.GameObject?.GetComponentInParent<Projectile>();
-			if ( target is null && hit.Collider is ModelCollider model && model.GameObject.NetworkMode == NetworkMode.Object
-				&& model.GameObject.Tags.Has( "source1_entity", includeAncestors: false ) )
-				target = model;
-			if ( !target.IsValid() || target.Tags.Has( DisabledTag ) || (Limited && target.Tags.Has( LimitedTag )) ) return;
-			if ( !CanGrab( target ) || (body.IsValid() && !body.PhysicsBody.IsValid()) ) return;
-			if ( !PhysicsOwnership.TryBorrow( target, EntityRoot( target ), out _borrowed ) ) return;
+		if ( HeldTarget.IsValid() || TryGrab( ray, yaw ) ) UpdateHold( ray, yaw );
+	}
 
-			HeldTarget = target;
-			_previousMass = null;
-			EntityRoot( target ).RunEvent<IPhysgunGrab>( x => x.OnGrabbed( this ) );
-			if ( !target.IsValid() || HeldTarget != target ) return;
-			var transform = target.WorldTransform;
-			if ( body.IsValid() )
-			{
-				if ( !body.PhysicsBody.IsValid() )
-				{
-					Release();
-					return;
-				}
-				PrepareBody( body );
-				transform = body.PhysicsBody.Transform;
-			}
-			else if ( target is ModelCollider collider )
-			{
-				_modelHull = collider.Model?.GetData<EntityHull>()?.Bounds ?? collider.Model?.Bounds ?? collider.LocalBounds;
-			}
-
-			GrabPoint = transform.Rotation.Inverse * (hit.HitPosition - transform.Position);
-			_distance = ray.Position.Distance( hit.HitPosition );
-			_holdAngles = target is TumblingProjectile tumbling ? tumbling.FlightAngles : transform.Rotation.Angles();
-			_holdAngles.yaw -= yaw;
-			_previousSnapStep = null;
-			_lastMouseRotation = MouseRotation;
-		}
-
+	void UpdateHold( Ray ray, float yaw )
+	{
 		if ( InputState is Trigger.Push or Trigger.Pull )
 			_distance = _distance.Approach( InputState == Trigger.Push ? MaxRange : MinRange, 100 * Time.Delta );
 
@@ -267,6 +229,7 @@ public sealed partial class PhysicsGun : Weapon, PlayerController.IEvents
 			HeldTarget.WorldPosition = CarryPosition( HeldTarget, position );
 			return;
 		}
+
 		var offset = position - physics.Position;
 		if ( TeleportDistance > 0 && offset.LengthSquared > TeleportDistance * TeleportDistance )
 		{
@@ -281,6 +244,50 @@ public sealed partial class PhysicsGun : Weapon, PlayerController.IEvents
 
 		var angularError = ShadowController.AngularError( physics.Rotation, rotation );
 		physics.AngularVelocity = ShadowController.Velocity( physics.AngularVelocity, angularError, MaxAngularSpeed.DegreeToRadian(), MaxAngularDamping.DegreeToRadian(), _arrivalTime, DampingFactor );
+	}
+
+	bool TryGrab( Ray ray, float yaw )
+	{
+		if ( _borrowed.IsValid() ) Release();
+		var hit = TraceTarget( ray, MaxRange * 2 );
+		if ( !hit.Hit ) return false;
+		BeamOn = true;
+		var body = hit.GameObject?.GetComponentInParent<Rigidbody>();
+		Component target = (Component)body ?? hit.GameObject?.GetComponentInParent<Projectile>();
+		if ( target is null && hit.Collider is ModelCollider model && model.GameObject.NetworkMode == NetworkMode.Object
+			&& model.GameObject.Tags.Has( "source1_entity", includeAncestors: false ) )
+			target = model;
+		if ( !target.IsValid() || target.Tags.Has( DisabledTag ) || (Limited && target.Tags.Has( LimitedTag )) ) return false;
+		if ( !CanGrab( target ) || (body.IsValid() && !body.PhysicsBody.IsValid()) ) return false;
+		if ( !PhysicsOwnership.TryBorrow( target, EntityRoot( target ), out _borrowed ) ) return false;
+
+		HeldTarget = target;
+		_previousMass = null;
+		EntityRoot( target ).RunEvent<IPhysgunGrab>( x => x.OnGrabbed( this ) );
+		if ( !target.IsValid() || HeldTarget != target ) return false;
+		var transform = target.WorldTransform;
+		if ( body.IsValid() )
+		{
+			if ( !body.PhysicsBody.IsValid() )
+			{
+				Release();
+				return false;
+			}
+			PrepareBody( body );
+			transform = body.PhysicsBody.Transform;
+		}
+		else if ( target is ModelCollider collider )
+		{
+			_modelHull = collider.Model?.GetData<EntityHull>()?.Bounds ?? collider.Model?.Bounds ?? collider.LocalBounds;
+		}
+
+		GrabPoint = transform.Rotation.Inverse * (hit.HitPosition - transform.Position);
+		_distance = ray.Position.Distance( hit.HitPosition );
+		_holdAngles = target is TumblingProjectile tumbling ? tumbling.FlightAngles : transform.Rotation.Angles();
+		_holdAngles.yaw -= yaw;
+		_previousSnapStep = null;
+		_lastMouseRotation = MouseRotation;
+		return true;
 	}
 
 	void PrepareBody( Rigidbody body )
@@ -423,26 +430,24 @@ public sealed partial class PhysicsGun : Weapon, PlayerController.IEvents
 		return target;
 	}
 
-	void StopRedirectingMovement()
+	void StopHolding()
 	{
+		if ( Networking.IsHost ) Release();
+		ClearBeam();
 		_movementHook?.Dispose();
 		_movementHook = null;
 	}
 
 	protected override void OnDisabled()
 	{
-		if ( Networking.IsHost ) Release();
-		ClearBeam();
-		StopRedirectingMovement();
+		StopHolding();
 		base.OnDisabled();
 	}
 
 	protected override void OnHolstered()
 	{
-		StopRedirectingMovement();
 		if ( !IsProxy ) InputState = Trigger.Released;
-		if ( Networking.IsHost ) Release();
-		ClearBeam();
+		StopHolding();
 		base.OnHolstered();
 	}
 }
