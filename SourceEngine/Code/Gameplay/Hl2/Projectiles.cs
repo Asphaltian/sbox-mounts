@@ -600,6 +600,7 @@ public sealed class EnergyBall : Projectile
 {
 	float _duration = 2;
 	float _radius = 10;
+	float _mass = 150;
 
 	protected override float Lifetime => _duration;
 	protected override float TraceRadius => _radius;
@@ -613,6 +614,7 @@ public sealed class EnergyBall : Projectile
 		if ( !IsValid ) return;
 		_duration = values.Get( "sk_weapon_ar2_alt_fire_duration", _duration );
 		_radius = values.Get( "sk_weapon_ar2_alt_fire_radius", _radius );
+		_mass = values.Get( "sk_weapon_ar2_alt_fire_mass", _mass );
 		if ( !Visual.IsValid() ) return;
 		var effect = Visual.AddComponent<CombineBallEffect>();
 		effect.Radius = _radius;
@@ -621,6 +623,7 @@ public sealed class EnergyBall : Projectile
 
 	protected override void Hit( SceneTraceResult tr )
 	{
+		var outgoing = ImpactVelocity( tr );
 		// Physics props take dissolving impact damage independently of the weapon's combat damage.
 		var hitProp = tr.GameObject?.GetComponentInParent<Component.IDamageable>() is Prop;
 		if ( hitProp )
@@ -629,7 +632,26 @@ public sealed class EnergyBall : Projectile
 		var damaged = !hitProp && DamageVictim( tr, ["energy"] );
 		PlayImpact( tr, damaged ? "NPC_CombineBall.KillImpact" : "NPC_CombineBall.Impact", impactEffect: false );
 		BounceEffect( tr.HitPosition, tr.Normal, MountName );
-		Reflect( tr, 1 );
+		Velocity = outgoing;
+		WorldPosition += tr.Normal * TraceRadius;
+	}
+
+	protected override SceneTraceResult TraceFlight( SceneTrace trace ) => trace.UseHitPosition().Run();
+
+	Vector3 ImpactVelocity( SceneTraceResult tr )
+	{
+		var normal = tr.Normal;
+		var reflected = Velocity - 2 * Velocity.Dot( normal ) * normal;
+		if ( tr.Body is not { BodyType: PhysicsBodyType.Dynamic, Mass: > 0 } body || _mass <= 0 )
+			return reflected;
+
+		// A swept ball has no rigidbody to exchange momentum with the struck body.
+		var closingSpeed = (body.GetVelocityAtPoint( tr.HitPosition ) - Velocity).Dot( normal );
+		if ( closingSpeed <= 0 ) return Velocity;
+		var impulse = normal * (2 * closingSpeed / (1 / _mass + 1 / body.Mass));
+		body.ApplyImpulseAt( tr.HitPosition, -impulse );
+		var outgoing = Velocity + impulse / _mass;
+		return outgoing.LengthSquared > 0 ? outgoing.Normal * Velocity.Length : reflected;
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
