@@ -19,15 +19,18 @@ See the full [Mount API docs](https://sbox.game/dev/doc/game-mounts/) to learn m
 | [Counter-Strike: Condition&nbsp;Zero](https://store.steampowered.com/app/80) | `czero` | GoldSrc | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [Counter-Strike: Source](https://store.steampowered.com/app/240) | `css` | Source | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [Day of Defeat](https://store.steampowered.com/app/30) | `dod` | GoldSrc | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [Day of Defeat: Source](https://store.steampowered.com/app/300) | `dods` | Source | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [Deathmatch Classic](https://store.steampowered.com/app/40) | `dmc` | GoldSrc | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [Cry of Fear](https://store.steampowered.com/app/223710) | `cof` | GoldSrc | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | [DOOM + DOOM II](https://store.steampowered.com/app/2280) | `doom` | Doom | ✅ | ❌ | ❌ | ➖ | ✅ | ✅ | ✅ |
 | [Half-Life: Blue&nbsp;Shift](https://store.steampowered.com/app/130) | `bshift` | GoldSrc | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | [Half-Life: Opposing&nbsp;Force](https://store.steampowered.com/app/50) | `opfor` | GoldSrc | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | [Natural Selection 2](https://store.steampowered.com/app/4920) | `ns2` | Spark | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| [Overgrowth](https://store.steampowered.com/app/25000) | `overgrowth` | Phoenix | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [Ricochet](https://store.steampowered.com/app/60) | `ricochet` | GoldSrc | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | [Sven Co-op](https://store.steampowered.com/app/225840) | `svencoop` | GoldSrc | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | [Team Fortress Classic](https://store.steampowered.com/app/20) | `tfc` | GoldSrc | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| [Team Fortress 2](https://store.steampowered.com/app/440) | `tf2` | Source | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | [Serious Sam HD: The First Encounter](https://store.steampowered.com/app/41050) | `ss_hd_tfe` | Serious Engine 3 | ✅ | ❌ | ❌ | ✅ | ❌ | ✅ | ✅ |
 | [Serious Sam HD: The Second Encounter](https://store.steampowered.com/app/41014) | `ss_hd_tse` | Serious Engine 3 | ✅ | ❌ | ❌ | ✅ | ❌ | ✅ | ✅ |
 | [Quake](https://store.steampowered.com/app/2310) | `quake` | Quake | ⚠️ | ❌ | ❌ | ✅ | ⚠️ | ✅ | ✅ |
