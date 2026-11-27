@@ -15,14 +15,14 @@ public sealed class Mount : SourceGameMount
 	public override long AppId => 220;
 
 	private protected override IEnumerable<ContentSource> FindContent( InitializeContext context ) =>
-		FindContent( context.GetFileSystem( AppId ), context.GetFileSystem( GarrysModAppId ) );
+		FindContent( context.GetFileSystem( AppId ), context.GetFileSystem( GarrysMod.Mount.SteamId ) );
 
 	internal IEnumerable<ContentSource> FindContent( BaseFileSystem standalone, BaseFileSystem garrysMod )
 	{
 		if ( standalone is not null )
 		{
 			var sources = ScanContent( standalone ).ToList();
-			if ( GarrysModArchive( garrysMod, IsGarrysModWeaponFile, ReplacesWorldModel ) is { } models )
+			if ( GarrysMod.Mount.Archive( garrysMod, IsGarrysModWeaponFile, ReplacesWorldModel ) is { } models )
 				sources.Add( models );
 			return sources;
 		}
@@ -37,13 +37,13 @@ public sealed class Mount : SourceGameMount
 		const string directory = "sourceengine";
 		if ( !garrysMod.DirectoryExists( directory ) )
 			return null;
-		var sources = GarrysModSharedArchives( garrysMod ).ToList();
+		var sources = GarrysMod.Mount.SharedArchives( garrysMod ).ToList();
 		if ( sources.Count == 0 )
 			return null;
 		const string episodes = $"{directory}/content_hl2_dir.vpk";
 		if ( garrysMod.FileExists( episodes ) )
 			sources.Add( new( garrysMod, episodes, true ) );
-		if ( GarrysModArchive( garrysMod, IsGarrysModHalfLife2File, ReplacesWorldModel ) is { } archive )
+		if ( GarrysMod.Mount.Archive( garrysMod, IsGarrysModHalfLife2File, ReplacesWorldModel ) is { } archive )
 			sources.Add( archive );
 		const string scripts = $"{directory}/scripts";
 		if ( garrysMod.DirectoryExists( scripts ) )
@@ -62,6 +62,10 @@ public sealed class Mount : SourceGameMount
 		path.Equals( "resource/clientscheme.res", StringComparison.OrdinalIgnoreCase )
 		|| path.EndsWith( ".ttf", StringComparison.OrdinalIgnoreCase );
 
+	// Garry's Mod rigs world models that a game left as props to the hand, so its players can hold them.
+	private static bool IsWorldModel( string path ) =>
+		path.StartsWith( "models/weapons/w_", StringComparison.OrdinalIgnoreCase );
+
 	// Garry's Mod's handless viewmodels, and the stunstick materials it keeps outside its copy of Half-Life 2.
 	// Its c_arms models are not viewmodels.
 	private static bool IsGarrysModViewModelFile( string path ) =>
@@ -69,13 +73,13 @@ public sealed class Mount : SourceGameMount
 		|| path.StartsWith( "materials/models/weapons/v_stunstick/", StringComparison.OrdinalIgnoreCase );
 
 	// The thrown frag model is additional content. Held world models only replace existing HL2 assets.
-	private static bool ReplacesWorldModel( string path ) => IsGarrysModWorldModelFile( path )
+	private static bool ReplacesWorldModel( string path ) => IsWorldModel( path )
 		&& !path.StartsWith( "models/weapons/w_npcnade.", StringComparison.OrdinalIgnoreCase );
 
 	// The viewmodels, the hand-rigged world models and the materials Garry's Mod added for those.
 	private static bool IsGarrysModWeaponFile( string path ) =>
 		IsGarrysModViewModelFile( path )
-		|| IsGarrysModWorldModelFile( path )
+		|| IsWorldModel( path )
 		|| path.StartsWith( "materials/models/weapons/w_", StringComparison.OrdinalIgnoreCase );
 
 	private static bool IsGarrysModHalfLife2File( string path ) =>

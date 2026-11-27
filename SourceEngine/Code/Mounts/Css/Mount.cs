@@ -37,7 +37,7 @@ public sealed class Mount : SourceGameMount
 	private protected override int? AmmoCarryLimit( string ammo ) => ammo is not null && AmmoCarry.TryGetValue( ammo, out var limit ) ? limit : null;
 
 	private protected override IEnumerable<ContentSource> FindContent( InitializeContext context ) =>
-		FindContent( context.GetFileSystem( AppId ), context.GetFileSystem( GarrysModAppId ) );
+		FindContent( context.GetFileSystem( AppId ), context.GetFileSystem( GarrysMod.Mount.SteamId ) );
 
 	internal IEnumerable<ContentSource> FindContent( BaseFileSystem standalone, BaseFileSystem garrysMod )
 	{
@@ -49,7 +49,7 @@ public sealed class Mount : SourceGameMount
 		if ( sources.Count == 0 )
 			return null;
 
-		if ( GarrysModArchive( garrysMod, IsGarrysModCounterStrikeFile ) is { } archive )
+		if ( GarrysMod.Mount.Archive( garrysMod, IsGarrysModCounterStrikeFile ) is { } archive )
 			sources.Add( archive );
 		return sources;
 	}
@@ -60,7 +60,7 @@ public sealed class Mount : SourceGameMount
 		const string content = "sourceengine/content_cstrike_dir.vpk";
 		if ( !garrysMod.FileExists( content ) )
 			return [];
-		return GarrysModSharedArchives( garrysMod ).Prepend( new ContentSource( garrysMod, content, true ) ).ToArray();
+		return GarrysMod.Mount.SharedArchives( garrysMod ).Prepend( new ContentSource( garrysMod, content, true ) ).ToArray();
 	}
 
 	// GMod's manifest lists its cs_game_sounds scripts; entries for files outside this filter are skipped.
