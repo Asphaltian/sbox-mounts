@@ -80,10 +80,6 @@ internal sealed class SourceMaterialVariant
 		return new SourceMaterialVariant( shader, bindings, scope );
 	}
 
-	internal static SourceMaterialVariant ReadErrorMaterial( Material material, object scope )
-		=> material.Name?.Replace( '\\', '/' ).Equals( "materials/error.vmat", StringComparison.OrdinalIgnoreCase ) == true
-			? ReadEngineFallback( material, scope ) : null;
-
 	internal SourceMaterialVariant WithOverrides( SourceMaterialOverrides overrides )
 	{
 		var bindings = Overrides.Append( overrides.Snapshot() ).ToArray();

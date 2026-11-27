@@ -7,12 +7,12 @@ public abstract partial class SourceGameMount
 	internal Material LoadContentMaterial( string path, string contentRoot = "" )
 	{
 		path = NormalizeMaterialPath( path );
-		return Material.Load( GetRegisteredContentPath( path, ResourceType.Material, contentRoot ) );
+		return Material.Load( GetRegisteredContentPath( path, ResourceType.Material, ".vmat", contentRoot ) );
 	}
 
 	internal SoundFile LoadContentSound( string path, string contentRoot = "", int? channel = null )
 	{
-		var resource = GetRegisteredContentPath( path, ResourceType.Sound, contentRoot );
+		var resource = GetRegisteredContentPath( path, ResourceType.Sound, ".vsnd", contentRoot );
 		if ( channel is null ) return SoundFile.Load( resource );
 		var file = FindContentFile( index, path, contentRoot ) ?? path;
 		var name = $"{resource}.channel{channel}.vsnd";
@@ -22,9 +22,6 @@ public abstract partial class SourceGameMount
 			: SoundFile.FromWav( name, GetFileBytes( file ), options );
 	}
 
-	internal Model LoadContentModel( string path, string contentRoot = "" ) =>
-		Model.Load( GetRegisteredContentPath( path, ResourceType.Model, contentRoot ) );
-
 	internal string GetBreakModelPath( string path )
 	{
 		var resource = GetContentPath( path );
@@ -32,17 +29,10 @@ public abstract partial class SourceGameMount
 		return GetByPath( $"{resource}.vmdl" ) is { Type: ResourceType.Model } loader ? loader.Path : null;
 	}
 
-	private string GetRegisteredContentPath( string path, ResourceType type, string contentRoot = "" )
+	private string GetRegisteredContentPath( string path, ResourceType type, string extension, string contentRoot )
 	{
 		path = path.Replace( '\\', '/' );
 		path = FindContentFile( index, path, contentRoot ) ?? path;
-		var extension = type switch
-		{
-			ResourceType.Material => ".vmat",
-			ResourceType.Sound => ".vsnd",
-			ResourceType.Model => ".vmdl",
-			_ => throw new ArgumentOutOfRangeException( nameof( type ), type, null )
-		};
 		var resource = $"mount://{Ident}/{path}{extension}";
 		if ( GetByPath( resource ) is not { } loader || loader.Type != type )
 			throw new FileNotFoundException( $"Resource '{resource}' is not registered in mounted content.", path );
