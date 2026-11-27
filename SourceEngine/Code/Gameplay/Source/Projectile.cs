@@ -242,8 +242,8 @@ public abstract partial class Projectile : Component
 			Damage = Damage,
 			ForceScale = 1.5f,
 			Prefab = prefab
-		}.Spawn( playPrefabSound, playPrefabParticle: depth < 0, applyDamage: !UsesSourceBlast );
-		if ( UsesSourceBlast ) ApplyBlast();
+		}.Spawn( playPrefabSound, playPrefabParticle: depth < 0, applyDamage: Blast != BlastMode.Traced );
+		if ( Blast == BlastMode.Traced ) ApplyBlast();
 
 		if ( prefab is not null && blast.IsValid() ) ExplosionEffects( WorldPosition, MountName, depth, Damage );
 		GameObject.Destroy();

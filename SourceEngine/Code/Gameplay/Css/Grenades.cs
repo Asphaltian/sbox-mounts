@@ -9,6 +9,8 @@ namespace Source1.Css;
 [Alias( "Source1.CssGrenade", "CssGrenade" )]
 public abstract class Grenade : Projectile, Component.ICollisionListener
 {
+	protected internal override BlastMode Blast => BlastMode.Direct;
+
 	// GRENADE_TIMER for the HE grenade and the flashbang; the smoke grenade waits as long before it can pop.
 	const float Fuse = 1.5f;
 	const float HalfSize = 2;

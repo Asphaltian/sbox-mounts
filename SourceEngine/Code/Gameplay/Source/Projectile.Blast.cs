@@ -4,7 +4,8 @@ namespace Source1;
 
 public abstract partial class Projectile
 {
-	internal bool UsesSourceBlast => this is Hl2.Grenade or Hl2.Rocket or Hl2.ContactGrenade;
+	public enum BlastMode { PropFalloff, Traced, Direct }
+	protected internal virtual BlastMode Blast => BlastMode.PropFalloff;
 
 	void ApplyBlast()
 	{

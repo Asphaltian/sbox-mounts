@@ -31,11 +31,11 @@ public sealed class PropDamage : Component
 
 		var projectile = blast && hit.Weapon.IsValid() ? hit.Weapon.GetComponent<Projectile>() : null;
 		var scale = bullet ? modifiers.Bullet * (hit.Tags.Has( "buckshot" ) ? 2 : 1) : 1;
-		if ( blast && projectile?.UsesSourceBlast != true )
+		if ( blast && projectile?.Blast != Projectile.BlastMode.Traced )
 		{
 			scale *= modifiers.Explosive;
 
-			if ( projectile is { Radius: > 0 } and not Css.Grenade )
+			if ( projectile is { Radius: > 0, Blast: Projectile.BlastMode.PropFalloff } )
 			{
 				var bounds = _prop.Model.PhysicsBounds.Transform( WorldTransform );
 				var testZ = projectile.UnderwaterBlast ? bounds.Mins.z : bounds.Maxs.z;
@@ -55,7 +55,7 @@ public sealed class PropDamage : Component
 		}
 		hit.Damage = System.MathF.Truncate( hit.Damage * scale );
 		if ( blast && !_fire.IsValid() && hit.Damage > 0 && hit.Damage < _prop.Health && !modifiers.FireResistant
-			&& projectile is not null and not Css.Grenade )
+			&& projectile is { Blast: not Projectile.BlastMode.Direct } )
 			_fire = PropFire.Ignite( _prop );
 	}
 }

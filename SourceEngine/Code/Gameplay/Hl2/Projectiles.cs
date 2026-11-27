@@ -187,6 +187,8 @@ public sealed class CrossbowBolt : Projectile
 [WeaponProjectile( Projectile.Kinds.Rocket )]
 public sealed class Rocket : Projectile, Component.IDamageable
 {
+	protected internal override BlastMode Blast => BlastMode.Traced;
+
 	internal const string LaunchModel = "models/weapons/w_missile_launch.mdl";
 	protected override string InitialModelPath => Ignited ? ModelPath : LaunchModel;
 	const float IgniteDelay = 0.3f;
@@ -364,6 +366,8 @@ public sealed class Rocket : Projectile, Component.IDamageable
 [WeaponProjectile( Projectile.Kinds.Grenade, Upright = true )]
 public sealed class Grenade : Projectile
 {
+	protected internal override BlastMode Blast => BlastMode.Traced;
+
 	// GRENADE_TIMER and GRENADE_RADIUS.
 	public const float Fuse = 2.5f;
 	internal const float HalfSize = 4;
@@ -516,6 +520,8 @@ public sealed class Grenade : Projectile
 [WeaponProjectile( Projectile.Kinds.ContactGrenade, Ammo = "SMG1_Grenade", Model = "models/weapons/ar2_grenade.mdl", Upright = true )]
 public sealed class ContactGrenade : TumblingProjectile, Component.IDamageable
 {
+	protected internal override BlastMode Blast => BlastMode.Traced;
+
 	const float FlightHullSize = 6;
 	ManualHitbox _shotHitbox;
 	[Sync( SyncFlags.FromHost ), Change( nameof( OnSmokeEnded ) )] bool SmokeEnded { get; set; }
