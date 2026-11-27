@@ -1,3 +1,5 @@
+using System;
+
 namespace Source1.Dods;
 
 public sealed class ScopedRifle : BoltRifle
@@ -9,6 +11,17 @@ public sealed class ScopedRifle : BoltRifle
 	internal override float ViewModelFovOffset => 0;
 	TimeUntil? _reaim;
 	Texture[] _quadrants;
+
+	protected override Angles ApplyLook( Angles input )
+	{
+		input = base.ApplyLook( input );
+		if ( !Aiming || ZoomFraction < 1 ) return input;
+
+		var scale = Owner.IsDucking ? 0.2f : 0.5f;
+		if ( Owner.Body.Velocity.LengthSquared > 100 ) scale += 0.4f;
+		var time = Time.Now;
+		return input + new Angles( 2 * MathF.Cos( 2 * time ), MathF.Cos( time ), 0 ) * (Time.Delta * scale);
+	}
 
 	protected override void OnBoltCycled()
 	{

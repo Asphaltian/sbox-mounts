@@ -19,8 +19,10 @@ public class Firearm : BulletWeapon, PlayerController.IEvents
 
 	void PlayerController.IEvents.OnEyeAngles( ref Angles input )
 	{
-		if ( IsActive ) input *= LookScale;
+		if ( IsActive ) input = ApplyLook( input );
 	}
+
+	protected virtual Angles ApplyLook( Angles input ) => input * LookScale;
 
 	protected virtual float? Accuracy => Setup.Data?.Accuracy;
 
