@@ -8,6 +8,8 @@ public abstract class ThrownGrenade : Projectile, Component.ICollisionListener
 	protected override float? Physical => 4;
 	protected override Vector3 Spin => new Vector3( 600, Game.Random.Float( -1200, 1200 ), 0 ) * (MathF.PI / 180);
 
+	protected override void AttachTrail( Vector3 tail ) => base.AttachTrail( Vector3.Zero );
+
 	protected override Collider CreateCollider( float halfSize )
 	{
 		var model = Model.Load( $"mount://{MountName}/{ModelPath}.vmdl" );

@@ -48,8 +48,16 @@ public sealed class FragGrenade : ThrownGrenade, Component.IPressable
 	{
 		Damage = 150;
 		Radius = Damage * 2.5f;
-		var floor = Scene.Trace.Ray( WorldPosition + Vector3.Up * 8, WorldPosition + Vector3.Down * 32 )
+		SceneTraceResult TraceFloor( Vector3 start ) => Scene.Trace.Ray( start, start + Vector3.Down * 32 )
 			.IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "trigger" ).Run();
+		var floor = TraceFloor( WorldPosition + Vector3.Up * 8 );
+		if ( floor.StartedSolid ) floor = TraceFloor( WorldPosition );
+		if ( floor.Hit )
+		{
+			WorldPosition = floor.EndPosition + floor.Normal * 0.6f;
+			if ( floor.GameObject.IsValid() && !floor.GameObject.GetComponentInParent<PlayerController>().IsValid() )
+				Scorch( floor.GameObject, WeaponEffects.DecalTransform( floor.GameObject, floor.EndPosition, floor.Normal ), MountName, large: true );
+		}
 		Explode( particle: floor.Hit ? "explosioncore_floor" : "explosioncore_midair",
 			rotation: floor.Hit ? Rotation.LookAt( floor.Normal ) : Rotation.Identity );
 	}

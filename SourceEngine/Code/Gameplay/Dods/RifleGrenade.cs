@@ -22,7 +22,7 @@ public sealed class RifleGrenade : Firearm
 		var facing = Rotation.LookAt( -ray.Forward );
 		var pitchRate = velocity.z > 0 ? -facing.Pitch() / System.MathF.Sqrt( 2 * velocity.z / 420 ) : -10;
 		var shell = Projectile.Spawn<FragGrenade>( Attacker, MountContent.OfWeapon( this ), ray.Position, velocity,
-			0, 0, GrenadeModel, null, this, facing, facing.Left * pitchRate.DegreeToRadian() );
+			0, 0, GrenadeModel, "riflegrenadetrail", this, facing, facing.Left * pitchRate.DegreeToRadian() );
 		shell.Fuse = 3.5f;
 		shell.LivePrefab = LivePrefab;
 	}

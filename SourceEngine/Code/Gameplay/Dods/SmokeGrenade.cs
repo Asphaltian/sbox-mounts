@@ -31,20 +31,12 @@ public sealed class SmokeGrenade : ThrownGrenade, ISmokeCloud
 		if ( !_emitting && Renderer.IsValid() && Renderer.Model.IsValid() && !Renderer.Model.IsError )
 		{
 			_emitting = true;
-			SpawnEffect( "smokegrenade", GameObject );
-			SpawnEffect( "smokegrenade_jet", Renderer.GetAttachmentObject( "jet" ) ?? GameObject );
+			MountedEffects.Attach( "smokegrenade", GameObject, MountName, new Transform( Vector3.Zero, WorldRotation.Inverse ) );
+			MountedEffects.Attach( "smokegrenade_jet", Visual, MountName, Renderer.GetAttachment( "jet", false ) );
 			if ( Sounds.Sound( "BaseSmokeEffect.Sound", MountName ) is { } sound ) GameObject.PlaySound( sound );
 			SmokeFog.Ensure( Scene );
 		}
 		if ( Renderer.IsValid() ) Renderer.Tint = Color.White.WithAlpha( (1 - (Time.Now - SmokeStart - 10) / 4).Clamp( 0, 1 ) );
-	}
-
-	void SpawnEffect( string name, GameObject parent )
-	{
-		if ( MountedEffects.Prefab( name, MountName ) is not { } prefab ) return;
-		var effect = prefab.Clone( new CloneConfig { Parent = parent, Transform = global::Transform.Zero, StartEnabled = false } );
-		effect.NetworkMode = NetworkMode.Never;
-		effect.Enabled = true;
 	}
 
 	public float FogAlpha( Vector3 eye )

@@ -2,6 +2,7 @@ namespace Source1.Dods;
 
 public sealed class HandGrenade : Weapon
 {
+	[Property] public string TrailParticle { get; set; }
 	[Property] public string ThrownModel { get; set; }
 	[Property] public Projectile.Kinds Kind { get; set; }
 	[Property] public float FuseTime { get; set; } = 5;
@@ -87,7 +88,7 @@ public sealed class HandGrenade : Weapon
 		var trace = Scene.Trace.Ray( aim.Position, aim.Position + forward * 16 ).IgnoreGameObjectHierarchy( AimIgnoreRoot ).Run();
 		var rotation = TumbleEndOverEnd ? new Angles( 45, angles.yaw, 0 ).ToRotation() : Rotation.Identity;
 		Vector3? spin = TumbleEndOverEnd ? rotation.Left * 600f.DegreeToRadian() : null;
-		var grenade = Projectile.Launch( this, Attacker, Kind, trace.EndPosition, velocity, 0, 0, ThrownModel, rotation, spin );
+		var grenade = Projectile.Launch( this, Attacker, Kind, trace.EndPosition, velocity, 0, 0, ThrownModel, rotation, spin, TrailParticle );
 		if ( grenade is FragGrenade frag )
 		{
 			frag.Fuse = remaining.Clamp( 0, FuseTime );

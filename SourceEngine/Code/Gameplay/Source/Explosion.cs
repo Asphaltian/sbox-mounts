@@ -58,6 +58,12 @@ sealed class Explosion
 			blast.Enabled = playPrefabParticle;
 		}
 
+		if ( !playPrefabParticle )
+		{
+			foreach ( var emitter in go.GetComponentsInChildren<ParticleEmitter>( true ) )
+				emitter.Enabled = false;
+		}
+
 		go.RunEvent<RadiusDamage>( x =>
 		{
 			if ( !applyDamage ) x.DamageOnEnabled = false;
