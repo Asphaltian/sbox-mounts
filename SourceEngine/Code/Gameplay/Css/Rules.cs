@@ -87,12 +87,4 @@ static class Rules
 	/// <summary>How a Counter-Strike grenade leaves the hand, see <see cref="Grenade.ThrowVelocity"/>.</summary>
 	public static Vector3 ThrowVelocity( Vector3 forward, Vector3 inherited ) => Grenade.ThrowVelocity( forward, inherited );
 
-	/// <summary>The thrown grenades, or null for a projectile kind that isn't Counter-Strike's.</summary>
-	public static Projectile Launch( Projectile.Kinds kind, GameObject attacker, string mount, Vector3 origin, Vector3 velocity, float damage, float radius, string model, BaseCombatWeapon weapon ) => kind switch
-	{
-		Projectile.Kinds.HeGrenade => Projectile.Spawn<HeGrenade>( attacker, mount, origin, velocity, damage, radius, model, weapon: weapon ),
-		Projectile.Kinds.Flashbang => Projectile.Spawn<Flashbang>( attacker, mount, origin, velocity, damage, radius, model, weapon: weapon ),
-		Projectile.Kinds.SmokeGrenade => Projectile.Spawn<SmokeGrenade>( attacker, mount, origin, velocity, damage, radius, model, weapon: weapon ),
-		_ => null
-	};
 }

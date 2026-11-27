@@ -53,6 +53,7 @@ public abstract class Grenade : Projectile, Component.ICollisionListener
 [Title( "CS:S HE Grenade" )]
 [Category( "Counter-Strike: Source" )]
 [Alias( "Source1.CssHeGrenade", "CssHeGrenade" )]
+[WeaponProjectile( Projectile.Kinds.HeGrenade )]
 public sealed class HeGrenade : Grenade
 {
 	const float BlastDamage = 100;
@@ -82,6 +83,7 @@ public sealed class HeGrenade : Grenade
 [Title( "CS:S Flashbang" )]
 [Category( "Counter-Strike: Source" )]
 [Alias( "Source1.CssFlashbang", "CssFlashbang" )]
+[WeaponProjectile( Projectile.Kinds.Flashbang )]
 public sealed class Flashbang : Grenade
 {
 	const float Range = 1500;
@@ -141,6 +143,7 @@ public sealed class Flashbang : Grenade
 [Title( "CS:S Smoke Grenade" )]
 [Category( "Counter-Strike: Source" )]
 [Alias( "Source1.CssSmokeGrenade", "CssSmokeGrenade" )]
+[WeaponProjectile( Projectile.Kinds.SmokeGrenade )]
 public sealed class SmokeGrenade : Grenade
 {
 	protected override string BounceSound => "SmokeGrenade.Bounce";

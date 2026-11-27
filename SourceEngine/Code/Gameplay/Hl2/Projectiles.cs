@@ -8,6 +8,7 @@ namespace Source1.Hl2;
 [Title( "HL2 Crossbow Bolt" )]
 [Category( "Half-Life 2" )]
 [Alias( "Source1.Hl2CrossbowBolt", "Hl2CrossbowBolt" )]
+[WeaponProjectile( Projectile.Kinds.Bolt )]
 public sealed class CrossbowBolt : Projectile
 {
 	public const float AirVelocity = 3500;
@@ -183,6 +184,7 @@ public sealed class CrossbowBolt : Projectile
 [Title( "HL2 Rocket" )]
 [Category( "Half-Life 2" )]
 [Alias( "Source1.Hl2Rocket", "Hl2Rocket" )]
+[WeaponProjectile( Projectile.Kinds.Rocket )]
 public sealed class Rocket : Projectile, Component.IDamageable
 {
 	internal const string LaunchModel = "models/weapons/w_missile_launch.mdl";
@@ -359,6 +361,7 @@ public sealed class Rocket : Projectile, Component.IDamageable
 [Title( "HL2 Grenade" )]
 [Category( "Half-Life 2" )]
 [Alias( "Source1.Hl2Grenade", "Hl2Grenade" )]
+[WeaponProjectile( Projectile.Kinds.Grenade, Upright = true )]
 public sealed class Grenade : Projectile
 {
 	// GRENADE_TIMER and GRENADE_RADIUS.
@@ -510,6 +513,7 @@ public sealed class Grenade : Projectile
 [Title( "HL2 Contact Grenade" )]
 [Category( "Half-Life 2" )]
 [Alias( "Source1.Hl2ContactGrenade", "Hl2ContactGrenade" )]
+[WeaponProjectile( Projectile.Kinds.ContactGrenade, Ammo = "SMG1_Grenade", Model = "models/weapons/ar2_grenade.mdl", Upright = true )]
 public sealed class ContactGrenade : TumblingProjectile, Component.IDamageable
 {
 	const float FlightHullSize = 6;
@@ -585,6 +589,7 @@ public sealed class ContactGrenade : TumblingProjectile, Component.IDamageable
 [Title( "HL2 Energy Ball" )]
 [Category( "Half-Life 2" )]
 [Alias( "Source1.Hl2EnergyBall", "Hl2EnergyBall" )]
+[WeaponProjectile( Projectile.Kinds.EnergyBall, Ammo = "AR2AltFire", Model = "models/effects/combineball.mdl" )]
 public sealed class EnergyBall : Projectile
 {
 	float _duration = 2;
@@ -642,6 +647,7 @@ public sealed class EnergyBall : Projectile
 [Title( "HL2 Bugbait" )]
 [Category( "Half-Life 2" )]
 [Alias( "Source1.Hl2Bugbait", "Hl2Bugbait" )]
+[WeaponProjectile( Projectile.Kinds.Bugbait, Upright = true )]
 public sealed class Bugbait : TumblingProjectile
 {
 	[ConVar( "bugbait_grenade_radius", ConVarFlags.Server, Help = "How far a thrown bugbait can distract Combine soldiers." )]

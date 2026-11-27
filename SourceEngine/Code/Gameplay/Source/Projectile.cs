@@ -39,20 +39,13 @@ public abstract partial class Projectile : Component
 	Vector3 _visualOffset;
 	bool _trailAttached;
 
-	public static Kinds? ForAmmo( string ammo ) => ammo switch
-	{
-		"AR2AltFire" => Kinds.EnergyBall,
-		"SMG1_Grenade" => Kinds.ContactGrenade,
-		_ => null
-	};
+	static (TypeDescription Type, WeaponProjectileAttribute Attribute) Definition( Kinds kind ) =>
+		Game.TypeLibrary.GetTypesWithAttribute<WeaponProjectileAttribute>().FirstOrDefault( x => x.Attribute.Kind == kind );
 
-	/// <summary>Models HL2 hardcodes in its projectile entities rather than weapon scripts.</summary>
-	public static string ModelFor( Kinds? kind ) => kind switch
-	{
-		Kinds.EnergyBall => "models/effects/combineball.mdl",
-		Kinds.ContactGrenade => "models/weapons/ar2_grenade.mdl",
-		_ => null
-	};
+	public static Kinds? ForAmmo( string ammo ) => ammo is null ? null : Game.TypeLibrary.GetTypesWithAttribute<WeaponProjectileAttribute>()
+		.FirstOrDefault( x => x.Attribute.Ammo == ammo ).Attribute?.Kind;
+
+	public static string ModelFor( Kinds? kind ) => kind.HasValue ? Definition( kind.Value ).Attribute?.Model : null;
 
 	/// <summary>Spawns a weapon's projectile on the host.</summary>
 	public static Projectile Launch( BaseCombatWeapon weapon, Kinds kind, Vector3 origin, Vector3 velocity, float damage, float radius, string model = null )
@@ -63,18 +56,10 @@ public abstract partial class Projectile : Component
 
 	internal static Projectile Launch( BaseCombatWeapon weapon, GameObject attacker, Kinds kind, Vector3 origin, Vector3 velocity, float damage, float radius, string model = null )
 	{
-		var mount = MountContent.OfWeapon( weapon );
-		model ??= ModelFor( kind );
-		return kind switch
-		{
-			Kinds.Bolt => Spawn<Hl2.CrossbowBolt>( attacker, mount, origin, velocity, damage, radius, model, weapon: weapon ),
-			Kinds.Rocket => Spawn<Hl2.Rocket>( attacker, mount, origin, velocity, damage, radius, model, weapon: weapon ),
-			Kinds.Grenade => Spawn<Hl2.Grenade>( attacker, mount, origin, velocity, damage, radius, model, weapon: weapon, rotation: Rotation.Identity ),
-			Kinds.ContactGrenade => Spawn<Hl2.ContactGrenade>( attacker, mount, origin, velocity, damage, radius, model, weapon: weapon, rotation: Rotation.Identity ),
-			Kinds.EnergyBall => Spawn<Hl2.EnergyBall>( attacker, mount, origin, velocity, damage, radius, model, weapon: weapon ),
-			Kinds.Bugbait => Spawn<Hl2.Bugbait>( attacker, mount, origin, velocity, damage, radius, model, weapon: weapon, rotation: Rotation.Identity ),
-			_ => Css.Rules.Launch( kind, attacker, mount, origin, velocity, damage, radius, model, weapon )
-		};
+		var (type, definition) = Definition( kind );
+		if ( type is null ) return null;
+		return Spawn( type, attacker, MountContent.OfWeapon( weapon ), origin, velocity, damage, radius, model ?? definition.Model,
+			null, weapon, definition.Upright ? Rotation.Identity : null, null );
 	}
 
 	/// <summary>Spawns and networks a projectile on the host. Its velocity supplies the default orientation.</summary>
@@ -84,13 +69,17 @@ public abstract partial class Projectile : Component
 
 	internal static T Spawn<T>( GameObject attacker, string mount, Vector3 origin, Vector3 velocity, float damage, float radius, string model,
 		string trail, BaseCombatWeapon weapon, Rotation? rotation, Vector3? spin ) where T : Projectile, new()
+		=> (T)Spawn( Game.TypeLibrary.GetType<T>(), attacker, mount, origin, velocity, damage, radius, model, trail, weapon, rotation, spin );
+
+	static Projectile Spawn( TypeDescription type, GameObject attacker, string mount, Vector3 origin, Vector3 velocity, float damage, float radius,
+		string model, string trail, BaseCombatWeapon weapon, Rotation? rotation, Vector3? spin )
 	{
-		var go = new GameObject( false, typeof( T ).Name );
+		var go = new GameObject( false, type.Name );
 		go.Tags.Add( "projectile" );
 		go.Tags.Add( "removable" );
 		go.WorldPosition = origin;
 		go.WorldRotation = rotation ?? Rotation.LookAt( velocity );
-		var projectile = go.AddComponent<T>();
+		var projectile = (Projectile)go.Components.Create( type );
 		projectile.MountName = mount;
 		projectile.ModelPath = model;
 		projectile.TrailParticle = trail;
@@ -310,4 +299,14 @@ public abstract class TumblingProjectile : Projectile
 		FlightAngles += AngularVelocity * Time.Delta;
 		return FlightAngles.ToRotation();
 	}
+}
+
+
+[AttributeUsage( AttributeTargets.Class, Inherited = false )]
+sealed class WeaponProjectileAttribute( Projectile.Kinds kind ) : Attribute
+{
+	public Projectile.Kinds Kind => kind;
+	public string Ammo { get; init; }
+	public string Model { get; init; }
+	public bool Upright { get; init; }
 }
