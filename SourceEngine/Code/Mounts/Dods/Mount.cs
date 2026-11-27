@@ -8,6 +8,8 @@ public sealed class Mount : SourceGameMount
 	public override long AppId => 300;
 	protected override string WeaponScriptKey => "Wl0u5B3F";
 	protected internal override bool UseDrawSequenceDuration => true;
+	protected internal override ViewModelMotion.Settings ViewModelMovement { get; } = new( BobCycle: 0.8f, ForwardBob: 0.4f,
+		SideBob: 0, BobAcceleration: 320, TurnSway: 2.6f, MirrorSway: false );
 
 	private protected override int? AmmoCarryLimit( string ammo ) => ammo switch
 	{

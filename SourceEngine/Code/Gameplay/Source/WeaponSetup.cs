@@ -14,6 +14,7 @@ sealed class WeaponSetup
 	public float NpcDamageScale = 1;
 	public (string Model, string Attachment, float? Speed)? Brass;
 	public string WeaponType;
+	public ViewModelMotion.Settings Motion { get; private set; } = ViewModelMotion.Settings.Default;
 	public float? PumpDelay;
 	public (float Partial, float Empty)? MagazineReloadTimes;
 	float? PlayerDamage;
@@ -170,7 +171,11 @@ sealed class WeaponSetup
 		if ( Data is null && weapon is BulletWeapon && ShotSoundOf( model, definition.MountName ) is { } shot ) weapon.AttackSound = shot;
 		WeaponType = Data?.WeaponType;
 		FlashType = WeaponEffects.FlashType( model );
-		if ( mount is SourceGameMount source ) source.ApplyWeaponDefaults( weapon, this, worldModel );
+		if ( mount is SourceGameMount source )
+		{
+			Motion = source.ViewModelMovement;
+			source.ApplyWeaponDefaults( weapon, this, worldModel );
+		}
 		Brass = BrassOf( model );
 		if ( weapon is BulletWeapon gun )
 		{

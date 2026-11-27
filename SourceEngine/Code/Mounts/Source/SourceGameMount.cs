@@ -7,6 +7,7 @@ public abstract partial class SourceGameMount : BaseGameMount
 	public abstract long AppId { get; }
 	public override long? SteamAppId => AppId;
 	public virtual GameRules GameRules { get; } = new();
+	protected internal virtual ViewModelMotion.Settings ViewModelMovement => ViewModelMotion.Settings.Default;
 	protected abstract string ContentDirectory { get; }
 	protected internal virtual string[] VoicePatterns( VoiceLine line ) => [];
 	protected internal virtual string FallbackCubemap => null;
