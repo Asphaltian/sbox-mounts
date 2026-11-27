@@ -36,6 +36,7 @@ public sealed class ViewModel : BaseWeaponModel
 	[Property] public float RecoilResetTime { get; set; }
 	[Property] public string DryFire { get; set; } = "dryfire";
 	[Property] public string Reload { get; set; } = "reload";
+	[Property] public bool UseEmptyReload { get; set; }
 	[Property] public string ReloadInsert { get; set; }
 	[Property] public string ReloadEnd { get; set; }
 	[Property] public string Pump { get; set; }
@@ -67,17 +68,20 @@ public sealed class ViewModel : BaseWeaponModel
 	AnimationPlayer _animation;
 	WeaponClips _clips;
 	WeaponClips _plainClips;
+	WeaponClips _deployedClips;
+	string _deployClip, _undeployClip, _deployedFire;
 	WeaponClips _silencedClips;
 	int _alternateShots;
 	string _pending;
 	BaseCombatWeapon _weapon;
-	string IdleClip => _weapon switch
+	string BeltClip( string[] clips ) => _weapon is { UsesPrimaryClip: true, Clip1: >= 0 } && _weapon.Clip1 < clips.Length ? clips[_weapon.Clip1] : null;
+	string IdleClip => BeltClip( _clips.BeltIdle ) ?? _weapon switch
 	{
 		Hl2.GravityWeapon gravity when gravity.HeldObject.IsValid() => _clips.Reload ?? _clips.Idle,
-		{ UsesPrimaryClip: true, Clip1: 0 } => _clips.EmptyIdle ?? _clips.Idle,
+		Weapon { UseEmptyIdle: true } or { UsesPrimaryClip: true, Clip1: 0 } => _clips.EmptyIdle ?? _clips.Idle,
 		_ => _clips.Idle
 	};
-	string DrawClip => _clips.EmptyDraw is { } draw && _weapon is { UsesPrimaryClip: true, Clip1: 0 } ? draw : _clips.Draw;
+	string DrawClip => _clips.EmptyDraw is { } draw && _weapon is (Weapon { UseEmptyIdle: true } or { UsesPrimaryClip: true, Clip1: 0 }) ? draw : _clips.Draw;
 	bool _reloading;
 	bool _pumpAfterShot;
 	Model _configuredModel;
@@ -126,12 +130,18 @@ public sealed class ViewModel : BaseWeaponModel
 		_missSwings = Swings( "ACT_VM_MISSCENTER" );
 		_flashType = WeaponEffects.FlashType( sequences );
 		_plainClips = WeaponClips.Resolve( model, this );
-		_silencedClips = _plainClips.AttachSilencer is null ? null : WeaponClips.Resolve( model, this, true );
+		_silencedClips = _plainClips.AttachSilencer is null ? null : WeaponClips.Resolve( model, this, "_SILENCED" );
 		_clips = _plainClips;
+		var lookup = ModelSequences.Of( model );
+		_deployedFire = lookup.FindActivity( "ACT_VM_PRIMARYATTACK_DEPLOYED" );
+		_deployClip = lookup.FindActivity( "ACT_VM_DEPLOY" );
+		_undeployClip = lookup.FindActivity( "ACT_VM_UNDEPLOY" );
+		_deployedClips = lookup.FindActivity( "ACT_VM_IDLE_DEPLOYED" ) is null ? null : WeaponClips.Resolve( model, this, "_DEPLOYED" );
 		SelectClips();
 		if ( _pending == Draw ) _pending = DrawClip;
 		IsIncremental = _clips.Incremental;
 		_choices = [.. Choices( _plainClips ), .. _silencedClips is null ? [] : Choices( _silencedClips ),
+			.. _deployedClips is null ? [] : Choices( _deployedClips ), (_deployClip, false), (_undeployClip, false), (_deployedFire, false),
 			.. _hitSwings.Select( s => (s.Name, false) ), .. _missSwings.Select( s => (s.Name, false) )];
 		if ( _weapon is ProjectileWeapon { Kind: Projectile.Kinds.Rocket } )
 			_choices = [.. _choices, (_clips.LoweredIdle, true), (_clips.Lower, false), (_clips.Raise, false)];
@@ -147,12 +157,25 @@ public sealed class ViewModel : BaseWeaponModel
 	}
 
 	static (string Name, bool Loop)[] Choices( WeaponClips clips ) => [(clips.Idle, true), (clips.EmptyIdle, true), (clips.Draw, false), (clips.EmptyDraw, false), (clips.Fire, false),
-		(clips.SecondaryFire, false), (clips.DryFire, false), (clips.LastShot, false), (clips.Reload, false), (clips.ReloadInsert, false),
+		(clips.SecondaryFire, false), (clips.DryFire, false), (clips.LastShot, false), (clips.Reload, false), (clips.EmptyReload, false), (clips.ReloadInsert, false),
 		(clips.ReloadEnd, false), (clips.Pump, false), (clips.ThrowWindup, false), (clips.LowWindup, false), (clips.Lob.Clip, false), (clips.SecondaryWindup, false),
-		(clips.AttachSilencer, false), (clips.DetachSilencer, false), .. clips.Recoil.Select( name => (name, false) )];
+		(clips.AttachSilencer, false), (clips.DetachSilencer, false), .. clips.BeltIdle.Select( name => (name, true) ), .. clips.BeltFire.Select( name => (name, false) ), .. clips.Recoil.Select( name => (name, false) )];
 
 	/// <summary>Silenced weapons play their *_SILENCED clips.</summary>
-	void SelectClips() => _clips = GetComponentInParent<BulletWeapon>() is { Silenced: true } && _silencedClips is not null ? _silencedClips : _plainClips;
+	void SelectClips() => _clips = _weapon switch
+	{
+		Weapon { UsesDeployedClips: true } => _deployedClips ?? _plainClips,
+		BulletWeapon { Silenced: true } => _silencedClips ?? _plainClips,
+		_ => _plainClips
+	};
+
+	internal void OnDeployChanged( bool deployed )
+	{
+		if ( _deployedClips is null ) return;
+		_clips = deployed ? _deployedClips : _plainClips;
+		ResetBurst();
+		Play( (deployed ? _deployClip : _undeployClip) ?? IdleClip );
+	}
 
 	void OnSequenceEvent( SourceModelSequenceData.Event e )
 	{
@@ -170,6 +193,8 @@ public sealed class ViewModel : BaseWeaponModel
 		// CL_EVENT_EJECTBRASS1 always uses attachment 2; its option is the shell type.
 		else if ( e.Id == AnimEvents.EjectBrass1 )
 			EjectShell( WeaponEffects.ShellModel( int.TryParse( e.Options, out var shell ) ? shell : 0 ), AttachmentObject( 1 ), null );
+		else if ( _weapon is Weapon weapon && weapon.BrassForEvent( e ) is { } casing )
+			EjectShell( casing, AttachmentObject( 1 ), null );
 	}
 
 	/// <summary>An event's attachment by its 1-based number, as Source's GetAttachment( int ) reads it.</summary>
@@ -206,8 +231,10 @@ public sealed class ViewModel : BaseWeaponModel
 	/// <summary>The muzzle where the world camera shows it, for tracers and projectiles.</summary>
 	public Vector3 WorldMuzzlePosition => _muzzle.IsValid() ? DrawnPosition( _muzzle ) : GameObject.WorldPosition;
 
-	// Source's viewmodel_fov reference, 54 degrees horizontal at 4:3, as a vertical half-angle tangent.
-	static readonly float LensTangent = MathF.Tan( 27f.DegreeToRadian() ) * 0.75f;
+	/// <summary>Horizontal field of view at a 4:3 aspect ratio.</summary>
+	[Property] public float FieldOfView { get; set; } = 54;
+	[Property] public string WeaponClass { get; set; }
+	[Property] public Vector3 PositionOffset { get; set; }
 
 	/// <summary>
 	/// Source draws viewmodels through their own fixed lens. Stretching the viewmodel across the view by the ratio of the
@@ -219,7 +246,7 @@ public sealed class ViewModel : BaseWeaponModel
 		var aspect = rect.Height > 0 ? rect.Width / rect.Height : Screen.Aspect;
 		var tangent = MathF.Tan( view.FieldOfView.DegreeToRadian() * 0.5f );
 		if ( camera.FovAxis == CameraComponent.Axis.Horizontal ) tangent /= aspect;
-		var lens = fovOffset == 0 ? LensTangent : MathF.Tan( (Math.Max( 54 - fovOffset, 0.1f ) * 0.5f).DegreeToRadian() ) * 0.75f;
+		var lens = MathF.Tan( (Math.Clamp( FieldOfView - fovOffset, 0.1f, 179f ) * 0.5f).DegreeToRadian() ) * 0.75f;
 		var stretch = tangent / lens;
 		WorldScale = new Vector3( 1, stretch, stretch );
 		UpdateWorldMuzzle();
@@ -511,12 +538,12 @@ public sealed class ViewModel : BaseWeaponModel
 	}
 
 	/// <summary>The secondary fire clip with its muzzle flash, and no tracer.</summary>
-	public void OnAlternateAttack()
+	public void OnAlternateAttack( bool muzzleFlash = true )
 	{
 		if ( _clips is null ) return;
 		BeginAttack();
 		var clip = string.IsNullOrEmpty( _clips.SecondaryFire ) ? _clips.Fire : _clips.SecondaryFire;
-		if ( _weapon is not BulletWeapon { AlternateProjectile: Projectile.Kinds.ContactGrenade } ) FlashUnlessAuthored( clip );
+		if ( muzzleFlash && _weapon is not BulletWeapon { AlternateProjectile: Projectile.Kinds.ContactGrenade } ) FlashUnlessAuthored( clip );
 		Play( clip );
 	}
 
@@ -575,9 +602,11 @@ public sealed class ViewModel : BaseWeaponModel
 	{
 		if ( _clips.ThrowWindup is not null ) return _clips.ThrowWindup;
 		var weapon = _weapon;
+		if ( BeltClip( _clips.BeltFire ) is { } belt ) return belt;
 		if ( weapon is BulletWeapon { BurstMode: true } burst && _clips.Burst is not null ) return burst.BurstFollowUp ? null : _clips.Burst;
+		if ( _deployedClips is null && _deployedFire is not null && weapon is Weapon { UsesDeployedClips: true } ) return _deployedFire;
 		if ( _clips.Alternates ) return _alternateShots++ % 2 == 0 ? _clips.Fire : _clips.SecondaryFire;
-		if ( _clips.LastShot is not null && weapon.IsValid() && weapon.UsesAmmo && weapon.Clip1 <= 0 ) return _clips.LastShot;
+		if ( _clips.LastShot is not null && weapon is (Weapon { UseEmptyAttack: true } or { UsesPrimaryClip: true, Clip1: 0 }) ) return _clips.LastShot;
 		var resetTime = RecoilResetTime > 0 ? RecoilResetTime : Math.Max( 0.25f, (weapon?.PrimaryDelay ?? 0.1f) * 2 );
 		if ( !ResetRecoilOnRelease && _lastPrimaryShot > resetTime ) _burstShots = 0;
 		var recoil = _clips.Recoil;
@@ -602,8 +631,9 @@ public sealed class ViewModel : BaseWeaponModel
 			return;
 		}
 		_pumpAfterShot = false;
-		Play( _clips.Reload );
-		if ( !_clips.Incremental ) PlayReloadSound( _clips.Reload );
+		var reload = _weapon is { UsesPrimaryClip: true, Clip1: 0 } ? _clips.EmptyReload ?? _clips.Reload : _clips.Reload;
+		Play( reload );
+		if ( !_clips.Incremental ) PlayReloadSound( reload );
 	}
 
 	public override void OnIncrementalReload()
@@ -691,7 +721,7 @@ public sealed class ViewModel : BaseWeaponModel
 			_lookVelocity = Vector2.Zero;
 		}
 
-		WorldPosition = view.Position + pivotOffset;
+		WorldPosition = view.Position + pivotOffset + rotation * (_weapon is Weapon weaponWithOffset ? weaponWithOffset.ViewOffset( PositionOffset ) : PositionOffset);
 		WorldRotation = rotation;
 	}
 

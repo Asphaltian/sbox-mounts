@@ -9,6 +9,17 @@ namespace Source1;
 sealed record WeaponClips
 {
 	public string Idle { get; init; }
+	public string[] BeltIdle { get; init; } = [];
+	public string[] BeltFire { get; init; } = [];
+
+	static string[] BeltClips( ModelSequences sequences, string activity )
+	{
+		if ( sequences.FindActivity( activity + "_1" ) is null ) return [];
+		var clips = new List<string> { sequences.FindActivity( activity + "_EMPTY" ) };
+		for ( var i = 1; sequences.FindActivity( $"{activity}_{i}" ) is { } clip; i++ )
+			clips.Add( clip );
+		return clips.ToArray();
+	}
 	public string Draw { get; init; }
 	public string EmptyIdle { get; init; }
 	public string LoweredIdle { get; init; }
@@ -20,6 +31,7 @@ sealed record WeaponClips
 	public string SecondaryFire { get; init; }
 	public string SecondaryWindup { get; init; }
 	public string[] Recoil { get; init; } = [];
+	public string EmptyReload { get; init; }
 	public string Reload { get; init; }
 	public string ReloadInsert { get; init; }
 	public string ReloadEnd { get; init; }
@@ -48,11 +60,11 @@ sealed record WeaponClips
 	public static float Duration( Model model, string clip ) => model.AnimationClips().TryGetValue( clip ?? "", out var animation ) ? animation.Duration : 0;
 
 	/// <summary>A model with silencer clips resolves a second set preferring the *_SILENCED activities.</summary>
-	public static WeaponClips Resolve( Model model, ViewModel names, bool silenced = false )
+	public static WeaponClips Resolve( Model model, ViewModel names, string suffix = null )
 	{
 		var lookup = ModelSequences.Of( model );
 		var sequences = lookup.All;
-		string Find( string activity, string fallback ) => (silenced ? lookup.FindActivity( activity + "_SILENCED" ) : null)
+		string Find( string activity, string fallback ) => (suffix is null ? null : lookup.FindActivity( activity + suffix ))
 			?? lookup.FindActivity( activity, fallback );
 		SourceModelSequenceData.Event[] Muzzles( string clip ) => sequences.FirstOrDefault( s => s.Name == clip )?.Events.Where( AnimEvents.IsMuzzleFlash ).ToArray() ?? [];
 		string MuzzleOf( string clip ) => Muzzles( clip ).Select( e => $"{e.Id} {e.Options}" ).FirstOrDefault();
@@ -95,15 +107,17 @@ sealed record WeaponClips
 		return new WeaponClips
 		{
 			Idle = Find( "ACT_VM_IDLE", names.Idle ),
+			BeltIdle = BeltClips( lookup, "ACT_VM_IDLE" + suffix ),
+			BeltFire = BeltClips( lookup, "ACT_VM_PRIMARYATTACK" + suffix ),
 			LoweredIdle = Find( "ACT_VM_IDLE_LOWERED", null ),
 			Lower = Find( "ACT_VM_IDLE_TO_LOWERED", null ),
 			Raise = Find( "ACT_VM_LOWERED_TO_IDLE", null ),
 			Draw = draw,
 			EmptyDraw = Find( "ACT_VM_DRAW_EMPTY", null ),
 			EmptyIdle = Find( "ACT_VM_IDLE_EMPTY", null ) ?? (lookup.Get( "idle_empty" ) is { } empty ? empty.Name : null),
-			Fire = throws ? release.Name : fire,
+			Fire = throws ? release.Name : Find( "ACT_VM_PULLPIN", fire ),
 			DryFire = lastShot is null ? dryFire : null,
-			LastShot = lastShot,
+			LastShot = Find( "ACT_VM_PRIMARYATTACK_EMPTY", lastShot ),
 			SecondaryFire = secondaryFire,
 			Burst = burst,
 			Alternates = burst is null && MuzzleOf( fire ) is { } primary && MuzzleOf( secondaryFire ) is { } other && primary != other,
@@ -111,6 +125,7 @@ sealed record WeaponClips
 			DetachSilencer = Find( "ACT_VM_DETACH_SILENCER", null ),
 			SecondaryWindup = Find( "ACT_VM_FIDGET", null ),
 			Recoil = [.. (names.RecoilStages ?? []).Select( i => Find( $"ACT_VM_RECOIL{i}", fire ) )],
+			EmptyReload = names.UseEmptyReload ? Find( "ACT_VM_RELOAD_EMPTY", null ) : null,
 			Reload = throws ? draw : Find( incremental ? "ACT_SHOTGUN_RELOAD_START" : "ACT_VM_RELOAD", names.Reload ),
 			ReloadInsert = incremental ? Find( "ACT_VM_RELOAD", names.ReloadInsert ) : names.ReloadInsert,
 			ReloadEnd = Find( "ACT_SHOTGUN_RELOAD_FINISH", names.ReloadEnd ),

@@ -100,6 +100,14 @@ public sealed class PhysGunInteractions
 [Sandbox.ModelEditor.GameData( "weapon_data", AllowMultiple = true ), Hide]
 public sealed class SourceModelWeaponData
 {
+	public float? ViewModelFov { get; set; }
+	public Vector3 ViewModelOffset { get; set; }
+	public Vector3? IronSightOffset { get; set; }
+	public float? SecondaryAccuracy { get; set; }
+	public float? SecondaryCycleTime { get; set; }
+	public float? AccuracyMovePenalty { get; set; }
+	public float? Accuracy { get; set; }
+	public float? Recoil { get; set; }
 	public string ClassName { get; set; }
 	public string ViewModel { get; set; }
 	public string WorldModel { get; set; }

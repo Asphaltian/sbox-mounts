@@ -190,7 +190,7 @@ public sealed class SmokeGrenade : Grenade
 [Title( "CS:S Smoke Cloud" )]
 [Category( "Counter-Strike: Source" )]
 [Alias( "Source1.CssSmokeCloud", "CssSmokeCloud" )]
-public sealed class SmokeCloud : Component
+public sealed class SmokeCloud : Component, ISmokeCloud
 {
 	const int PerDimension = 4;
 	const float ParticleRadius = 80;
@@ -386,49 +386,6 @@ public sealed class SmokeCloud : Component
 		}
 		SmokeFog.Ensure( Scene );
 		if ( age > FadeEnd ) GameObject.Destroy();
-	}
-}
-
-/// <summary>DrawSmokeFogOverlay: the screen greyed to 0.3 by the summed fog of every cloud the eye is inside, under the HUD.</summary>
-[Title( "CS:S Smoke Fog" )]
-[Category( "Counter-Strike: Source" )]
-[Alias( "Source1.CssSmokeFog", "CssSmokeFog" )]
-public sealed class SmokeFog : PanelComponent
-{
-	const float Grey = 0.3f;
-
-	public static void Ensure( Scene scene )
-	{
-		if ( scene.GetAllComponents<SmokeFog>().Any() ) return;
-		var go = new GameObject( true, "Smoke fog overlay" );
-		go.NetworkMode = NetworkMode.Never;
-		go.Flags |= GameObjectFlags.NotSaved | GameObjectFlags.NotNetworked;
-		go.AddComponent<ScreenPanel>().ZIndex = 0;
-		go.AddComponent<SmokeFog>();
-	}
-
-	protected override void OnUpdate()
-	{
-		var camera = Scene.Camera;
-		var visible = Panel is not null && camera.IsValid();
-		var anyClouds = false;
-		double alpha = 0;
-		foreach ( var cloud in Scene.GetAllComponents<SmokeCloud>() )
-		{
-			anyClouds = true;
-			if ( visible ) alpha += cloud.FogAlpha( camera.WorldPosition );
-		}
-		if ( !anyClouds )
-		{
-			GameObject.Destroy();
-			return;
-		}
-		if ( Panel is null ) return;
-		Panel.Style.Position = Sandbox.UI.PositionMode.Absolute;
-		Panel.Style.Width = Sandbox.UI.Length.Percent( 100 );
-		Panel.Style.Height = Sandbox.UI.Length.Percent( 100 );
-		Panel.Style.BackgroundColor = new Color( Grey, Grey, Grey );
-		Panel.Style.Opacity = Math.Clamp( (float)alpha, 0, 1 );
 	}
 }
 

@@ -12,6 +12,9 @@ public sealed class AnimationPlayer : IDisposable
 	SkinnedModelRenderer _renderer;
 	TimeSince _elapsed;
 	int _slot;
+	bool _splitSlots;
+	readonly string[] _slotClips = new string[2];
+	float _fade;
 	string _selection;
 	readonly float[] _rates = [1, 1];
 	ModelSequences _sequences;
@@ -145,7 +148,11 @@ public sealed class AnimationPlayer : IDisposable
 		// ResetTime on a shared parameter also rewinds the outgoing clip, causing
 		// a visible snap on shots, shell inserts and interrupted reloads.
 		var clips = available.SelectMany( x => Enumerable.Range( 0, 2 ).Select( slot => (x.Name, x.Loop, Slot: slot, Key: $"{x.Name}:{slot}") ) ).ToArray();
-		var selected = builder.IdParameter( "sequence", clips.Select( x => x.Key ).ToArray() );
+		_splitSlots = clips.Length > GraphBuilder.StateMachineBuilder.MaxStates;
+		var selected = builder.IdParameter( "sequence", _splitSlots ? ["first", "second"] : clips.Select( x => x.Key ).ToArray() );
+		var names = available.Select( x => x.Name ).ToArray();
+		var slotIds = _splitSlots ? new[] { builder.IdParameter( "clip0", names ), builder.IdParameter( "clip1", names ) } : null;
+		var fade = _splitSlots ? builder.AddControlParameter( "sequenceFade", GraphBuilder.NodeKind.Float, new() { Max = 4 } ) : null;
 		var speeds = Enumerable.Range( 0, 2 ).Select( slot => builder.AddControlParameter( $"rate{slot}", GraphBuilder.NodeKind.Float,
 			new() { DefaultFloat = 1, Min = 0, Max = 4 } ) ).ToArray();
 		var poseLayers = (_model.GetData<SourceModelPoseLayerData[]>() ?? []).Where( p => p.Clips.Length >= 2 && p.Clips.Length == p.Positions.Length
@@ -278,7 +285,19 @@ public sealed class AnimationPlayer : IDisposable
 			return machine;
 		}
 
-		var main = Selector( selected, clips.Select( x => x.Key ).ToArray(), i => builder.SpeedScale( Playback( clips[i].Name, clips[i].Loop ), speeds[clips[i].Slot] ), ( from, to ) =>
+		GraphBuilder.StateMachineBuilder SlotMachine()
+		{
+			var machine = builder.StateMachine();
+			GraphBuilder.StateMachineBuilder.State State( int i ) => machine.AddState( builder.SpeedScale( builder.IdBasedSelector( slotIds[i],
+				available.Select( x => (x.Name, Playback( x.Name, x.Loop )) ) ), speeds[i] ) );
+			var first = State( 0 );
+			var second = State( 1 );
+			var transition = new GraphBuilder.TransitionSettings { DurationOverride = fade, BlendEasing = GraphBuilder.Easing.InOutSine, CanBeForced = true };
+			machine.AddTransition( first, second, builder.IdCompare( selected, "second" ), transition );
+			machine.AddTransition( second, first, builder.IdCompare( selected, "first" ), transition );
+			return machine;
+		}
+		var main = _splitSlots ? SlotMachine() : Selector( selected, clips.Select( x => x.Key ).ToArray(), i => builder.SpeedScale( Playback( clips[i].Name, clips[i].Loop ), speeds[clips[i].Slot] ), ( from, to ) =>
 			// A completed reload still needs its authored fade into idle; clamping to the outgoing clip's remaining time makes that fade zero.
 			_sequences.Get( clips[from].Name ) is { } outgoing && _sequences.Get( clips[to].Name ) is { } incoming
 				? incoming.Snap ? 0 : MathF.Min( outgoing.FadeOut, incoming.FadeIn )
@@ -423,11 +442,14 @@ public sealed class AnimationPlayer : IDisposable
 			// Flush the last interval before changing clips, including cycle-one
 			// events when the caller switches to idle on the finishing frame.
 			if ( Current is not null ) DispatchEvents();
+			_fade = _sequences.Get( Current ?? "" ) is { } outgoing && _sequences.Get( name ) is { } incoming
+				? incoming.Snap ? 0 : MathF.Min( outgoing.FadeOut, incoming.FadeIn ) : 0.08f;
 			Current = name;
 			_elapsed = 0;
 			_eventTime = -0.0001f;
 			_slot = 1 - _slot;
-			_selection = $"{name}:{_slot}";
+			_slotClips[_slot] = name;
+			_selection = _splitSlots ? (_slot == 0 ? "first" : "second") : $"{name}:{_slot}";
 		}
 		_rate = Math.Clamp( rate, 0.01f, 4 );
 		_rates[_slot] = _rate;
@@ -436,6 +458,12 @@ public sealed class AnimationPlayer : IDisposable
 	internal void ApplySequence( SkinnedModelRenderer renderer )
 	{
 		var parameters = renderer.Animation.Parameters;
+		if ( _splitSlots )
+		{
+			parameters.TrySet( "clip0", _slotClips[0] ?? Current );
+			parameters.TrySet( "clip1", _slotClips[1] ?? Current );
+			parameters.TrySet( "sequenceFade", _fade );
+		}
 		parameters.TrySet( "sequence", _selection );
 		parameters.TrySet( "rate0", _rates[0] );
 		parameters.TrySet( "rate1", _rates[1] );

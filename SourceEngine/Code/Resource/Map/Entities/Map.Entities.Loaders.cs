@@ -26,6 +26,7 @@ partial class MapLoader
 			"func_door" => new DoorEntityLoader(),
 			"func_door_rotating" => new RotatingDoorEntityLoader(),
 			"func_button" => new ButtonEntityLoader(),
+			"dod_bomb_target" => new BombTargetLoader(),
 			"info_target" => new NamedTargetLoader(),
 			"npc_antlion_template_maker" => new AntlionMakerLoader(),
 			"info_node_hint" => new NodeHintLoader(),
@@ -77,6 +78,23 @@ partial class MapLoader
 		}
 
 		builder.Finish();
+	}
+
+	private sealed class BombTargetLoader : EntityLoader
+	{
+		public override bool SupportsSkybox => false;
+		public override void Load( EntityBuilder builder, MapEntity entity )
+		{
+			var prefab = GameObject.GetPrefab( "mount://dods/entities/items/bomb_target.prefab" );
+			if ( !prefab.IsValid() ) return;
+			var point = prefab.Clone( new CloneConfig { Parent = builder.World, StartEnabled = false } );
+			point.Name = entity.Get( "targetname", "dod_bomb_target" );
+			point.LocalTransform = new Transform( entity.Vector( "origin" ), Rotation.From( entity.Angles ) );
+			var target = point.GetComponent<Dods.BombTarget>( true );
+			target.State = entity.Integer( "StartDisabled" ) == 0 ? Dods.BombTarget.States.Ready : Dods.BombTarget.States.Inactive;
+			builder.RegisterEntityIO( entity, target );
+			point.Enabled = true;
+		}
 	}
 
 	private sealed class NamedTargetLoader : EntityLoader

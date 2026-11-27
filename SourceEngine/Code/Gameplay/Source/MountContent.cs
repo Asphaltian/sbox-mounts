@@ -31,7 +31,7 @@ static class MountContent
 	}
 
 	/// <summary>The mount a weapon's art comes from, named by its viewmodel prefab.</summary>
-	public static string OfWeapon( BaseCombatWeapon weapon ) => weapon?.ViewModelPrefab?.GetComponentInChildren<MountedModel>()?.MountName ?? "hl2";
+	public static string OfWeapon( BaseCombatWeapon weapon ) => weapon?.ViewModelPrefab?.GetComponentInChildren<MountedModel>( true )?.MountName ?? Of( weapon?.GameObject.PrefabInstanceSource );
 
 	/// <summary>The mount's built prefab of that name, such as the explosion. See <see cref="Entities"/>.</summary>
 	public static PrefabFile Prefab( string mountName, string name ) => Entities.Prefab( mountName, name );

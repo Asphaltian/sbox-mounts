@@ -18,6 +18,13 @@ partial class MapLoader
 			{
 				switch ( component )
 				{
+					case Dods.BombTarget target:
+						target.OnPlanted = BuildOutput( entity, "OnBombPlanted", false );
+						target.OnExploded = BuildOutput( entity, "OnBombExploded", false );
+						target.OnDefused = BuildOutput( entity, "OnBombDefused", false );
+						target.OnActivated = BuildOutput( entity, "OnBombTargetActivated", false );
+						target.OnDeactivated = BuildOutput( entity, "OnBombTargetDeactivated", false );
+						break;
 					case MapRelay relay:
 						BuildOutput( entity, "OnTrigger", true, relay.OnTrigger );
 						break;
@@ -44,6 +51,7 @@ partial class MapLoader
 						continue;
 					var supported = ioEntities.TryGetValue( entity, out var component ) && (component is Door
 						&& (key.Equals( "OnOpen", StringComparison.OrdinalIgnoreCase ) || key.Equals( "OnClose", StringComparison.OrdinalIgnoreCase ))
+						|| component is Dods.BombTarget && key.ToLowerInvariant() is ("onbombplanted" or "onbombexploded" or "onbombdefused" or "onbombtargetactivated" or "onbombtargetdeactivated")
 						|| component is MapRelay && key.Equals( "OnTrigger", StringComparison.OrdinalIgnoreCase )
 						|| component is Hl2.BugbaitSensor && key.Equals( "OnBaited", StringComparison.OrdinalIgnoreCase )
 					|| component is SourceGlassPane && key.Equals( "OnBreak", StringComparison.OrdinalIgnoreCase )
@@ -149,10 +157,12 @@ partial class MapLoader
 					Arguments = restore ? null : [new Doo.LiteralExpression { LiteralValue = area }]
 				};
 			}
-			if ( target is MapRelay or Hl2.BugbaitSensor or Hl2.AntlionBurrow or Hl2.AntlionMaker )
+			if ( target is Dods.BombTarget or MapRelay or Hl2.BugbaitSensor or Hl2.AntlionBurrow or Hl2.AntlionMaker )
 			{
 				var listener = (target, input.ToLowerInvariant()) switch
 				{
+					(Dods.BombTarget, "enable") => nameof( Dods.BombTarget.Activate ),
+					(Dods.BombTarget, "disable") => nameof( Dods.BombTarget.Deactivate ),
 					(MapRelay, "trigger") => nameof( MapRelay.Trigger ),
 					(MapRelay, "enable") => nameof( MapRelay.TurnOn ),
 					(MapRelay, "disable") => nameof( MapRelay.TurnOff ),

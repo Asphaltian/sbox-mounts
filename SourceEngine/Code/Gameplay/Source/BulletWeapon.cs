@@ -43,7 +43,7 @@ static class Scope
 [Title( "Source Bullet Weapon" )]
 [Category( "Source 1" )]
 [Alias( "Source1.SourceBulletWeapon", "SourceBulletWeapon" )]
-public sealed class BulletWeapon : Weapon
+public class BulletWeapon : Weapon
 {
 	/// <summary>Physical kick applied to a standalone (unheld) gun when it fires.</summary>
 	[Property, Group( "Recoil" )] public float ShootForce { get; set; } = 100000f;
@@ -317,6 +317,7 @@ public sealed class BulletWeapon : Weapon
 
 	protected override void OnReloadStarted()
 	{
+		if ( Setup.MagazineReloadTimes is { } times ) ReloadTime = Clip1 == 0 ? times.Empty : times.Partial;
 		// An interruptible reload preserves the launcher's existing attack deadline.
 		_reloadInputDelay = NextSecondaryFire;
 		_fireDuration = 0;
@@ -425,9 +426,11 @@ public sealed class BulletWeapon : Weapon
 		_tapReady = (TimeUntil)DryTapRefireDelay;
 	}
 
+	protected virtual bool UseSpreadDisk => false;
+
 	void FirePrimaryRound()
 	{
-		if ( (Secondary == SecondaryFires.DoubleShot || AccuracyPenaltyPerShot > 0) && HasOwner && !NpcControlled )
+		if ( (UseSpreadDisk || Secondary == SecondaryFires.DoubleShot || AccuracyPenaltyPerShot > 0) && HasOwner && !NpcControlled )
 		{
 			if ( !TakePrimaryAmmo() ) return;
 			ShootEffects( FireVolley( Ballistics.Pellets ) );
@@ -528,9 +531,11 @@ public sealed class BulletWeapon : Weapon
 			return;
 		}
 		// Counter-Strike's zoom FOVs are relative to its default of 90: keep that magnification from the player's own FOV.
-		var magnification = MathF.Tan( 45f.DegreeToRadian() ) / MathF.Tan( (levels[_zoomLevel - 1] * 0.5f).DegreeToRadian() );
-		view.FieldOfView = (MathF.Atan( MathF.Tan( (view.FieldOfView * 0.5f).DegreeToRadian() ) / magnification ) * 2).RadianToDegree();
+		view.FieldOfView = ZoomedFov( view.FieldOfView, levels[_zoomLevel - 1] );
 	}
+
+	protected static float ZoomedFov( float fov, float sourceFov ) =>
+		(2 * MathF.Atan( MathF.Tan( (fov * 0.5f).DegreeToRadian() ) * MathF.Tan( (sourceFov * 0.5f).DegreeToRadian() ) )).RadianToDegree();
 
 	public override void DrawHud( Painter painter, Vector2 crosshair )
 	{

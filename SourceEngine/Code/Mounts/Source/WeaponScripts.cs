@@ -21,7 +21,7 @@ public abstract partial class SourceGameMount
 				var root = WeaponScript.Parse( WeaponScript.Decode( bytes, entry.Key, WeaponScriptKey ), entry.Key );
 				var data = WeaponScript.Read( root, entry.Key, skill );
 				if ( data is null ) continue;
-				data.Icon = MountWeaponIcon( context, files, entry.Key, SourceHudTexture.Read( root, "weapon" ), hudFonts );
+				data.Icon = MountWeaponIcon( context, files, entry.Key, SourceHudTexture.Read( root, "weapon" ) ?? SourceHudTexture.Read( root, "weapon_s" ), hudFonts );
 				data.PrimaryAmmoResource = AmmoResource( context, data.PrimaryAmmo );
 				data.SecondaryAmmoResource = AmmoResource( context, data.SecondaryAmmo );
 				RegisterWeaponSounds( context, data, entry.Key, waveEvents );
@@ -108,7 +108,7 @@ public abstract partial class SourceGameMount
 			.OrderBy( x => x.Key );
 	}
 
-	internal SourceModelWeaponData FindWeaponScript( string view, string world, string fallback )
+	internal SourceModelWeaponData FindWeaponScript( string view, string world, string fallback, string weaponClass = null )
 	{
 		using var files = AcquireIndex();
 		return Find( view ) ?? Find( world ) ?? Find( fallback );
@@ -117,7 +117,8 @@ public abstract partial class SourceGameMount
 		{
 			if ( model is null || !files.Weapons.TryGetValue( model, out var scripts ) ) return null;
 			// NPC weapons can share a viewmodel with a player weapon.
-			return scripts.Find( x => x.WorldModel == world )
+			return scripts.Find( x => x.ClassName == weaponClass )
+				?? scripts.Find( x => x.WorldModel == world )
 				?? scripts.Find( x => x.ClassName.StartsWith( "weapon_", StringComparison.OrdinalIgnoreCase )
 					&& x.ViewModel?.EndsWith( "/v_" + x.ClassName["weapon_".Length..] + ".mdl", StringComparison.OrdinalIgnoreCase ) == true )
 				?? scripts.FirstOrDefault();

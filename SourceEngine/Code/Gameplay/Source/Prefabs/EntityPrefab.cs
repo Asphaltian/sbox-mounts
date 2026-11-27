@@ -27,13 +27,24 @@ internal sealed class EntityPrefab( GameObject root, SourceGameMount mount, Enti
 				weapon.ViewModelPrefab = p.Prefab( viewPath );
 				weapon.WorldModelPrefab = p.Prefab( worldPath );
 				configure( weapon );
-				WeaponSetup.ApplyInventoryData( weapon, p.Mount.FindWeaponScript( viewModel, worldModel, fallback ) );
+				WeaponSetup.ApplyInventoryData( weapon, p.Mount.FindWeaponScript( viewModel, worldModel, fallback, $"weapon_{name}" ) );
 			}
 		};
 		yield return new( game, EntityKind.ViewModel, view, null, null, null )
 		{
 			ModelPath = viewModel, FallbackModel = fallback,
-			Build = p => { var vm = p.MakeViewModel(); configureView?.Invoke( vm ); }
+			Build = p =>
+			{
+				var view = p.MakeViewModel();
+				if ( p.Mount.FindWeaponScript( viewModel, worldModel, fallback, $"weapon_{name}" ) is { } script )
+				{
+					view.WeaponClass = script.ClassName;
+					view.FieldOfView = script.ViewModelFov ?? view.FieldOfView;
+					var offset = script.ViewModelOffset;
+					view.PositionOffset = new( offset.x, -offset.y, offset.z );
+				}
+				configureView?.Invoke( view );
+			}
 		};
 		yield return new( game, EntityKind.WorldModel, world, null, null, null )
 		{

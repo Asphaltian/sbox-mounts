@@ -8,12 +8,14 @@ sealed class WeaponSetup
 {
 	Task<bool> _configured;
 	public SourceModelWeaponData Data;
+	public Model ViewModel { get; private set; }
 	public string FlashType;
 	public float FlashScale = 1;
 	public float NpcDamageScale = 1;
 	public (string Model, string Attachment, float? Speed)? Brass;
 	public string WeaponType;
 	public float? PumpDelay;
+	public (float Partial, float Empty)? MagazineReloadTimes;
 	float? PlayerDamage;
 	SoundEvent FireSound;
 
@@ -80,7 +82,8 @@ sealed class WeaponSetup
 	{
 		var definition = weapon.ViewModelPrefab?.GetComponentInChildren<MountedModel>();
 		if ( !definition.IsValid() ) return null;
-		return definition.SourceMount?.FindWeaponScript( definition.ModelPath, WorldModelPath( weapon ), definition.FallbackModelPath );
+		return definition.SourceMount?.FindWeaponScript( definition.ModelPath, WorldModelPath( weapon ), definition.FallbackModelPath,
+			weapon.ViewModelPrefab.GetComponentInChildren<ViewModel>()?.WeaponClass );
 	}
 
 	internal static void ApplyInventoryData( BaseCombatWeapon weapon, SourceModelWeaponData data )
@@ -174,7 +177,8 @@ sealed class WeaponSetup
 			PlayerDamage = gun.Ballistics.Damage;
 			FireSound = weapon.AttackSound;
 		}
-		var clips = WeaponClips.Resolve( model, names );
+		ViewModel = model;
+		var clips = WeaponClips.Resolve( model, names, weapon is Weapon { UsesDeployedClips: true } ? "_DEPLOYED" : null );
 		float Duration( string clip ) => WeaponClips.Duration( model, clip );
 		var draw = Duration( clips.Draw );
 		if ( mount is SourceGameMount { UseDrawSequenceDuration: true } && weapon.DeployTime > 0 && draw > 0 && names.DrawPlaybackRate > 0 )
@@ -190,7 +194,12 @@ sealed class WeaponSetup
 			weapon.AttackSound = null;
 		}
 		var reload = Duration( clips.Incremental ? clips.ReloadInsert : clips.Reload );
-		if ( reload > 0 && weapon.UsesAmmo ) weapon.ReloadTime = reload;
+		if ( reload > 0 && weapon.UsesAmmo )
+		{
+			weapon.ReloadTime = reload;
+			if ( clips.EmptyReload is not null && Duration( clips.EmptyReload ) is > 0 and var empty )
+				MagazineReloadTimes = (reload, empty);
+		}
 		if ( weapon is ProjectileWeapon { Kind: Projectile.Kinds.Bolt } crossbow
 			&& ModelSequences.Of( model ).Get( clips.Reload )?.Events.FirstOrDefault( e => e.Id == AnimEvents.WeaponThrow ) is { } charge )
 			crossbow.BoltChargeDelay = charge.Cycle * reload;

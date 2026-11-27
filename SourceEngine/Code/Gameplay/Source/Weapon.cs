@@ -80,6 +80,12 @@ public abstract class Weapon : BaseCombatWeapon
 
 	public override bool CanReload() => (!HasOwner || !IsDeploying) && base.CanReload();
 
+	internal virtual string BrassForEvent( SourceModelSequenceData.Event e ) => null;
+	internal virtual bool UsesDeployedClips => false;
+	internal virtual Vector3 ViewOffset( Vector3 offset ) => offset;
+
+	internal virtual bool UseEmptyAttack => false;
+	internal virtual bool UseEmptyIdle => false;
 	internal virtual bool ShouldPlayIdle => true;
 
 	internal static bool AttackOrReloadHeld => Input.Down( "attack1" ) || Input.Down( "attack2" ) || Input.Down( "reload" );
@@ -314,6 +320,29 @@ public abstract class Weapon : BaseCombatWeapon
 	/// attachments move here or they trail the view.
 	/// </summary>
 	protected virtual void OnViewModelPlaced( ViewModel model ) { }
+
+	[Rpc.Broadcast( NetFlags.OwnerOnly )]
+	internal void MeleeSwingEffects( bool alternate, bool playSound )
+	{
+		if ( alternate && WeaponModel is ViewModel view ) view.OnAlternateAttack( muzzleFlash: false );
+		else WeaponModel?.OnAttack();
+		if ( playSound ) Sounds.PlayWeaponSound( this, "melee_miss" );
+		PostWeaponEvent( WeaponEvents.Attack );
+	}
+
+	internal void MeleeHit( SceneTraceResult trace, float damage, float force, string sound )
+	{
+		trace.Direction = AimRay.Forward;
+		MeleeImpactEffects( new ShotEffect( trace.HitPosition, true, trace.Normal, trace.GameObject, ImpactSurface( trace ), AimRay.Position ), sound );
+		ShootBullet( trace, damage, force, [DamageTags.Melee], hitboxTags: false );
+	}
+
+	[Rpc.Broadcast( NetFlags.OwnerOnly )]
+	void MeleeImpactEffects( ShotEffect shot, string sound )
+	{
+		Sounds.PlayWeaponSound( this, sound );
+		ImpactPrefab( shot.HitObject, shot.Surface, shot.HitPosition, shot.Normal, GetShotDirection( shot ) );
+	}
 
 	protected static Surface ImpactSurface( in SceneTraceResult hit )
 	{

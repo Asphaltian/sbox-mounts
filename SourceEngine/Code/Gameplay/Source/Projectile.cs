@@ -11,7 +11,7 @@ namespace Source1;
 [Alias( "Source1.SourceProjectile", "SourceProjectile" )]
 public abstract partial class Projectile : Component
 {
-	public enum Kinds { Bolt, Rocket, Grenade, ContactGrenade, EnergyBall, Bugbait, HeGrenade, Flashbang, SmokeGrenade }
+	public enum Kinds { Bolt, Rocket, Grenade, ContactGrenade, EnergyBall, Bugbait, HeGrenade, Flashbang, SmokeGrenade, DodSmoke, DodFrag }
 
 	const float ConvergeTime = 0.15f;
 	[Property] public string MountName { get; set; }
@@ -228,7 +228,7 @@ public abstract partial class Projectile : Component
 		return true;
 	}
 
-	protected void Explode( bool playPrefabSound = false )
+	protected void Explode( bool playPrefabSound = false, string particle = null, Rotation rotation = default )
 	{
 		var prefab = MountContent.Prefab( MountName, "explosion" );
 		var depth = SourceWaterMap.ExplosionDepth( Scene, WorldPosition ) ?? -1;
@@ -242,15 +242,15 @@ public abstract partial class Projectile : Component
 			Damage = Damage,
 			ForceScale = 1.5f,
 			Prefab = prefab
-		}.Spawn( playPrefabSound, playPrefabParticle: depth < 0, applyDamage: Blast != BlastMode.Traced );
+		}.Spawn( playPrefabSound, playPrefabParticle: depth < 0 && particle is null, applyDamage: Blast != BlastMode.Traced );
 		if ( Blast == BlastMode.Traced ) ApplyBlast();
 
-		if ( prefab is not null && blast.IsValid() ) ExplosionEffects( WorldPosition, MountName, depth, Damage );
+		if ( (prefab is not null || particle is not null) && blast.IsValid() ) ExplosionEffects( WorldPosition, MountName, depth, Damage, particle, rotation );
 		GameObject.Destroy();
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
-	static void ExplosionEffects( Vector3 position, string mountName, float depth, float magnitude )
+	static void ExplosionEffects( Vector3 position, string mountName, float depth, float magnitude, string particle, Rotation rotation )
 	{
 		var name = "BaseExplosionEffect.Sound";
 		if ( depth >= 0 )
@@ -265,6 +265,8 @@ public abstract partial class Projectile : Component
 				if ( !Application.IsDedicatedServer ) WeaponEffects.DeepWaterCloud( position, mountName, magnitude );
 			}
 		}
+		if ( depth < 0 && particle is not null && !Application.IsDedicatedServer )
+			MountedEffects.Spawn( particle, new Transform( position, rotation ), mountName );
 		if ( Sounds.Sound( name, mountName ) is { } sound ) Sound.Play( sound, position );
 	}
 
