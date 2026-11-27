@@ -72,6 +72,8 @@ public abstract partial class SourceGameMount
 		foreach ( var ammo in ammoResources ) context.Add( ResourceType.GameResource, ammo.Key, ammo.Value );
 	}
 
+	internal virtual void ApplyWeaponDefaults( BaseCombatWeapon weapon, WeaponSetup setup, string worldModel ) { }
+
 	/// <summary>The ICE key of this game's encrypted <c>.ctx</c> weapon scripts, if it ships any.</summary>
 	protected virtual string WeaponScriptKey => null;
 

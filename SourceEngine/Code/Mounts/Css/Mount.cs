@@ -14,6 +14,20 @@ public sealed class Mount : SourceGameMount
 	public override long AppId => 240;
 	protected override string WeaponScriptKey => "d7NSuLq2";
 
+	internal override void ApplyWeaponDefaults( BaseCombatWeapon weapon, WeaponSetup setup, string worldModel )
+	{
+		setup.NpcDamageScale = Rules.NpcDamageScale;
+		setup.WeaponType ??= Rules.WeaponTypeOf( worldModel );
+		if ( Sounds.WeaponSound( setup.Data, "empty" ) is null && Sounds.Sound( Rules.EmptySound( setup.WeaponType ), Ident ) is { } click )
+			weapon.DryFireSound = click;
+
+		if ( setup.FlashType is not null ) return;
+		if ( setup.Data is { } script )
+			(setup.FlashType, setup.FlashScale) = (script.MuzzleFlashStyle ?? Rules.Flash, script.MuzzleFlashScale ?? 1);
+		else if ( Rules.FlashFor( setup.WeaponType, weapon.PrimaryAutomatic ) is { } flash )
+			(setup.FlashType, setup.FlashScale) = flash;
+	}
+
 	// A fallback: Counter-Strike: Source keeps the most a player carries of each ammo type in code, as the defaults of
 	// its ammo_*_max console variables, and in none of its files. These are those defaults. The weapon scripts name
 	// each weapon's ammo type and clip.

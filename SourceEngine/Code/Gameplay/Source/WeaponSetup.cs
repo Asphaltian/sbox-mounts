@@ -6,13 +6,11 @@ namespace Source1;
 /// <summary>Configures a mounted weapon from its weapon script and viewmodel: ammo, damage, HUD icon, sounds, flash, brass and clip timing.</summary>
 sealed class WeaponSetup
 {
-	// SDK default for the convar when skill.cfg leaves it unset.
-	const float ShotgunPellets = 7;
-
 	Task<bool> _configured;
 	public SourceModelWeaponData Data;
 	public string FlashType;
 	public float FlashScale = 1;
+	public float NpcDamageScale = 1;
 	public (string Model, string Attachment, float? Speed)? Brass;
 	public string WeaponType;
 	public float? PumpDelay;
@@ -42,8 +40,7 @@ sealed class WeaponSetup
 	{
 		if ( PlayerDamage is not { } playerDamage ) return false;
 		var data = Data;
-		var scale = Css.Rules.Owns( weapon ) ? Css.Rules.NpcDamageScale : 1;
-		var damage = npc ? (data?.NpcDamage ?? playerDamage) * scale : playerDamage;
+		var damage = npc ? (data?.NpcDamage ?? playerDamage) * NpcDamageScale : playerDamage;
 		weapon.Ballistics = weapon.Ballistics with { Damage = damage };
 		var npcSound = npc ? Sounds.WeaponSound( data, "single_shot_npc" ) : null;
 		if ( (npcSound ?? Sounds.WeaponSound( data, Sounds.FireSoundRole( weapon ) ) ?? FireSound) is { } sound ) weapon.AttackSound = sound;
@@ -159,8 +156,6 @@ sealed class WeaponSetup
 		if ( !weapon.IsValid() || mount?.IsMounted != true ) return false;
 		var model = await Model.LoadAsync( ViewModelPath( definition ) );
 		if ( !weapon.IsValid() || !model.IsValid() || model.IsError ) return false;
-		var skill = await SkillData.Read( definition.MountName );
-		if ( !weapon.IsValid() ) return false;
 		var worldModel = WorldModelPath( weapon );
 		Data ??= ReadData( weapon );
 		if ( Data is { } data )
@@ -169,23 +164,13 @@ sealed class WeaponSetup
 			if ( Sounds.WeaponSound( data, Sounds.FireSoundRole( weapon ) ) is { } fire ) weapon.AttackSound = fire;
 			if ( Sounds.WeaponSound( data, "empty" ) is { } empty ) weapon.DryFireSound = empty;
 			if ( weapon is MeleeWeapon melee && Sounds.WeaponSound( data, "melee_hit" ) is { } hit ) melee.HitSound = hit;
-			// weapon_shotgun fires sk_plr_num_shotgun_pellets in code rather than from its script.
-			if ( data.Bullets is null && data.ClassName == "weapon_shotgun" && weapon is BulletWeapon shotgun )
-				shotgun.Ballistics = shotgun.Ballistics with { Pellets = (int)skill.Get( "sk_plr_num_shotgun_pellets", ShotgunPellets ) };
 		}
 		// Without its script (Garry's Mod's copy of Counter-Strike) the shot is the sound script the
 		// viewmodel's own events are named after: Weapon_AK47.Clipout's weapon fires Weapon_AK47.Single.
 		if ( Data is null && weapon is BulletWeapon && ShotSoundOf( model, definition.MountName ) is { } shot ) weapon.AttackSound = shot;
-		var counterStrike = Css.Rules.Owns( weapon );
-		WeaponType = Data?.WeaponType ?? (counterStrike ? Css.Rules.WeaponTypeOf( worldModel ) : null);
-		if ( counterStrike && Sounds.WeaponSound( Data, "empty" ) is null && Sounds.Sound( Css.Rules.EmptySound( WeaponType ), definition.MountName ) is { } click )
-			weapon.DryFireSound = click;
+		WeaponType = Data?.WeaponType;
 		FlashType = WeaponEffects.FlashType( model );
-		// Scripts without flash settings use the plain flash at scale 1.
-		if ( FlashType is null && counterStrike && Data is { } script )
-			(FlashType, FlashScale) = (script.MuzzleFlashStyle ?? Css.Rules.Flash, script.MuzzleFlashScale ?? 1);
-		else if ( FlashType is null && counterStrike && Css.Rules.FlashFor( WeaponType, weapon.PrimaryAutomatic ) is { } flash )
-			(FlashType, FlashScale) = flash;
+		if ( mount is SourceGameMount source ) source.ApplyWeaponDefaults( weapon, this, worldModel );
 		Brass = BrassOf( model );
 		if ( weapon is BulletWeapon gun )
 		{
