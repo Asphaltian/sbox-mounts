@@ -91,6 +91,22 @@ public abstract partial class SourceGameMount
 			.OrderBy( x => x.Key );
 	}
 
+	internal SourceModelWeaponData FindWeaponScript( string view, string world, string fallback )
+	{
+		using var files = AcquireIndex();
+		return Find( view ) ?? Find( world ) ?? Find( fallback );
+
+		SourceModelWeaponData Find( string model )
+		{
+			if ( model is null || !files.Weapons.TryGetValue( model, out var scripts ) ) return null;
+			// NPC weapons can share a viewmodel with a player weapon.
+			return scripts.Find( x => x.WorldModel == world )
+				?? scripts.Find( x => x.ClassName.StartsWith( "weapon_", StringComparison.OrdinalIgnoreCase )
+					&& x.ViewModel?.EndsWith( "/v_" + x.ClassName["weapon_".Length..] + ".mdl", StringComparison.OrdinalIgnoreCase ) == true )
+				?? scripts.FirstOrDefault();
+		}
+	}
+
 	internal SourceModelWeaponData[] GetWeaponData( string model )
 	{
 		using var files = AcquireIndex();

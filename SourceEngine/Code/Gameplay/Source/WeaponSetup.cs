@@ -106,20 +106,8 @@ static class WeaponSetup
 	{
 		var definition = weapon.ViewModelPrefab?.GetComponentInChildren<MountedModel>();
 		if ( !definition.IsValid() ) return null;
-		var world = WorldModelPath( weapon );
-		var mount = Sandbox.Mounting.Directory.Get( definition.MountName );
-		if ( mount is null ) return null;
-
-		SourceModelWeaponData Read( string path )
-		{
-			if ( string.IsNullOrEmpty( path ) ) return null;
-			var resource = $"mount://{definition.MountName}/{path}.vmdl";
-			if ( mount.GetByPath( resource ) is null ) return null;
-			return SelectWeaponData( Model.Load( resource )?.GetData<SourceModelWeaponData[]>(), world );
-		}
-
-		// Replacement hands and world models can both differ from the ones named by the script.
-		return Read( definition.ModelPath ) ?? Read( world ) ?? Read( definition.FallbackModelPath );
+		var mount = Sandbox.Mounting.Directory.Get( definition.MountName ) as SourceGameMount;
+		return mount?.FindWeaponScript( definition.ModelPath, WorldModelPath( weapon ), definition.FallbackModelPath );
 	}
 
 	internal static void ApplyInventoryData( BaseCombatWeapon weapon, SourceModelWeaponData data )
@@ -316,13 +304,4 @@ static class WeaponSetup
 		return null;
 	}
 
-	internal static SourceModelWeaponData SelectWeaponData( SourceModelWeaponData[] definitions, string worldModel )
-	{
-		if ( definitions is null ) return null;
-		// NPC-only weapons can share a player's viewmodel (Annabelle is one).
-		// Preserve every script in the mount and resolve by the actual world model.
-		return definitions.FirstOrDefault( x => x.WorldModel == worldModel )
-			?? definitions.FirstOrDefault( x => x.ClassName.StartsWith( "weapon_", StringComparison.OrdinalIgnoreCase ) && x.ViewModel?.EndsWith( "/v_" + x.ClassName["weapon_".Length..] + ".mdl", StringComparison.OrdinalIgnoreCase ) == true )
-			?? definitions.FirstOrDefault();
-	}
 }

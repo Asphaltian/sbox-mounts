@@ -7,6 +7,7 @@ namespace Source1;
 /// <summary>Common object layouts used by the mounted games' prefab definitions.</summary>
 internal sealed class EntityPrefab( GameObject root, SourceGameMount mount, EntityDefinition entity )
 {
+	SourceGameMount Mount => mount;
 	public GameObject Root => root;
 	public SkinnedModelRenderer Renderer { get; private set; }
 	public MountedModel Model { get; private set; }
@@ -26,7 +27,7 @@ internal sealed class EntityPrefab( GameObject root, SourceGameMount mount, Enti
 				weapon.ViewModelPrefab = p.Prefab( viewPath );
 				weapon.WorldModelPrefab = p.Prefab( worldPath );
 				configure( weapon );
-				p.ApplyInventory( weapon, viewModel, worldModel, fallback );
+				WeaponSetup.ApplyInventoryData( weapon, p.Mount.FindWeaponScript( viewModel, worldModel, fallback ) );
 			}
 		};
 		yield return new( game, EntityKind.ViewModel, view, null, null, null )
@@ -38,12 +39,6 @@ internal sealed class EntityPrefab( GameObject root, SourceGameMount mount, Enti
 		{
 			ModelPath = worldModel, Build = p => p.MakeWorldModel( skin, worldEffects )
 		};
-	}
-
-	void ApplyInventory( Weapon weapon, string viewModel, string worldModel, string fallback )
-	{
-		SourceModelWeaponData Script( string path ) => path is null ? null : WeaponSetup.SelectWeaponData( mount.GetWeaponData( path ), worldModel );
-		WeaponSetup.ApplyInventoryData( weapon, Script( viewModel ) ?? Script( worldModel ) ?? Script( fallback ) );
 	}
 
 	GameObject Prefab( string path ) => GameObject.GetPrefab( $"mount://{mount.Ident}/{path}" );
