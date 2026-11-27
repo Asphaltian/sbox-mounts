@@ -75,16 +75,27 @@ public sealed class MountedModel : Component
 	void AssignCollider( Model model )
 	{
 		Collider.Model = model;
-		if ( model.Physics?.Parts.Count > 0 ) return;
-		_bounds = Collider.GameObject.AddComponent<BoxCollider>();
+		if ( model.Physics?.Parts.Count > 0 )
+		{
+			if ( _bounds.IsValid() ) _bounds.Destroy();
+			return;
+		}
+
+		if ( !_bounds.IsValid() ) _bounds = Collider.GameObject.AddComponent<BoxCollider>();
+		_bounds.Enabled = Collider.Enabled;
 		_bounds.Center = model.Bounds.Center;
 		_bounds.Scale = model.Bounds.Size;
+	}
+
+	protected override void OnDestroy()
+	{
+		if ( _bounds.IsValid() ) _bounds.Destroy();
 	}
 
 	protected override void OnUpdate()
 	{
 		// Pickups and dropped weapons switch their collider off while loading or held.
-		if ( _bounds.IsValid() ) _bounds.Enabled = Collider.Enabled;
+		if ( _bounds.IsValid() ) _bounds.Enabled = Collider.IsValid() && Collider.Enabled;
 		if ( _unavailable )
 			DebugOverlay.Text( WorldPosition + Vector3.Up * 32, $"{MountName} content required", color: Color.White );
 	}
