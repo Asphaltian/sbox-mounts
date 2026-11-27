@@ -58,6 +58,9 @@ internal sealed partial class SourceModelBuilder( SourceGameMount mount, string 
 		materials.AddGroups( builder );
 
 		var boneNames = AddSkeleton( builder, mdl, boneBounds, boneTransforms, parentLocal: vtx == null );
+		foreach ( var rule in mdl.QuaternionBones )
+			builder.AddPoseConstraint( boneNames[rule.Driver], boneNames[rule.Target], rule.Samples );
+
 		PhysicsPlan physicsPlan = null;
 		if ( physics != null )
 		{

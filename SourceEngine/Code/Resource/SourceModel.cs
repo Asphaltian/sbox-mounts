@@ -8,8 +8,13 @@ internal sealed class SourceModel( SourceGameMount mount, string path, (MdlFile 
 	internal (MdlFile Mdl, VtxFile Vtx, PhyFile Physics) Source { get; } = source;
 	internal Transform[] ReferencePose { get; } = referencePose;
 
-	internal Model Build( string name ) =>
-		new SourceModelBuilder( mount, path ).BuildModel( Source.Mdl, Source.Vtx, Source.Physics, name, ReferencePose, animations: animations );
+	internal Model Build( string name )
+	{
+		// Procedural helpers deform the authored mesh after animation. Pre-skinning it
+		// into the first sequence pose distorts vertices shared by multiple bones.
+		var bindPose = Source.Mdl.QuaternionBones.Length > 0 && animations?.Clips.Count > 0 ? null : ReferencePose;
+		return new SourceModelBuilder( mount, path ).BuildModel( Source.Mdl, Source.Vtx, Source.Physics, name, bindPose, animations: animations );
+	}
 
 	internal Model BuildStaticProp( string contentRoot, int index, uint flags, bool hdr, bool diskLighting,
 		Transform transform, Vector3? lightingOrigin, Func<Vector3, PropLightingState> fallback, SourceMaterialOverrides shadows,

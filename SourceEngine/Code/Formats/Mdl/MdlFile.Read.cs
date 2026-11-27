@@ -233,22 +233,25 @@ internal sealed partial class MdlFile
 					throw new InvalidDataException( "MDL flex vertex is outside its mesh." );
 		}
 
-		_bones = new StudioBone[_header.NumBones];
-		_boneNames = new string[_header.NumBones];
-		_boneSurfaceProperties = new string[_header.NumBones];
-
-		stream.Seek( _header.BoneIndex, SeekOrigin.Begin );
-		LumpReader<StudioBone>.ReadLumpFromStream( stream, _header.NumBones, ( boneIndex, bone ) =>
+		stream.Position = _header.BoneIndex;
+		_bones = LumpReader<StudioBone>.ReadLumpFromStream( stream, _header.NumBones );
+		_boneNames = new string[_bones.Length];
+		_boneSurfaceProperties = new string[_bones.Length];
+		List<BoneCorrection> corrections = null;
+		for ( var i = 0; i < _bones.Length; i++ )
 		{
-			var pos = stream.Position;
-			stream.Seek( pos + bone.NameIndex, SeekOrigin.Begin );
-			_boneNames[boneIndex] = ReadNullTerminatedString( stream );
-			var surface = ReadOptionalRelativeString( stream, pos, bone.SurfacePropIndex );
-			_boneSurfaceProperties[boneIndex] = string.IsNullOrWhiteSpace( surface ) ? SurfaceProperty : surface;
-			stream.Seek( pos, SeekOrigin.Begin );
+			ref readonly var bone = ref _bones[i];
+			var offset = (long)_header.BoneIndex + (long)i * Unsafe.SizeOf<StudioBone>();
+			stream.Position = offset + bone.NameIndex;
+			_boneNames[i] = ReadNullTerminatedString( stream );
+			var surface = ReadOptionalRelativeString( stream, offset, bone.SurfacePropIndex );
+			_boneSurfaceProperties[i] = string.IsNullOrWhiteSpace( surface ) ? SurfaceProperty : surface;
 
-			_bones[boneIndex] = bone;
-		} );
+			if ( (bone.Flags & 0x04) != 0 && bone.ProcType == 2 && bone.ProcIndex != 0
+				&& ReadQuaternionBone( stream, offset + bone.ProcIndex, i ) is { } correction )
+				(corrections ??= []).Add( correction );
+		}
+		QuaternionBones = corrections?.ToArray() ?? [];
 
 		_attachments = new StudioAttachment[_header.NumLocalAttachments];
 		_attachmentNames = new string[_header.NumLocalAttachments];
