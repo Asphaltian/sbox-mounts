@@ -31,7 +31,7 @@ public sealed class Knife : MeleeWeapon
 
 	protected override bool OnAdding( BaseInventoryComponent inventory )
 	{
-		WeaponSetup.ConfigureAmmo( this );
+		Setup.ConfigureAmmo( this );
 		return base.OnAdding( inventory );
 	}
 

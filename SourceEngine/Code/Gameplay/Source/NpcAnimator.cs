@@ -89,7 +89,7 @@ public sealed class NpcAnimator : Component, BaseCombatWeapon.IEvents
 	{
 		var model = Renderer.Model;
 		var weapon = Npc.Weapon;
-		var key = (model, WeaponModel, WeaponSetup.WeaponData( weapon ), weapon?.HoldType, weapon?.HoldFallback);
+		var key = (model, WeaponModel, WeaponSetup.Of( weapon )?.Data, weapon?.HoldType, weapon?.HoldFallback);
 		if ( _layers is not null && _resolvedFor == key )
 			return false;
 

@@ -38,12 +38,12 @@ public sealed class WeaponWorldModel : BaseWeaponModel
 			return;
 		}
 		// World models rarely author their own flash; the viewmodel's AE_MUZZLEFLASH names the weapon's.
-		var type = _ownFlashType ?? WeaponSetup.FlashType( weapon ) ?? "SMG1";
+		var type = _ownFlashType ?? weapon.Setup.FlashType ?? "SMG1";
 		var mount = MountContent.Of( Renderer.Model );
-		if ( !weapon.Silenced ) WeaponEffects.MuzzleFlash( type, NextMuzzle(), false, mount, WeaponSetup.FlashScale( weapon ) );
+		if ( !weapon.Silenced ) WeaponEffects.MuzzleFlash( type, NextMuzzle(), false, mount, weapon.Setup.FlashScale );
 		if ( alternate && weapon.AlternateProjectile == Projectile.Kinds.ContactGrenade ) return;
 		// weapon_shotgun's Pump plays its sound for everyone; the owner's viewmodel plays it with the pump clip.
-		if ( WeaponSetup.PumpDelay( weapon ) is { } delay )
+		if ( weapon.Setup.PumpDelay is { } delay )
 		{
 			_pumpPending = true;
 			_pumpAt = alternate ? weapon.AlternatePumpDelay : delay;
@@ -76,7 +76,7 @@ public sealed class WeaponWorldModel : BaseWeaponModel
 	/// </summary>
 	void EjectShell()
 	{
-		if ( _weapon is not BulletWeapon { NpcControlled: false } weapon || WeaponSetup.Brass( weapon ) is not { } brass ) return;
+		if ( _weapon is not BulletWeapon { NpcControlled: false } weapon || weapon.Setup.Brass is not { } brass ) return;
 		// A first-person shooter's hidden world model throws none; its viewmodel does.
 		if ( Scene.Camera is { } camera && Renderer.GameObject.Tags.HasAny( camera.RenderExcludeTags ) ) return;
 		var mount = MountContent.Of( Renderer.Model );
@@ -172,12 +172,13 @@ public sealed class WeaponWorldModel : BaseWeaponModel
 	/// <summary>Counter-Strike swaps the held model for the script's SilencerModel while the silencer is on.</summary>
 	void UpdateSilencer()
 	{
-		var silenced = _weapon is BulletWeapon { Silenced: true } && WeaponSetup.WeaponData( _weapon )?.SilencerModel is not null;
+		var silencer = _weapon is BulletWeapon { Silenced: true } gun ? gun.Setup.Data?.SilencerModel : null;
+		var silenced = silencer is not null;
 		if ( silenced == _silencerShown ) return;
 		_silencerShown = silenced;
 		var mount = MountContent.Of( Renderer.Model );
 		if ( silenced ) _unsilencedModel = Renderer.Model;
-		var path = silenced ? $"mount://{mount}/{WeaponSetup.WeaponData( _weapon ).SilencerModel}.vmdl" : null;
+		var path = silenced ? $"mount://{mount}/{silencer}.vmdl" : null;
 		var model = path is not null && Sandbox.Mounting.Directory.Get( mount )?.GetByPath( path ) is not null ? Model.Load( path ) : _unsilencedModel;
 		if ( model.IsValid() && !model.IsError ) Renderer.Model = model;
 	}

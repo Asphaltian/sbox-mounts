@@ -187,7 +187,7 @@ public sealed class Manhack : Component, INpcPart
 	{
 		// CNPC_Manhack::TraceAttack: clubbed, it sparks where it was hit.
 		var info = damage.DamageInfo;
-		var clubbed = info.Tags.Has( "melee" ) || WeaponSetup.IsMelee( info.Weapon?.GetComponent<BaseCombatWeapon>() );
+		var clubbed = info.Tags.Has( "melee" ) || info.Weapon?.GetComponent<BaseCombatWeapon>() is MeleeWeapon;
 		if ( clubbed )
 			Sparks( info.Position, 1, (info.Origin - info.Position).Normal );
 	}

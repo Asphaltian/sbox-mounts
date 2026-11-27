@@ -35,7 +35,7 @@ static class Sounds
 		or "AE_SCRIPT_EVENT_SOUND" or "AE_SCRIPT_EVENT_SOUND_VOICE"
 		|| e.Id is AnimEvents.ScriptSound or AnimEvents.ScriptSoundVoice or AnimEvents.ClientSound;
 
-	public static SoundEvent WeaponSound( BaseCombatWeapon weapon, string role ) => WeaponSound( WeaponSetup.WeaponData( weapon ), role );
+	public static SoundEvent WeaponSound( BaseCombatWeapon weapon, string role ) => WeaponSound( WeaponSetup.Of( weapon )?.Data, role );
 
 	public static void PlayWeaponSound( BaseCombatWeapon weapon, string role )
 	{

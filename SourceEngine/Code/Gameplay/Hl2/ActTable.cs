@@ -91,7 +91,7 @@ public static class ActTable
 	/// </summary>
 	public static string WeaponClass( ModelSequences sequences, BaseCombatWeapon weapon )
 	{
-		if ( WeaponSetup.WeaponData( weapon )?.ClassName is { } scripted && Has( sequences, scripted ) )
+		if ( WeaponSetup.Of( weapon )?.Data?.ClassName is { } scripted && Has( sequences, scripted ) )
 			return scripted;
 
 		if ( Has( sequences, weapon?.HoldType ) )

@@ -237,7 +237,7 @@ public sealed class CombatNpc : BaseCombatNpc, Component.IDamageable.IEvents, Co
 		}
 
 		// npc_metropolice with a baton: swing once in reach and m_BatonSwingTimer (1 to 1.75 seconds) allows, else close in.
-		if ( WeaponSetup.IsMelee( Weapon ) && Weapon is { } melee && Clip( "ACT_MELEE_ATTACK_SWING" ) is { } swingClip )
+		if ( Weapon is MeleeWeapon melee && Clip( "ACT_MELEE_ATTACK_SWING" ) is { } swingClip )
 		{
 			var reach = InMeleeReach( enemy );
 			if ( reach && _nextSwing )
@@ -483,7 +483,7 @@ public sealed class CombatNpc : BaseCombatNpc, Component.IDamageable.IEvents, Co
 
 		var damage = new DamageInfo
 		{
-			Damage = WeaponSetup.WeaponData( weapon )?.NpcDamage ?? _skill.Get( "sk_npc_dmg_stunstick", 40 ),
+			Damage = WeaponSetup.Of( weapon )?.Data?.NpcDamage ?? _skill.Get( "sk_npc_dmg_stunstick", 40 ),
 			Attacker = GameObject,
 			Weapon = weapon.GameObject,
 			Origin = start,

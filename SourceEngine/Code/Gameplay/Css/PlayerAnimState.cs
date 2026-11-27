@@ -76,7 +76,7 @@ public static class PlayerAnimState
 
 		string Find( string name ) => extensions.FirstOrDefault( x => x.Equals( name, StringComparison.OrdinalIgnoreCase ) );
 
-		var scripted = WeaponSetup.WeaponData( weapon )?.PlayerAnimationExtension ?? weaponModel?.GetData<SourceModelWeaponData[]>()?.FirstOrDefault()?.PlayerAnimationExtension;
+		var scripted = WeaponSetup.Of( weapon )?.Data?.PlayerAnimationExtension ?? weaponModel?.GetData<SourceModelWeaponData[]>()?.FirstOrDefault()?.PlayerAnimationExtension;
 		if ( Find( scripted ) is { } match )
 			return match;
 

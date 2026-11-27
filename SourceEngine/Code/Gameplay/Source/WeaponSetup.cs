@@ -4,83 +4,63 @@ using System;
 namespace Source1;
 
 /// <summary>Configures a mounted weapon from its weapon script and viewmodel: ammo, damage, HUD icon, sounds, flash, brass and clip timing.</summary>
-static class WeaponSetup
+sealed class WeaponSetup
 {
 	// SDK default for the convar when skill.cfg leaves it unset.
 	const float ShotgunPellets = 7;
 
-	sealed class WeaponState
-	{
-		public Task<bool> Configured;
-		public SourceModelWeaponData Data;
-		public string FlashType;
-		public float FlashScale = 1;
-		public (string Model, string Attachment, float? Speed)? Brass;
-		public string WeaponType;
-		public float? PumpDelay;
-		public float? PlayerDamage;
-		public SoundEvent FireSound;
-	}
+	Task<bool> _configured;
+	public SourceModelWeaponData Data;
+	public string FlashType;
+	public float FlashScale = 1;
+	public (string Model, string Attachment, float? Speed)? Brass;
+	public string WeaponType;
+	public float? PumpDelay;
+	float? PlayerDamage;
+	SoundEvent FireSound;
 
-	static readonly ConditionalWeakTable<BaseCombatWeapon, WeaponState> Weapons = new();
+	// Native weapons can also use mounted viewmodels. Only those need externally owned setup state.
+	static readonly ConditionalWeakTable<BaseCombatWeapon, WeaponSetup> NativeWeapons = new();
 	static readonly HashSet<string> Warmed = new();
 
 	static string WorldModelPath( BaseCombatWeapon weapon ) => weapon.WorldModelPrefab?.GetComponentInChildren<MountedModel>()?.ModelPath;
 
 	static string ViewModelPath( MountedModel definition ) => $"mount://{definition.MountName}/{definition.ResolvedModelPath}.vmdl";
 
-	/// <summary>Whether a weapon is swung rather than fired.</summary>
-	public static bool IsMelee( BaseCombatWeapon weapon ) => weapon is MeleeWeapon;
-
-	/// <summary>The weapon script resolved for this weapon, once its mounted model has been read.</summary>
-	public static SourceModelWeaponData WeaponData( BaseCombatWeapon weapon ) => weapon.IsValid() && Weapons.TryGetValue( weapon, out var state ) ? state.Data : null;
-
-	/// <summary>The flash type of the weapon's viewmodel muzzle events, once <see cref="ConfigureWeapon"/> has read them.</summary>
-	public static string FlashType( BaseCombatWeapon weapon ) => weapon.IsValid() && Weapons.TryGetValue( weapon, out var state ) ? state.FlashType : null;
-
-	/// <summary>The shell the viewmodel ejects, the attachment it leaves from and its authored speed, or null.</summary>
-	public static (string Model, string Attachment, float? Speed)? Brass( BaseCombatWeapon weapon ) => weapon.IsValid() && Weapons.TryGetValue( weapon, out var state ) ? state.Brass : null;
-
-	/// <summary>The scale of a Counter-Strike flash type, the script's MuzzleFlashScale.</summary>
-	public static float FlashScale( BaseCombatWeapon weapon ) => weapon.IsValid() && Weapons.TryGetValue( weapon, out var state ) ? state.FlashScale : 1;
-
-	/// <summary>
-	/// The weapon family, such as Pistol or SniperRifle: the script's WeaponType, else read from a
-	/// Counter-Strike model name (<see cref="Css.Rules.WeaponTypeOf"/>), so content without its scripts still sorts.
-	/// </summary>
-	public static string WeaponType( BaseCombatWeapon weapon ) => weapon.IsValid() && Weapons.TryGetValue( weapon, out var state ) ? state.WeaponType : null;
-
-	/// <summary>Seconds after a shot that a pump-action weapon pumps, or null.</summary>
-	public static float? PumpDelay( BaseCombatWeapon weapon ) => weapon.IsValid() && Weapons.TryGetValue( weapon, out var state ) ? state.PumpDelay : null;
+	public static WeaponSetup Of( BaseCombatWeapon weapon )
+	{
+		if ( !weapon.IsValid() ) return null;
+		if ( weapon is Weapon mounted ) return mounted.Setup;
+		return NativeWeapons.TryGetValue( weapon, out var setup ) ? setup : null;
+	}
 
 	/// <summary>
 	/// NPC-only tuning while an NPC holds the weapon: the script's single_shot_npc sound and NPC damage, scaled down
 	/// for Counter-Strike. A player who picks the weapon up gets the player's. False until the weapon is configured.
 	/// </summary>
-	public static bool ApplyHolder( BulletWeapon weapon, bool npc )
+	public bool ApplyHolder( BulletWeapon weapon, bool npc )
 	{
-		if ( !Weapons.TryGetValue( weapon, out var state ) || state.PlayerDamage is not { } playerDamage ) return false;
-		var data = state.Data;
+		if ( PlayerDamage is not { } playerDamage ) return false;
+		var data = Data;
 		var scale = Css.Rules.Owns( weapon ) ? Css.Rules.NpcDamageScale : 1;
 		var damage = npc ? (data?.NpcDamage ?? playerDamage) * scale : playerDamage;
 		weapon.Ballistics = weapon.Ballistics with { Damage = damage };
 		var npcSound = npc ? Sounds.WeaponSound( data, "single_shot_npc" ) : null;
-		if ( (npcSound ?? Sounds.WeaponSound( data, Sounds.FireSoundRole( weapon ) ) ?? state.FireSound) is { } sound ) weapon.AttackSound = sound;
+		if ( (npcSound ?? Sounds.WeaponSound( data, Sounds.FireSoundRole( weapon ) ) ?? FireSound) is { } sound ) weapon.AttackSound = sound;
 		return true;
 	}
 
 	/// <summary>Run before inventory pickup seeds reserves or donates duplicate weapon ammo.</summary>
-	public static void ConfigureAmmo( BaseCombatWeapon weapon )
+	public void ConfigureAmmo( Weapon weapon )
 	{
-		var state = Weapons.GetValue( weapon, _ => new() );
-		state.Data ??= ReadData( weapon );
-		ApplyAmmo( weapon, state.Data );
+		Data ??= ReadData( weapon );
+		ApplyAmmo( weapon, Data );
 
-		if ( weapon is Weapon { SecondaryPickupAmmo: < 0, UsesSecondaryClip: false } source && state.Data is { SecondaryClipSize: -1, SecondaryDefaultClip: > 0 } )
-			source.SecondaryPickupAmmo = state.Data.SecondaryDefaultClip.Value;
+		if ( weapon is { SecondaryPickupAmmo: < 0, UsesSecondaryClip: false } && Data is { SecondaryClipSize: -1, SecondaryDefaultClip: > 0 } )
+			weapon.SecondaryPickupAmmo = Data.SecondaryDefaultClip.Value;
 
 		// A fresh pickup carries default_clip rounds in total. Preserve the rounds left in dropped weapons.
-		if ( state.Data is { ClipSize: > 0, DefaultClip: >= 0 } data && weapon.UsesPrimaryClip )
+		if ( Data is { ClipSize: > 0, DefaultClip: >= 0 } data && weapon.UsesPrimaryClip )
 		{
 			weapon.StartingAmmo = 0;
 			if ( weapon.Clip1 < 0 ) weapon.Clip1 = data.DefaultClip.Value;
@@ -91,12 +71,11 @@ static class WeaponSetup
 	/// The weapon's mounted HUD icon, kept as its DisplayIcon. Also for a weapon nothing has configured yet:
 	/// one picked up before its mount was ready, or a plain melee weapon.
 	/// </summary>
-	public static Texture Icon( BaseCombatWeapon weapon )
+	public Texture Icon( Weapon weapon )
 	{
 		if ( !weapon.IsValid() ) return null;
-		var state = Weapons.GetValue( weapon, _ => new() );
-		state.Data ??= ReadData( weapon );
-		var icon = state.Data?.Icon;
+		Data ??= ReadData( weapon );
+		var icon = Data?.Icon;
 		if ( icon is null || Sandbox.Mounting.Directory.Get( MountContent.Of( icon ) )?.GetByPath( icon ) is null ) return null;
 		weapon.DisplayIcon = Texture.Load( icon );
 		return weapon.DisplayIcon;
@@ -160,14 +139,18 @@ static class WeaponSetup
 	/// <summary>Reads the mounted weapon script and animation timing once per weapon instance. A failed attempt is retried by the next call.</summary>
 	public static Task ConfigureWeapon( BaseCombatWeapon weapon )
 	{
-		var state = Weapons.GetValue( weapon, _ => new() );
-		var previous = state.Configured;
-		if ( previous is null || previous.IsFaulted || previous.IsCompletedSuccessfully && !previous.Result )
-			state.Configured = Configure( weapon, state );
-		return state.Configured;
+		var state = weapon is Weapon mounted ? mounted.Setup : NativeWeapons.GetOrCreateValue( weapon );
+		return state.ConfigureOnce( weapon );
 	}
 
-	static async Task<bool> Configure( BaseCombatWeapon weapon, WeaponState state )
+	Task ConfigureOnce( BaseCombatWeapon weapon )
+	{
+		if ( _configured is null || _configured.IsFaulted || _configured.IsCompletedSuccessfully && !_configured.Result )
+			_configured = Configure( weapon );
+		return _configured;
+	}
+
+	async Task<bool> Configure( BaseCombatWeapon weapon )
 	{
 		var definition = weapon.ViewModelPrefab?.GetComponentInChildren<MountedModel>();
 		var names = weapon.ViewModelPrefab?.GetComponentInChildren<ViewModel>();
@@ -179,8 +162,8 @@ static class WeaponSetup
 		var skill = await SkillData.Read( definition.MountName );
 		if ( !weapon.IsValid() ) return false;
 		var worldModel = WorldModelPath( weapon );
-		state.Data ??= ReadData( weapon );
-		if ( state.Data is { } data )
+		Data ??= ReadData( weapon );
+		if ( Data is { } data )
 		{
 			ApplyAmmo( weapon, data );
 			if ( Sounds.WeaponSound( data, Sounds.FireSoundRole( weapon ) ) is { } fire ) weapon.AttackSound = fire;
@@ -192,22 +175,22 @@ static class WeaponSetup
 		}
 		// Without its script (Garry's Mod's copy of Counter-Strike) the shot is the sound script the
 		// viewmodel's own events are named after: Weapon_AK47.Clipout's weapon fires Weapon_AK47.Single.
-		if ( state.Data is null && weapon is BulletWeapon && ShotSoundOf( model, definition.MountName ) is { } shot ) weapon.AttackSound = shot;
+		if ( Data is null && weapon is BulletWeapon && ShotSoundOf( model, definition.MountName ) is { } shot ) weapon.AttackSound = shot;
 		var counterStrike = Css.Rules.Owns( weapon );
-		state.WeaponType = state.Data?.WeaponType ?? (counterStrike ? Css.Rules.WeaponTypeOf( worldModel ) : null);
-		if ( counterStrike && Sounds.WeaponSound( state.Data, "empty" ) is null && Sounds.Sound( Css.Rules.EmptySound( state.WeaponType ), definition.MountName ) is { } click )
+		WeaponType = Data?.WeaponType ?? (counterStrike ? Css.Rules.WeaponTypeOf( worldModel ) : null);
+		if ( counterStrike && Sounds.WeaponSound( Data, "empty" ) is null && Sounds.Sound( Css.Rules.EmptySound( WeaponType ), definition.MountName ) is { } click )
 			weapon.DryFireSound = click;
-		state.FlashType = WeaponEffects.FlashType( model );
+		FlashType = WeaponEffects.FlashType( model );
 		// Scripts without flash settings use the plain flash at scale 1.
-		if ( state.FlashType is null && counterStrike && state.Data is { } script )
-			(state.FlashType, state.FlashScale) = (script.MuzzleFlashStyle ?? Css.Rules.Flash, script.MuzzleFlashScale ?? 1);
-		else if ( state.FlashType is null && counterStrike && Css.Rules.FlashFor( state.WeaponType, weapon.PrimaryAutomatic ) is { } flash )
-			(state.FlashType, state.FlashScale) = flash;
-		state.Brass = BrassOf( model );
+		if ( FlashType is null && counterStrike && Data is { } script )
+			(FlashType, FlashScale) = (script.MuzzleFlashStyle ?? Css.Rules.Flash, script.MuzzleFlashScale ?? 1);
+		else if ( FlashType is null && counterStrike && Css.Rules.FlashFor( WeaponType, weapon.PrimaryAutomatic ) is { } flash )
+			(FlashType, FlashScale) = flash;
+		Brass = BrassOf( model );
 		if ( weapon is BulletWeapon gun )
 		{
-			state.PlayerDamage = gun.Ballistics.Damage;
-			state.FireSound = weapon.AttackSound;
+			PlayerDamage = gun.Ballistics.Damage;
+			FireSound = weapon.AttackSound;
 		}
 		var clips = WeaponClips.Resolve( model, names );
 		float Duration( string clip ) => WeaponClips.Duration( model, clip );
@@ -239,14 +222,14 @@ static class WeaponSetup
 			var pump = Duration( clips.Pump );
 			if ( pump > 0 )
 			{
-				state.PumpDelay = Duration( clips.Fire );
-				weapon.PrimaryDelay = Math.Max( weapon.PrimaryDelay, state.PumpDelay.Value + pump );
+				PumpDelay = Duration( clips.Fire );
+				weapon.PrimaryDelay = Math.Max( weapon.PrimaryDelay, PumpDelay.Value + pump );
 			}
 		}
 		if ( weapon is BulletWeapon bullet )
 		{
 			bullet.DryFireDuration = Duration( clips.DryFire );
-			if ( state.Data?.ClassName == "weapon_357"
+			if ( Data?.ClassName == "weapon_357"
 				&& ModelSequences.Of( model ).Get( clips.Reload )?.Events.FirstOrDefault( e => e.Id == AnimEvents.WeaponReload ) is { } eject )
 				bullet.CylinderEjection = (eject.Cycle * reload, definition.MountName);
 			var secondary = Duration( clips.SecondaryFire );
@@ -263,11 +246,11 @@ static class WeaponSetup
 					: clips.Burst is not null ? Weapon.SecondaryFires.Burst
 					: model.Materials.Any( m => m.Name.Contains( "scope", StringComparison.OrdinalIgnoreCase ) ) ? Weapon.SecondaryFires.Zoom
 					: Weapon.SecondaryFires.Default;
-			if ( bullet.Secondary == Weapon.SecondaryFires.Zoom && bullet.ZoomLevels is not { Count: > 0 } ) bullet.ZoomLevels = [.. Css.Rules.ZoomLevels( state.WeaponType )];
+			if ( bullet.Secondary == Weapon.SecondaryFires.Zoom && bullet.ZoomLevels is not { Count: > 0 } ) bullet.ZoomLevels = [.. Css.Rules.ZoomLevels( WeaponType )];
 		}
 		// Warm each weapon's mounted dependencies once, keyed by path only so no
 		// model or task is rooted past scene teardown.
-		if ( Warmed.Add( model.ResourcePath + "|" + worldModel ) ) await WarmResources( weapon, model, state.Data );
+		if ( Warmed.Add( model.ResourcePath + "|" + worldModel ) ) await WarmResources( weapon, model, Data );
 		return true;
 	}
 
@@ -303,5 +286,4 @@ static class WeaponSetup
 		}
 		return null;
 	}
-
 }

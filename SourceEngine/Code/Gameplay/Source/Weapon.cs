@@ -10,6 +10,9 @@ namespace Source1;
 [Alias( "Source1.SourceWeapon", "SourceWeapon" )]
 public abstract class Weapon : BaseCombatWeapon
 {
+	WeaponSetup _setup;
+	internal WeaponSetup Setup => _setup ??= new();
+
 	/// <summary>What a mounted weapon's attack2 does. One data-driven choice instead of a flag per behaviour.</summary>
 	public enum SecondaryFires
 	{
@@ -176,7 +179,7 @@ public abstract class Weapon : BaseCombatWeapon
 
 	protected override bool OnAdding( BaseInventoryComponent inventory )
 	{
-		WeaponSetup.ConfigureAmmo( this );
+		Setup.ConfigureAmmo( this );
 		var sandboxAmmo = Game.Ident == "facepunch.sandbox" && MountContent.OfWeapon( this ) is "hl2" or "gmod";
 		var secondary = UsesSecondaryClip ? Clip2 : SecondaryPickupAmmo;
 		if ( !sandboxAmmo && secondary <= 0 ) return base.OnAdding( inventory );
@@ -204,7 +207,7 @@ public abstract class Weapon : BaseCombatWeapon
 			inventory.GiveAmmo( PrimaryAmmoType, Clip1 - PrimaryClipSize );
 			Clip1 = PrimaryClipSize;
 		}
-		if ( UsesAmmo && !UsesClips && PrimaryAmmoType is not null && WeaponSetup.WeaponData( this ) is { ClipSize: -1, DefaultClip: >= 0 } )
+		if ( UsesAmmo && !UsesClips && PrimaryAmmoType is not null && Setup.Data is { ClipSize: -1, DefaultClip: >= 0 } )
 		{
 			// A dropped weapon can donate ammo as a duplicate, but equipping it gives no reserve.
 			if ( !WasDropped ) inventory.GiveAmmo( PrimaryAmmoType, StartingAmmo );
@@ -235,7 +238,7 @@ public abstract class Weapon : BaseCombatWeapon
 		if ( DisplayIcon is null && _sinceIconAttempt > 1 )
 		{
 			_sinceIconAttempt = 0;
-			WeaponSetup.Icon( this );
+			Setup.Icon( this );
 		}
 	}
 

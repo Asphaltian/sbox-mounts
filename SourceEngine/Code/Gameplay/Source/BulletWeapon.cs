@@ -363,7 +363,7 @@ public sealed class BulletWeapon : Weapon
 				WeaponEffects.EjectCylinder( Owner.WorldPosition + Vector3.Up * (Owner.CurrentHeight * 0.5f), WorldRotation, cylinder.Mount );
 		}
 		var npc = NpcControlled;
-		if ( npc != _tunedForNpc && WeaponSetup.ApplyHolder( this, npc ) ) _tunedForNpc = npc;
+		if ( npc != _tunedForNpc && Setup.ApplyHolder( this, npc ) ) _tunedForNpc = npc;
 		if ( npc && Networking.IsHost && !IsReloading && !HasPrimaryAmmo() ) Reload();
 		if ( IsProxy ) return;
 
@@ -433,7 +433,7 @@ public sealed class BulletWeapon : Weapon
 			ShootEffects( FireVolley( Ballistics.Pellets ) );
 		}
 		else base.PrimaryAttack();
-		if ( Secondary == SecondaryFires.DoubleShot && WeaponSetup.PumpDelay( this ) is { } delay ) _pumpStarts = delay;
+		if ( Secondary == SecondaryFires.DoubleShot && Setup.PumpDelay is { } delay ) _pumpStarts = delay;
 		if ( AccuracyPenaltyPerShot > 0 && HasOwner ) _accuracyPenalty += AccuracyPenaltyPerShot;
 		if ( Secondary == SecondaryFires.DoubleShot || BlocksUnusedSecondaryUnderwater ) SetNextFire( PrimaryDelay );
 		if ( TapRefireDelay > 0 && HasOwner ) _tapReady = (TimeUntil)TapRefireDelay;
@@ -448,7 +448,7 @@ public sealed class BulletWeapon : Weapon
 		}
 		else DoRecoil();
 		if ( !BurstMode || NpcControlled ) return;
-		var burst = Css.Rules.Burst( WeaponSetup.WeaponType( this ) );
+		var burst = Css.Rules.Burst( Setup.WeaponType );
 		_burstRemaining = Css.Rules.BurstShots - 1;
 		_burstAttacker = Attacker;
 		_burstAt = burst.Interval;
@@ -459,7 +459,7 @@ public sealed class BulletWeapon : Weapon
 	{
 		if ( _burstRemaining <= 0 || _burstAt > 0 ) return;
 		_burstRemaining--;
-		_burstAt = Css.Rules.Burst( WeaponSetup.WeaponType( this ) ).Interval;
+		_burstAt = Css.Rules.Burst( Setup.WeaponType ).Interval;
 		if ( !HasPrimaryAmmo() || IsReloading )
 		{
 			CancelBurst();
@@ -548,7 +548,7 @@ public sealed class BulletWeapon : Weapon
 	void SetZoom( int level )
 	{
 		_zoomLevel = level;
-		_scoped = level > 0 && WeaponSetup.WeaponType( this ) == "SniperRifle" && HasOwner && !Owner.ThirdPerson;
+		_scoped = level > 0 && Setup.WeaponType == "SniperRifle" && HasOwner && !Owner.ThirdPerson;
 		if ( ViewModel.IsValid() ) ViewModel.Tags.Set( "sniper_scoped", _scoped );
 	}
 
@@ -795,14 +795,14 @@ public sealed class BulletWeapon : Weapon
 		if ( IsProxy && HasOwner ? !_remoteVolleyTracer : phase != 0 ) return;
 
 		if ( WeaponModel is { } model && model.IsValid() )
-			WeaponEffects.DrawTracer( Scene, WeaponSetup.FlashType( this ), model.GetTracerOrigin().Position, shot.HitPosition, MountContent.OfWeapon( this ) );
+			WeaponEffects.DrawTracer( Scene, Setup.FlashType, model.GetTracerOrigin().Position, shot.HitPosition, MountContent.OfWeapon( this ) );
 	}
 
 	protected override void OnShootImpact( in ShotEffect shot )
 	{
 		if ( !shot.Hit ) return;
 		var mount = MountContent.OfWeapon( this );
-		if ( WeaponSetup.WeaponData( this )?.ClassName == "weapon_ar2" && !(shot.HitObject.IsValid() && shot.HitObject.Tags.Has( "source1_sky" )) )
+		if ( Setup.Data?.ClassName == "weapon_ar2" && !(shot.HitObject.IsValid() && shot.HitObject.Tags.Has( "source1_sky" )) )
 			Hl2.FlatQuad.Create( "effects/combinemuzzle2", shot.HitPosition + shot.Normal, shot.Normal, Game.Random.Float( 24, 32 ), 0, 0.25f, mount );
 
 		SurfaceImpact( shot, mount );

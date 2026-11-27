@@ -272,10 +272,10 @@ public sealed class ViewModel : BaseWeaponModel
 		// Counter-Strike hides the viewmodel and its flash while scoped.
 		if ( !weapon.IsValid() || weapon.Silenced || GameObject.Tags.Has( "sniper_scoped" ) ) return;
 		attachment ??= _muzzle;
-		type ??= _flashType ?? WeaponSetup.FlashType( weapon );
+		type ??= _flashType ?? weapon.Setup.FlashType;
 		if ( !attachment.IsValid() ) return;
 		attachment = EffectAnchor( attachment );
-		_muzzleFlashes.Add( (attachment, type, WeaponSetup.FlashScale( weapon )) );
+		_muzzleFlashes.Add( (attachment, type, weapon.Setup.FlashScale) );
 	}
 
 	/// <summary>
@@ -410,7 +410,7 @@ public sealed class ViewModel : BaseWeaponModel
 	void UpdateMirror()
 	{
 		if ( _mirroredModel == Renderer.Model ) return;
-		var data = WeaponSetup.WeaponData( _weapon );
+		var data = WeaponSetup.Of( _weapon )?.Data;
 		if ( data is null ) return;
 		_mirroredModel = Renderer.Model;
 		var mirror = data.BuiltRightHanded == false && data.ViewModel is { } path && Renderer.Model.Name.Contains( path, StringComparison.OrdinalIgnoreCase );
