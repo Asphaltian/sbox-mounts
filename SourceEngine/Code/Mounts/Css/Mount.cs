@@ -10,6 +10,20 @@ public sealed class Mount : SourceGameMount
 {
 	protected override string ContentDirectory => "cstrike";
 	public override string Ident => "css";
+
+	protected internal override string[] VoicePatterns( VoiceLine line ) => line switch
+	{
+		VoiceLine.Alert => ["Radio.EnemySpotted"],
+		VoiceLine.AlertNpc => ["Radio.EnemySpotted"],
+		VoiceLine.Pain => ["Radio.TakingFire"],
+		VoiceLine.Kill => ["Radio.EnemyDown"],
+		VoiceLine.Reload => ["Radio.CoverMe"],
+		VoiceLine.Cover => ["Radio.NeedBackup"],
+		VoiceLine.Grenade => ["Radio.FireInTheHole"],
+		VoiceLine.Idle => ["Radio.ReportingIn", "Radio.SectorClear", "Radio.InPosition"],
+		_ => []
+	};
+
 	public override string Title => "Counter-Strike: Source";
 	public override long AppId => 240;
 	protected override string WeaponScriptKey => "d7NSuLq2";

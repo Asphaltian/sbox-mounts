@@ -11,6 +11,16 @@ public sealed class Mount : SourceGameMount
 {
 	protected override string ContentDirectory => "hl2";
 	public override string Ident => "hl2";
+
+	protected internal override string[] VoicePatterns( VoiceLine line ) => line switch
+	{
+		VoiceLine.Alert => ["{0}.Alert", "{0}.SeeEnemy", "{0}.FoundEnemy", "{0}.AlertNear"],
+		VoiceLine.Pain => ["{0}.Pain", "{0}.Pain_Roar", "{0}.Hurt", "{0}.BA_Pain"],
+		VoiceLine.Death => ["{0}.Die", "{0}.Death"],
+		VoiceLine.Idle => ["{0}.Idle"],
+		_ => []
+	};
+
 	public override string Title => "Half-Life 2";
 	public override long AppId => 220;
 

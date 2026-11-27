@@ -14,28 +14,6 @@ public enum VoiceLine { Alert, AlertNpc, Pain, Death, Kill, Reload, Cover, Grena
 /// </summary>
 public static class NpcVoice
 {
-	static readonly Dictionary<string, Dictionary<VoiceLine, string[]>> Games = new()
-	{
-		["hl2"] = new()
-		{
-			[VoiceLine.Alert] = ["{0}.Alert", "{0}.SeeEnemy", "{0}.FoundEnemy", "{0}.AlertNear"],
-			[VoiceLine.Pain] = ["{0}.Pain", "{0}.Pain_Roar", "{0}.Hurt", "{0}.BA_Pain"],
-			[VoiceLine.Death] = ["{0}.Die", "{0}.Death"],
-			[VoiceLine.Idle] = ["{0}.Idle"],
-		},
-		["css"] = new()
-		{
-			[VoiceLine.Alert] = ["Radio.EnemySpotted"],
-			[VoiceLine.AlertNpc] = ["Radio.EnemySpotted"],
-			[VoiceLine.Pain] = ["Radio.TakingFire"],
-			[VoiceLine.Kill] = ["Radio.EnemyDown"],
-			[VoiceLine.Reload] = ["Radio.CoverMe"],
-			[VoiceLine.Cover] = ["Radio.NeedBackup"],
-			[VoiceLine.Grenade] = ["Radio.FireInTheHole"],
-			[VoiceLine.Idle] = ["Radio.ReportingIn", "Radio.SectorClear", "Radio.InPosition"],
-		},
-	};
-
 	/// <summary>The bot chatter phrases (BotChatter.db) a line is said with; a mount without them speaks its sound scripts above.</summary>
 	static readonly Dictionary<VoiceLine, string[]> BotChatter = new()
 	{
@@ -165,7 +143,7 @@ public static class NpcVoice
 		if ( Resolved.TryGetValue( (mount, prefix, line), out var names ) )
 			return names;
 
-		var patterns = Games.GetValueOrDefault( mount )?.GetValueOrDefault( line ) ?? [];
+		var patterns = (Sandbox.Mounting.Directory.Get( mount ) as SourceGameMount)?.VoicePatterns( line ) ?? [];
 		var events = Sounds.EventNames( mount );
 		names = patterns.Where( x => !x.Contains( "{0}" ) || !string.IsNullOrEmpty( prefix ) )
 			.Select( x => string.Format( x, prefix ).ToLowerInvariant() )
