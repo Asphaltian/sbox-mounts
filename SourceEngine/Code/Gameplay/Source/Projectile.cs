@@ -54,12 +54,12 @@ public abstract partial class Projectile : Component
 		return Launch( weapon, attacker, kind, origin, velocity, damage, radius, model );
 	}
 
-	internal static Projectile Launch( BaseCombatWeapon weapon, GameObject attacker, Kinds kind, Vector3 origin, Vector3 velocity, float damage, float radius, string model = null )
+	internal static Projectile Launch( BaseCombatWeapon weapon, GameObject attacker, Kinds kind, Vector3 origin, Vector3 velocity, float damage, float radius, string model = null, Rotation? rotation = null, Vector3? spin = null )
 	{
 		var (type, definition) = Definition( kind );
 		if ( type is null ) return null;
 		return Spawn( type, attacker, MountContent.OfWeapon( weapon ), origin, velocity, damage, radius, model ?? definition.Model,
-			null, weapon, definition.Upright ? Rotation.Identity : null, null );
+			null, weapon, rotation ?? (definition.Upright ? Rotation.Identity : null), spin );
 	}
 
 	/// <summary>Spawns and networks a projectile on the host. Its velocity supplies the default orientation.</summary>

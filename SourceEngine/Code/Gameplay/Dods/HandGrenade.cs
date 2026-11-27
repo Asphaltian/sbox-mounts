@@ -6,6 +6,7 @@ public sealed class HandGrenade : Weapon
 	[Property] public Projectile.Kinds Kind { get; set; }
 	[Property] public float FuseTime { get; set; } = 5;
 	[Property] public string LivePrefab { get; set; }
+	[Property] public bool TumbleEndOverEnd { get; set; }
 	[Property] public bool Live { get; set; }
 	[Sync( SyncFlags.FromHost )] internal float DetonateAt { get; set; }
 	TimeUntil? _dropAt;
@@ -83,7 +84,9 @@ public sealed class HandGrenade : Weapon
 		var inherited = Owner.IsValid() ? facing * Owner.Velocity.Dot( facing ) : Vector3.Zero;
 		var velocity = drop ? forward : inherited + forward * ((90 - angles.pitch) * 4.2f).Clamp( 500, 1400 );
 		var trace = Scene.Trace.Ray( aim.Position, aim.Position + forward * 16 ).IgnoreGameObjectHierarchy( AimIgnoreRoot ).Run();
-		var grenade = Projectile.Launch( this, Kind, trace.EndPosition, velocity, 0, 0, ThrownModel );
+		var rotation = TumbleEndOverEnd ? new Angles( 45, angles.yaw, 0 ).ToRotation() : Rotation.Identity;
+		Vector3? spin = TumbleEndOverEnd ? rotation.Left * 600f.DegreeToRadian() : null;
+		var grenade = Projectile.Launch( this, Attacker, Kind, trace.EndPosition, velocity, 0, 0, ThrownModel, rotation, spin );
 		if ( grenade is FragGrenade frag )
 		{
 			frag.Fuse = remaining.Clamp( 0, FuseTime );

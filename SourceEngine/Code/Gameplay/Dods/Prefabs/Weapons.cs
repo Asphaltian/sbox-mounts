@@ -47,11 +47,11 @@ public static class Weapons
 			.. Gun<PunchWeapon>( "mp40", "MP40", "smg", 7000, automatic: true ),
 			.. RifleGrenades( "riflegren_us", "M1 Garand", "garand", "garand_gren" ),
 			.. RifleGrenades( "riflegren_ger", "Kar98k", "k98", "k98_rg" ),
-			.. Grenade( "frag_ger", "German Stick Grenade", "stick", Projectile.Kinds.DodFrag, liveName: "frag_ger_live" ),
-			.. Grenade( "frag_ger_live", "Live German Stick Grenade", "stick", Projectile.Kinds.DodFrag, liveName: "frag_ger_live" ),
+			.. Grenade( "frag_ger", "German Stick Grenade", "stick", Projectile.Kinds.DodFrag, liveName: "frag_ger_live", tumbleEndOverEnd: true ),
+			.. Grenade( "frag_ger_live", "Live German Stick Grenade", "stick", Projectile.Kinds.DodFrag, liveName: "frag_ger_live", tumbleEndOverEnd: true ),
 			.. Grenade( "frag_us", "US Frag Grenade", "frag", Projectile.Kinds.DodFrag, liveName: "frag_us_live" ),
 			.. Grenade( "frag_us_live", "Live US Frag Grenade", "frag", Projectile.Kinds.DodFrag, liveName: "frag_us_live" ),
-			.. Grenade( "smoke_ger", "German Smoke Grenade", "smoke_ger", Projectile.Kinds.DodSmoke, 10 ),
+			.. Grenade( "smoke_ger", "German Smoke Grenade", "smoke_ger", Projectile.Kinds.DodSmoke, 10, tumbleEndOverEnd: true ),
 			.. Grenade( "smoke_us", "US Smoke Grenade", "smoke_us", Projectile.Kinds.DodSmoke, 10 ),
 			.. Melee( "amerknife", "American Knife", "amerk" ),
 			.. Melee( "spade", "Spade", "spade" )
@@ -67,16 +67,17 @@ public static class Weapons
 				w.GrenadeModel = $"models/weapons/w_{projectile}.mdl";
 				w.LivePrefab = $"mount://dods/entities/weapons/{live}.prefab";
 			} ),
-			.. Grenade( live, $"Live {title} Rifle Grenade", projectile, Projectile.Kinds.DodFrag, 3.5f, live, $"{rifle}_rglive" )
+			.. Grenade( live, $"Live {title} Rifle Grenade", projectile, Projectile.Kinds.DodFrag, 3.5f, live, $"{rifle}_rglive", tumbleEndOverEnd: true )
 		];
 	}
 
-	static IEnumerable<EntityDefinition> Grenade( string name, string title, string model, Projectile.Kinds kind, float fuse = 5, string liveName = null, string viewModel = null ) =>
+	static IEnumerable<EntityDefinition> Grenade( string name, string title, string model, Projectile.Kinds kind, float fuse = 5, string liveName = null, string viewModel = null, bool tumbleEndOverEnd = false ) =>
 		EntityPrefab.WeaponSet<HandGrenade>( "dods", name, title, $"models/weapons/p_{model}.mdl", $"models/weapons/v_{viewModel ?? model}.mdl", w =>
 		{
 			w.DisplayName = title;
 			w.HoldType = "grenade";
 			w.Kind = kind;
+			w.TumbleEndOverEnd = tumbleEndOverEnd;
 			w.Live = name == liveName;
 			w.LivePrefab = liveName is null ? null : $"mount://dods/entities/weapons/{liveName}.prefab";
 			w.FuseTime = fuse;
