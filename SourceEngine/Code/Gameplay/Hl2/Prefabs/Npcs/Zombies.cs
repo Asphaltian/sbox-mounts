@@ -12,7 +12,8 @@ public static class Zombies
 			{
 				var npc = p.Npc<CreatureNpc>();
 				p.Navigation( height: 20, radius: 12.5f );
-				p.Skill( "sk_headcrab_fast_health", damage: "sk_headcrab_melee_dmg" );
+				// The fast crab's spawn reads the classic crab's health setting
+				p.Skill( "sk_headcrab_health", damage: "sk_headcrab_melee_dmg" );
 
 				npc.Idle = "Idle01";
 				npc.Move = "Run1";
@@ -24,6 +25,7 @@ public static class Zombies
 				npc.Voice = "NPC_FastHeadcrab";
 				npc.EyeHeight = 15;
 				var leap = p.Root.AddComponent<Leap>();
+				leap.Kind = Leap.Leaper.FastHeadcrab;
 				leap.SoundPrefix = "NPC_FastHeadcrab";
 				p.Box( 25, 20 );
 			}
@@ -36,20 +38,24 @@ public static class Zombies
 			{
 				var npc = p.Npc<CreatureNpc>();
 				p.Navigation();
-				p.Skill( "sk_zombie_health", damage: "sk_zombie_dmg_one_slash" );
+				p.Skill( "sk_zombie_health" );
 
 				npc.Move = "Run";
 				npc.Attack = "Melee";
 				npc.MoveSpeed = 220;
+				npc.AttackDamage = 3;
 				npc.AttackInterval = 0.8f;
 				npc.AttackDelay = 0.2f;
 				npc.Voice = "NPC_FastZombie";
 				npc.EyeHeight = 57.6f;
 				var leap = p.Root.AddComponent<Leap>();
+				leap.Kind = Leap.Leaper.FastZombie;
 				leap.SoundPrefix = "NPC_FastZombie";
-				leap.LeapSound = "NPC_FastZombie.LeapAttack";
 				var zombie = p.Root.AddComponent<Zombie>();
 				zombie.Headcrab = "fast_headcrab";
+				zombie.LegsModel = "models/gibs/fast_zombie_legs.mdl";
+				zombie.TorsoModel = "models/gibs/fast_zombie_torso.mdl";
+				zombie.GibsFromBlasts = true;
 				p.Renderer.BodyGroups = 5;
 				p.Box( 26, 72 );
 			}
@@ -97,6 +103,7 @@ public static class Zombies
 				npc.Voice = "NPC_BlackHeadcrab";
 				npc.EyeHeight = 16;
 				var leap = p.Root.AddComponent<Leap>();
+				leap.Kind = Leap.Leaper.PoisonHeadcrab;
 				leap.SoundPrefix = "NPC_BlackHeadcrab";
 				p.Box( 28, 22 );
 			}
@@ -124,6 +131,8 @@ public static class Zombies
 				var zombie = p.Root.AddComponent<Zombie>();
 				zombie.Headcrab = "poison_headcrab";
 				zombie.ThrowsCrabs = true;
+				var props = p.Root.AddComponent<ZombieProps>();
+				props.AttackSound = "NPC_PoisonZombie.Attack";
 				p.Renderer.BodyGroups = 341;
 				p.Box( 42, 70 );
 			}
@@ -136,7 +145,7 @@ public static class Zombies
 			{
 				var npc = p.Npc<CreatureNpc>();
 				p.Navigation();
-				p.Skill( "sk_zombie_health", damage: "sk_zombie_dmg_both_slash" );
+				p.Skill( "sk_zombie_health", damage: "sk_zombie_dmg_one_slash" );
 
 				npc.Idle = "Idle01";
 				npc.Attack = "attackA";
@@ -149,6 +158,10 @@ public static class Zombies
 				zombie.Headcrab = "headcrab";
 				zombie.Torso = "zombie_torso";
 				zombie.LegsModel = "models/zombie/classic_legs.mdl";
+				zombie.TorsoModel = "models/zombie/classic_torso.mdl";
+				zombie.GibsFromBlasts = true;
+				var props = p.Root.AddComponent<ZombieProps>();
+				props.AttackSound = "Zombie.Attack";
 				p.Renderer.BodyGroups = 5;
 				p.Box( 26, 72 );
 			}
@@ -172,6 +185,7 @@ public static class Zombies
 				npc.EyeHeight = 15;
 				var zombie = p.Root.AddComponent<Zombie>();
 				zombie.Headcrab = "headcrab";
+				zombie.IsTorso = true;
 				p.Renderer.BodyGroups = 5;
 				p.Box( 26, 24 );
 			}
@@ -185,19 +199,23 @@ public static class Zombies
 			{
 				var npc = p.Npc<CreatureNpc>();
 				p.Navigation();
-				p.Skill( "sk_zombie_soldier_health", damage: "sk_zombie_dmg_both_slash", config: "skill_episodic.cfg" );
+				p.Skill( "sk_zombie_soldier_health", damage: "sk_zombie_dmg_one_slash", config: "skill_episodic.cfg" );
 
 				npc.Idle = "Idle01";
 				npc.Move = "walk_All";
 				npc.Attack = "AttackA";
 				npc.MoveSpeed = 80;
 				npc.AttackRange = 75;
-				npc.AttackDamage = 20;
-				npc.Voice = "Zombie";
+				npc.AttackDamage = 10;
+				npc.Voice = "Zombine";
 				npc.EyeHeight = 57.6f;
 				p.Root.AddComponent<ZombineGrenade>();
 				var zombie = p.Root.AddComponent<Zombie>();
 				zombie.Headcrab = "headcrab";
+				zombie.LegsModel = "models/zombie/zombie_soldier_legs.mdl";
+				zombie.TorsoModel = "models/zombie/zombie_soldier_torso.mdl";
+				var props = p.Root.AddComponent<ZombieProps>();
+				props.EnemyMustSeeProp = true;
 				p.Renderer.BodyGroups = 5;
 				p.Box( 26, 72 );
 			}
