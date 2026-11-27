@@ -14,6 +14,8 @@ public sealed class Mount : SourceGameMount
 	public override string Title => "Half-Life 2";
 	public override long AppId => 220;
 
+	protected internal override BaseAmmoResource CreateAmmoResource() => new GarrysMod.Ammo();
+
 	internal override void ApplyWeaponDefaults( BaseCombatWeapon weapon, WeaponSetup setup, string worldModel ) =>
 		ApplyShotgunDefaults( this, weapon, setup.Data );
 

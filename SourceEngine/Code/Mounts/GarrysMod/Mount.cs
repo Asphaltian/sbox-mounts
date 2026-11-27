@@ -10,6 +10,8 @@ public sealed class Mount : SourceGameMount
 	public override string Title => "Garry's Mod";
 	public override long AppId => SteamId;
 
+	protected internal override BaseAmmoResource CreateAmmoResource() => new Ammo();
+
 	internal override void ApplyWeaponDefaults( BaseCombatWeapon weapon, WeaponSetup setup, string worldModel ) =>
 		Hl2.Mount.ApplyShotgunDefaults( this, weapon, setup.Data );
 
