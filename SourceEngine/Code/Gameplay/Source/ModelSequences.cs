@@ -17,6 +17,7 @@ public sealed class ModelSequences
 	readonly Dictionary<string, string> _gestures = new( StringComparer.OrdinalIgnoreCase );
 
 	public IReadOnlyList<SourceModelSequenceData> All { get; }
+	public IEnumerable<SourceModelSequenceData.Event> Events => All.SelectMany( sequence => sequence.Events );
 
 	ModelSequences( Model model )
 	{

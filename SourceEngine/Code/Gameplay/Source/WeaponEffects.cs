@@ -19,7 +19,7 @@ static partial class WeaponEffects
 	public static string FlashType( string options ) => options?.Split( ' ', StringSplitOptions.RemoveEmptyEntries ).FirstOrDefault()?.ToUpperInvariant();
 
 	/// <summary>The flash type authored on a model's own muzzle events.</summary>
-	public static string FlashType( Model model ) => FlashType( model?.GetData<SourceModelSequenceData[]>() ?? [] );
+	public static string FlashType( Model model ) => model is null ? null : FlashType( ModelSequences.Of( model ).All );
 
 	public static string FlashType( IEnumerable<SourceModelSequenceData> sequences ) => sequences.SelectMany( s => s.Events )
 		.Where( e => e.Name is "AE_MUZZLEFLASH" or "AE_NPC_MUZZLEFLASH" ).Select( e => FlashType( e.Options ) ).FirstOrDefault( x => x is not null );

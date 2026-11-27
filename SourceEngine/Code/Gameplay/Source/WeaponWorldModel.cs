@@ -190,7 +190,7 @@ public sealed class WeaponWorldModel : BaseWeaponModel
 		MuzzleEffect = null;
 		TracerEffect = null;
 		_weapon = FindWeapon();
-		var sequences = model.GetData<SourceModelSequenceData[]>() ?? [];
+		var sequences = ModelSequences.Of( model ).All;
 		_projectileFlashes = _weapon is ProjectileWeapon && sequences.FirstOrDefault( s => s.Activity == "ACT_VM_PRIMARYATTACK" ) is { } attack
 			? attack.Events.Where( e => e.Name is "AE_NPC_MUZZLEFLASH" or "AE_MUZZLEFLASH" )
 				.Select( e => e.Options?.Split( ' ', StringSplitOptions.RemoveEmptyEntries ) )

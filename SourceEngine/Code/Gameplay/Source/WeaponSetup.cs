@@ -197,7 +197,7 @@ static class WeaponSetup
 		state.WeaponType = state.Data?.WeaponType ?? (counterStrike ? Css.Rules.WeaponTypeOf( worldModel ) : null);
 		if ( counterStrike && Sounds.WeaponSound( state.Data, "empty" ) is null && Sounds.Sound( Css.Rules.EmptySound( state.WeaponType ), definition.MountName ) is { } click )
 			weapon.DryFireSound = click;
-		state.FlashType = WeaponEffects.FlashType( model.GetData<SourceModelSequenceData[]>() ?? [] );
+		state.FlashType = WeaponEffects.FlashType( model );
 		// Scripts without flash settings use the plain flash at scale 1.
 		if ( state.FlashType is null && counterStrike && state.Data is { } script )
 			(state.FlashType, state.FlashScale) = (script.MuzzleFlashStyle ?? Css.Rules.Flash, script.MuzzleFlashScale ?? 1);
@@ -277,7 +277,7 @@ static class WeaponSetup
 		var sounds = (data?.Sounds.Values ?? Enumerable.Empty<string>())
 			.Where( path => Sandbox.Mounting.Directory.Get( MountContent.Of( path ) )?.GetByPath( path ) is not null )
 			.Select( path => GameResource.Load<SoundEvent>( path ) )
-			.Concat( (model.GetData<SourceModelSequenceData[]>() ?? []).SelectMany( s => s.Events ).Where( Sounds.IsSoundEvent ).Select( e => Sounds.Sound( e.Options, mount ) ) )
+			.Concat( ModelSequences.Of( model ).Events.Where( Sounds.IsSoundEvent ).Select( e => Sounds.Sound( e.Options, mount ) ) )
 			.Where( s => s is not null ).SelectMany( s => s.Sounds ).Distinct().ToArray();
 		if ( !Application.IsDedicatedServer )
 			foreach ( var sound in sounds ) await sound.LoadAsync();
@@ -287,7 +287,7 @@ static class WeaponSetup
 		if ( !string.IsNullOrWhiteSpace( projectile ) ) await Model.LoadAsync( $"mount://{mount}/{projectile}.vmdl" );
 	}
 
-	static SoundEvent ShotSoundOf( Model model, string mountName ) => (model.GetData<SourceModelSequenceData[]>() ?? []).SelectMany( s => s.Events )
+	static SoundEvent ShotSoundOf( Model model, string mountName ) => ModelSequences.Of( model ).Events
 		.Where( Sounds.IsSoundEvent ).Select( e => e.Options?.Split( '.' ) is [var prefix, _] ? prefix : null ).Where( x => x is not null )
 		.GroupBy( x => x, StringComparer.OrdinalIgnoreCase ).OrderByDescending( g => g.Count() )
 		.Select( g => Sounds.Sound( g.Key + ".Single", mountName ) ).FirstOrDefault( x => x is not null );
@@ -295,7 +295,7 @@ static class WeaponSetup
 	/// <summary>CL_EVENT_EJECTBRASS1 leaves from the second attachment; Counter-Strike's brass events name theirs.</summary>
 	static (string Model, string Attachment, float? Speed)? BrassOf( Model model )
 	{
-		foreach ( var e in (model.GetData<SourceModelSequenceData[]>() ?? []).SelectMany( s => s.Events ) )
+		foreach ( var e in ModelSequences.Of( model ).Events )
 		{
 			if ( e.Id == AnimEvents.EjectBrass1 && model.Attachments.All.Count > 1 )
 				return (WeaponEffects.ShellModel( int.TryParse( e.Options, out var type ) ? type : 0 ), model.Attachments.All[1].Name, null);

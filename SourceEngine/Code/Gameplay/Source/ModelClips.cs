@@ -43,7 +43,7 @@ public sealed class ModelClips : IReadOnlyDictionary<string, Clip>
 	internal Graph PickupPose( Model model )
 	{
 		if ( _pickupPose is not null ) return _pickupPose;
-		var sequence = model.GetData<SourceModelSequenceData[]>()?.FirstOrDefault();
+		var sequence = ModelSequences.Of( model ).All.FirstOrDefault();
 		if ( !TryGetValue( sequence?.Name, out var clip ) || Skeleton is null ) return null;
 
 		var builder = Graph.Builder;
