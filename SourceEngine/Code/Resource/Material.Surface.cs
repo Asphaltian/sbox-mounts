@@ -8,25 +8,28 @@ internal sealed partial class SourceMaterialBuilder
 	{
 		var name = resourceName ?? $"{FullPath}.vmat";
 		var warp = shader == "vortwarp";
+		var fourWay = shader == "lightmapped_4wayblend";
 		var worldBlend = shader == "worldtwotextureblend";
 		var transition = shaderName == "worldvertextransition"
 			|| (shader == "lightmappedgeneric" && !string.IsNullOrWhiteSpace( parameters.String( "$basetexture2" ) ));
 		var unlit = shader == "unlitgeneric" || (warp && parameters.Boolean( "$unlit" ));
 
 		var modelSurface = shader is "vertexlitgeneric" or "unlitgeneric" or "vortwarp";
-		var skin = shader == "vertexlitgeneric" && parameters.Boolean( "$phong" );
 		var framebuffer = IsFramebufferTexture( parameters.String( "$basetexture" ) );
 		if ( framebuffer && (parameters.Integer( "$frame" ) != 0 || animation is { FrameRate: > 0 }) )
 			throw new NotSupportedException( $"{FullPath}: framebuffer textures do not support frames or animation." );
 		var normal = Load( "$bumpmap", "$bumpframe" );
+		var baseAlphaPhong = parameters.Boolean( "$basemapalphaphongmask" );
+		var skin = shader == "vertexlitgeneric" && parameters.Boolean( "$phong" )
+			&& (normal != null || baseAlphaPhong || !string.IsNullOrWhiteSpace( parameters.String( "$lightwarptexture" ) ));
 		var albedo = worldBlend && normal != null && !parameters.Boolean( "$nodiffusebumplighting" )
 			&& !string.IsNullOrWhiteSpace( parameters.String( "$basetexture" ) )
 			&& !string.IsNullOrWhiteSpace( parameters.String( "$albedo" ) );
 		var color = framebuffer ? null : Load( albedo ? "$albedo" : "$basetexture", "$frame" );
 		var detail = Load( "$detail", "$detailframe" );
-		var seamless = shader == "lightmappedgeneric" && shaderName != "monitorscreen"
+		var seamless = (fourWay || shader == "lightmappedgeneric") && shaderName != "monitorscreen"
 			? parameters.Float( "$seamless_scale" ) : 0;
-		if ( seamless != 0 && detail != null )
+		if ( !fourWay && seamless != 0 && detail != null )
 			throw new NotSupportedException( $"{name}: Source's seamless LightmappedGeneric shader does not have a detail-texture combination." );
 		if ( worldBlend && parameters.Float( "$seamless_scale" ) != 0 )
 			throw new NotSupportedException( $"{name}: $seamless_scale is not implemented for WorldTwoTextureBlend." );
@@ -45,7 +48,7 @@ internal sealed partial class SourceMaterialBuilder
 		var envMask = !worldBlend && !skin && !normalEnvMask && !baseEnvMask ? Load( "$envmapmask", "$envmapmaskframe" ) : null;
 		var environmentPath = worldBlend ? null : parameters.String( "$envmap" );
 		var environment = !string.IsNullOrWhiteSpace( environmentPath );
-		if ( !skin && normal != null && !normalEnvMask && (baseEnvMask || envMask != null) )
+		if ( !skin && !fourWay && normal != null && !normalEnvMask && (baseEnvMask || envMask != null) )
 		{
 			Log.Trace( $"{name}: a generic bumped surface needs $normalmapalphaenvmapmask; disabling conflicting environment reflection." );
 			environment = false;
@@ -60,7 +63,7 @@ internal sealed partial class SourceMaterialBuilder
 		if ( sphere && !parameters.Boolean( "$envmapsphere" ) )
 			Log.Trace( $"{name}: using legacy 2D environment mapping for '{environmentPath}'." );
 		var envMaskMode = normalEnvMask ? 2 : baseEnvMask ? 1 : 0;
-		var phongMask = skin && (parameters.Boolean( "$basemapalphaphongmask" ) || normal == null) ? 1 : 2;
+		var phongMask = skin && baseAlphaPhong ? 1 : 2;
 		if ( skin && phongMask != 1 && parameters.Boolean( "$basemapluminancephongmask" ) )
 			phongMask = 3;
 		var selfIllum = parameters.Boolean( "$selfillum" ) && (selfIllumMask != null || color?.HasAlpha == true);
@@ -89,7 +92,38 @@ internal sealed partial class SourceMaterialBuilder
 		var translucent = framebuffer || additive || alpha.CanBeTranslucent || vertexAlpha
 			|| (parameters.Boolean( "$translucent" ) && hasOpacity);
 
-		var material = CreateShaderMaterial( $"shaders/source1/{(transition ? "worldvertextransition" : shaderName)}.shader", resourceName );
+		var surfaceShader = fourWay ? shader : transition ? "worldvertextransition" : shaderName;
+		var material = CreateShaderMaterial( $"shaders/source1/{surfaceShader}.shader", resourceName );
+		if ( surfaceShader == "lightmappedgeneric" && parameters.Boolean( "$decal" ) )
+			material.SetFeature( "F_SOURCE_DECAL", 1 );
+		if ( fourWay )
+		{
+			var factors = Vector3.Zero;
+			var encodings = Vector3.Zero;
+			var details = Vector3.One;
+			for ( int layer = 1; layer <= 4; layer++ )
+			{
+				var prefix = $"$texture{layer}_";
+				material.Set( $"g_vLayer{layer}Range", new Vector4( parameters.Float( prefix + "lumstart" ),
+					parameters.Float( prefix + "lumend", 1 ), parameters.Float( prefix + "blendstart" ), parameters.Float( prefix + "blendend", 1 ) ) );
+				if ( layer == 1 ) continue;
+				Bind( Load( $"$basetexture{layer}" ), $"g_tColor{layer}" );
+				var layerNormal = Load( $"$basenormalmap{layer}" );
+				if ( layerNormal != null )
+				{
+					Bind( layerNormal, $"g_tNormal{layer}" );
+					factors[layer - 2] = parameters.Float( prefix + "bumpblendfactor", 1 );
+					encodings[layer - 2] = layerNormal.Header.HiResFormat == VtfFormat.UV88 ? 1 : 0;
+				}
+				details[layer - 2] = parameters.Float( $"$detailblendfactor{layer}", 1 );
+				var scale = parameters.Vector( prefix + "uvscale", Vector3.One );
+				material.Set( $"g_vLayer{layer}Controls", new Vector4( scale.x, scale.y,
+					parameters.Float( $"$lumblendfactor{layer}", 1 ), parameters.Float( prefix + "blendmode" ) ) );
+			}
+			material.Set( "g_vLayerNormalFactors", factors );
+			material.Set( "g_vLayerNormalEncodings", encodings );
+			material.Set( "g_vLayerDetailFactors", details );
+		}
 		material.Set( "g_flSourceReceiveDecals", !parameters.Boolean( "$nodecal" ) );
 		material.Set( "g_flSourceSeamlessScale", seamless );
 		animation.GetValueOrDefault().Bind( material, color );
@@ -160,6 +194,8 @@ internal sealed partial class SourceMaterialBuilder
 		else
 			SetVector( "g_vSourceDetailTint", "$detailtint", Vector3.One, linearize: true );
 		material.Set( "g_flSourceDetailSrgb", detailMode is > 0 and < 10 );
+		if ( envTexture is { IsCube: true } )
+			Host.MapFormat.BindCubemap( material, environmentPath );
 		material.Set( "g_flSourceEnvMap", environment );
 		material.Set( "g_flSourceEnvRoughness", GetEnvironmentRoughness( shader, parameters ) );
 		material.Set( "g_nSourceEnvMask", envMaskMode );
@@ -189,7 +225,7 @@ internal sealed partial class SourceMaterialBuilder
 			Log.Trace( $"{name}: $seamless_scale is not implemented by '{shaderName}'." );
 		if ( !string.IsNullOrWhiteSpace( parameters.String( "$parallaxmap" ) ) )
 			Log.Trace( $"{name}: $parallaxmap is not implemented by the surface shader." );
-		if ( !skin && parameters.Boolean( "$phong" ) )
+		if ( shader != "vertexlitgeneric" && parameters.Boolean( "$phong" ) )
 			Log.Trace( $"{name}: $phong is only implemented for VertexLitGeneric." );
 		if ( !modelSurface && parameters.Boolean( "$blendtintbybasealpha" ) )
 			Log.Trace( $"{name}: $blendtintbybasealpha is only implemented for VertexLitGeneric and UnlitGeneric." );

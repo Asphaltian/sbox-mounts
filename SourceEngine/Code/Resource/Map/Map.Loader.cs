@@ -16,9 +16,13 @@ internal sealed partial class MapLoader : SceneLoader<SourceGameMount>
 	private SourceMaterialOverrides _bakedShadowBindings;
 	private BspLightingContext _lighting;
 
-	protected override Texture GetThumbnail() =>
-		Texture.Load( $"mount://{Host.Ident}/maps/thumb/{Name.WithExtension( "png" )}.vtex", false )
-		?? Texture.Load( $"mount://{Host.Ident}/maps/{Name.WithExtension( "png" )}.vtex", false );
+	protected override Texture GetThumbnail()
+	{
+		var name = System.IO.Path.GetFileNameWithoutExtension( FullPath );
+		var image = Host.GetContentPath( $"maps/thumb/{name}.png" )
+			?? Host.GetContentPath( $"maps/{name}.png" );
+		return image is null ? null : Texture.Load( $"{image}.vtex", false );
+	}
 
 	public MapLoader( string fileName, bool skybox = false )
 	{
