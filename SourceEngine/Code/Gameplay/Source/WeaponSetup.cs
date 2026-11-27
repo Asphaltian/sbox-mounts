@@ -180,7 +180,7 @@ sealed class WeaponSetup
 		var clips = WeaponClips.Resolve( model, names );
 		float Duration( string clip ) => WeaponClips.Duration( model, clip );
 		var draw = Duration( clips.Draw );
-		if ( definition.MountName == "hl2" && weapon.DeployTime > 0 && draw > 0 && names.DrawPlaybackRate > 0 )
+		if ( mount is SourceGameMount { UseDrawSequenceDuration: true } && weapon.DeployTime > 0 && draw > 0 && names.DrawPlaybackRate > 0 )
 			weapon.DeployTime = draw / names.DrawPlaybackRate;
 		if ( weapon is ProjectileWeapon projectile && clips.Throws )
 		{

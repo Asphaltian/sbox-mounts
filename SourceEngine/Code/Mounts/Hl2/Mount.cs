@@ -24,6 +24,12 @@ public sealed class Mount : SourceGameMount
 	public override string Title => "Half-Life 2";
 	public override long AppId => 220;
 
+	protected internal override float DropPickupDelay => 1;
+	protected internal override bool KeepAttackCooldown( BaseCombatWeapon weapon ) =>
+		weapon is BulletWeapon or MeleeWeapon or ProjectileWeapon { Kind: Projectile.Kinds.Rocket };
+	protected internal override bool ResetFireOnHolsteredReload => true;
+	protected internal override bool UseDrawSequenceDuration => true;
+	protected internal override bool? ConsumeDuplicateWeapon => GarrysMod.Ammo.ConsumeDuplicate;
 	protected internal override BaseAmmoResource CreateAmmoResource() => new GarrysMod.Ammo();
 
 	internal override void ApplyWeaponDefaults( BaseCombatWeapon weapon, WeaponSetup setup, string worldModel ) =>

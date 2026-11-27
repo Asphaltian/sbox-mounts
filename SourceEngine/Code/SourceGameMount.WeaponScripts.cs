@@ -72,6 +72,14 @@ public abstract partial class SourceGameMount
 		foreach ( var ammo in ammoResources ) context.Add( ResourceType.GameResource, ammo.Key, ammo.Value );
 	}
 
+	// Null delegates duplicate pickup to the inventory. Otherwise a duplicate donates its ammo,
+	// and the mount chooses whether to consume an empty duplicate as well.
+	protected internal virtual bool? ConsumeDuplicateWeapon => null;
+	protected internal virtual float DropPickupDelay => 0;
+	protected internal virtual bool KeepAttackCooldown( BaseCombatWeapon weapon ) => false;
+	protected internal virtual bool ResetFireOnHolsteredReload => false;
+	protected internal virtual bool UseDrawSequenceDuration => false;
+
 	protected internal virtual BaseAmmoResource CreateAmmoResource() => new();
 
 	internal virtual void ApplyWeaponDefaults( BaseCombatWeapon weapon, WeaponSetup setup, string worldModel ) { }

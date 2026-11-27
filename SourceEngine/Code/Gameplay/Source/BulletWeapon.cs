@@ -258,7 +258,7 @@ public sealed class BulletWeapon : Weapon
 
 	protected override void OnHolstered()
 	{
-		if ( (IsReloading || _lastShellInserting) && !ShotQueued && MountContent.OfWeapon( this ) == "hl2" ) SetNextFire( 0 );
+		if ( (IsReloading || _lastShellInserting) && !ShotQueued && ContentMount?.ResetFireOnHolsteredReload == true ) SetNextFire( 0 );
 		_holdingEmptyTrigger = false;
 		_lastShellInserting = false;
 		if ( ShotQueued && Inventory is { } inventory && inventory.ActiveItem is Weapon && Slot >= 0 )

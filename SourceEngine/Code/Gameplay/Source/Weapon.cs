@@ -11,6 +11,7 @@ namespace Source1;
 public abstract class Weapon : BaseCombatWeapon
 {
 	WeaponSetup _setup;
+	protected SourceGameMount ContentMount => Sandbox.Mounting.Directory.Get( MountContent.OfWeapon( this ) ) as SourceGameMount;
 	internal WeaponSetup Setup => _setup ??= new();
 
 	/// <summary>What a mounted weapon's attack2 does. One data-driven choice instead of a flag per behaviour.</summary>
@@ -54,7 +55,7 @@ public abstract class Weapon : BaseCombatWeapon
 		var primary = NextPrimaryFire;
 		var secondary = NextSecondaryFire;
 		base.OnEquipped();
-		if ( !IsValid || !IsActive || this is not (BulletWeapon or MeleeWeapon or ProjectileWeapon { Kind: Projectile.Kinds.Rocket }) || MountContent.OfWeapon( this ) != "hl2" ) return;
+		if ( !IsValid || !IsActive || ContentMount?.KeepAttackCooldown( this ) != true ) return;
 
 		// Drawing sets the earliest attack time, including any shot or swing still on cooldown.
 		if ( primary > (float)NextPrimaryFire ) NextPrimaryFire = primary;
@@ -180,9 +181,9 @@ public abstract class Weapon : BaseCombatWeapon
 	protected override bool OnAdding( BaseInventoryComponent inventory )
 	{
 		Setup.ConfigureAmmo( this );
-		var sandboxAmmo = Game.Ident == "facepunch.sandbox" && MountContent.OfWeapon( this ) is "hl2" or "gmod";
+		var consumeDuplicate = ContentMount?.ConsumeDuplicateWeapon;
 		var secondary = UsesSecondaryClip ? Clip2 : SecondaryPickupAmmo;
-		if ( !sandboxAmmo && secondary <= 0 ) return base.OnAdding( inventory );
+		if ( consumeDuplicate is null && secondary <= 0 ) return base.OnAdding( inventory );
 
 		foreach ( var held in inventory.GetComponentsInChildren<Weapon>( true ) )
 		{
@@ -192,7 +193,7 @@ public abstract class Weapon : BaseCombatWeapon
 			var primary = UsesClips ? (Clip1 < 0 ? ClipMaxSize : Clip1) : StartingAmmo;
 			var given = held.UsesAmmo ? inventory.GiveAmmo( held.PrimaryAmmoType, primary ) : 0;
 			var alternateGiven = inventory.GiveAmmo( held.SecondaryAmmoType, secondary );
-			if ( given > 0 || alternateGiven > 0 || (sandboxAmmo && GarrysMod.Ammo.MaxAmmo > 0) )
+			if ( given > 0 || alternateGiven > 0 || consumeDuplicate == true )
 				GameObject.Destroy();
 			return false;
 		}
@@ -419,7 +420,7 @@ public abstract class Weapon : BaseCombatWeapon
 
 	protected virtual void StartDrop( Vector3 velocity )
 	{
-		if ( MountContent.OfWeapon( this ) == "hl2" ) _touchPickupAllowed = 1;
+		if ( ContentMount is { DropPickupDelay: > 0 } mount ) _touchPickupAllowed = mount.DropPickupDelay;
 		if ( GetComponent<Rigidbody>( true ) is { } body )
 		{
 			body.Velocity = velocity;
