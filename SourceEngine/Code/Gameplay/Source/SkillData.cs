@@ -1,47 +1,19 @@
-using System.Text.Json;
 using System;
 
 namespace Source1;
 
-/// <summary>Reads the engine mount's converted defaults; never interprets Source console commands.</summary>
 static class SkillData
 {
-	static readonly Dictionary<string, Task<IReadOnlyDictionary<string, float>>> Parsed = new();
+	static readonly IReadOnlyDictionary<string, float> Empty = new Dictionary<string, float>();
 
-	/// <summary>What a mount that is not mounted yet reads as; not kept, so the next read tries again.</summary>
-	static readonly IReadOnlyDictionary<string, float> Unmounted = new Dictionary<string, float>();
-
-	/// <summary>The parsed skill values of one mount, read once per mount and config.</summary>
-	public static Task<IReadOnlyDictionary<string, float>> Read( string mountName, string additionalConfig = null )
-	{
-		var key = $"{mountName}|{additionalConfig}";
-		if ( !Parsed.TryGetValue( key, out var task ) || task.IsFaulted || task.IsCompletedSuccessfully && task.Result == Unmounted )
-		{
-			task = Load( mountName, additionalConfig );
-			Parsed[key] = task;
-		}
-		return task;
-	}
-
-	static async Task<IReadOnlyDictionary<string, float>> Load( string mountName, string additionalConfig )
+	public static async Task<IReadOnlyDictionary<string, float>> Read( string mountName, string additionalConfig = null )
 	{
 		var mount = await Sandbox.Mounting.Directory.Mount( mountName );
-		if ( mount?.IsMounted != true )
-			return Unmounted;
+		if ( mount?.IsMounted != true ) return Empty;
 
-		var values = new Dictionary<string, float>( StringComparer.OrdinalIgnoreCase );
-		foreach ( var config in new[] { "skill.cfg", additionalConfig } )
-		{
-			if ( string.IsNullOrWhiteSpace( config ) )
-				continue;
-
-			if ( mount.GetByPath( $"mount://{mountName}/cfg/{config}.json" ) is not { } loader || await loader.GetOrCreate() is not string json )
-				continue;
-
-			foreach ( var pair in JsonSerializer.Deserialize<Dictionary<string, float>>( json ) ?? [] )
-				values[pair.Key] = pair.Value;
-		}
-		return values;
+		SkillConfigLoader Config( string name ) => mount.GetByPath( $"mount://{mountName}/cfg/{name}.json" ) as SkillConfigLoader;
+		var defaults = Config( "skill.cfg" )?.Values ?? Empty;
+		return string.IsNullOrWhiteSpace( additionalConfig ) ? defaults : Config( additionalConfig )?.WithDefaults( defaults ) ?? defaults;
 	}
 
 	/// <summary>A skill value, or the Source code default when skill.cfg leaves the convar unset.</summary>

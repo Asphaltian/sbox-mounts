@@ -1,7 +1,20 @@
+using System;
+
 namespace Source1;
 
-/// <summary>Exports converted numeric defaults without exposing or executing config commands.</summary>
-internal sealed class SourceSkillConfigLoader( SourceSkillConfig config ) : ResourceLoader<SourceGameMount>
+/// <summary>Exposes the parsed settings to gameplay and the individual config as a mounted text resource.</summary>
+internal sealed class SkillConfigLoader( SourceSkillConfig config ) : ResourceLoader<SourceGameMount>
 {
-	protected override object Load() => System.Text.Json.JsonSerializer.Serialize( config.Values );
+	internal IReadOnlyDictionary<string, float> Values => config.Values;
+	IReadOnlyDictionary<string, float> merged;
+
+	internal IReadOnlyDictionary<string, float> WithDefaults( IReadOnlyDictionary<string, float> defaults )
+	{
+		if ( merged is not null ) return merged;
+		var values = new Dictionary<string, float>( defaults, StringComparer.OrdinalIgnoreCase );
+		foreach ( var (name, value) in Values ) values[name] = value;
+		return merged = values;
+	}
+
+	protected override object Load() => System.Text.Json.JsonSerializer.Serialize( Values );
 }

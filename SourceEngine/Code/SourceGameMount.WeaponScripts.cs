@@ -7,7 +7,7 @@ public abstract partial class SourceGameMount
 	private void ReadWeaponScripts( MountContext context, FileIndex files )
 	{
 		files.Weapons.Clear();
-		var skill = SourceSkillConfig.Parse( "" );
+		var skill = new SourceSkillConfig();
 		// Expose supplemental game settings independently. Importing an Episode's
 		// resources must not replace the base game's weapon balance globally.
 		foreach ( var entry in files.Files.Where( x => x.Key.StartsWith( "cfg/skill", StringComparison.OrdinalIgnoreCase )
@@ -17,7 +17,7 @@ public abstract partial class SourceGameMount
 			using var reader = new StreamReader( stream );
 			var values = SourceSkillConfig.Parse( reader.ReadToEnd() );
 			if ( entry.Key.Equals( "cfg/skill.cfg", StringComparison.OrdinalIgnoreCase ) ) skill = values;
-			if ( values.Values.Count > 0 ) context.Add( ResourceType.Text, entry.Key + ".json", new SourceSkillConfigLoader( values ) );
+			if ( values.Values.Count > 0 ) context.Add( ResourceType.Text, entry.Key + ".json", new SkillConfigLoader( values ) );
 		}
 		var ammoResources = new Dictionary<string, SourceAmmoLoader>( StringComparer.OrdinalIgnoreCase );
 		var waveEvents = new HashSet<string>( StringComparer.OrdinalIgnoreCase );
