@@ -79,7 +79,7 @@ public sealed class GravityWeapon : Weapon
 	}
 
 	SceneTrace TargetTrace( Ray ray, float range ) => Scene.Trace.Ray( ray, range )
-		.IgnoreGameObjectHierarchy( GameObject.Root ).WithoutTags( "trigger", "projectile" );
+		.IgnoreGameObjectHierarchy( GameObject.Root ).WithoutTags( "trigger" );
 
 	static bool HitEntity( SceneTraceResult hit ) => hit.Hit && hit.GameObject.IsValid()
 		&& (!hit.HasTag( "world" ) || hit.GameObject.Tags.Has( "source1_entity" ));
