@@ -75,7 +75,7 @@ public sealed partial class PhysicsGun : Weapon, PlayerController.IEvents
 	[ConVar( "physgun_rotation_sensitivity", ConVarFlags.Saved, Min = 0.01f, Max = 10000, Help = "Sensitivity of mouse rotation while holding Use with the Physics Gun." )]
 	public static float RotationSensitivity { get; set; } = 0.05f;
 
-	enum Trigger { Released, Grab, Adjust, Push, Pull, Freeze }
+	public enum Trigger { Released, Grab, Adjust, Push, Pull, Freeze }
 	System.IDisposable _movementHook;
 	[Sync] Trigger InputState { get; set; }
 	bool Adjusting => InputState is Trigger.Adjust or Trigger.Push or Trigger.Pull;

@@ -16,8 +16,8 @@ public sealed class GravityWeapon : Weapon
 
 	internal const string EnableMotionTag = "enable_on_physcannon";
 
-	enum PuntResult { Miss, Hit, HitDamageable, LaunchHeld }
-	enum CarryResult { Pickup, Drop, ForcedDrop }
+	public enum PuntResult { Miss, Hit, HitDamageable, LaunchHeld }
+	public enum CarryResult { Pickup, Drop, ForcedDrop }
 
 	const float TraceLength = 250;
 	const float PullLength = TraceLength * 4;

@@ -26,7 +26,7 @@ public partial class ProjectileWeapon : Weapon
 	[Sync( SyncFlags.FromHost )] public bool Guiding { get; private set; }
 	internal WeaponClips ThrowClips { get; set; }
 	internal virtual WeaponClips ConfigureThrow( Model model, WeaponClips clips ) => clips;
-	protected enum ThrowStyle { Overhand, Lob, Roll }
+	public enum ThrowStyle { Overhand, Lob, Roll }
 	ThrowStyle _throwStyle;
 	internal float RedrawDuration { get; set; }
 	internal float? BoltChargeDelay { get; set; }

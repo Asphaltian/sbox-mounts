@@ -44,7 +44,7 @@ public sealed class Leap : CreatureBehaviour, INpcPart, Component.ICollisionList
 	const float ReleaseHop = 40, ReleaseClear = 32, ReleaseAirTime = 1;
 	const int ReleaseHops = 5;
 
-	enum Phase { None, WindUp, Flight, Retreat }
+	public enum Phase { None, WindUp, Flight, Retreat }
 
 	[Sync( SyncFlags.FromHost )] Phase State { get; set; }
 
