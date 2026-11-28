@@ -33,6 +33,12 @@ sealed class ViewPunch : CameraEffectSystem.BaseEffect
 		return effect;
 	}
 
+	internal static void SetAngle( PlayerController owner, Angles angle )
+	{
+		if ( ForOwner( owner ) is { } effect )
+			effect._angle = new Vector3( angle.pitch, angle.yaw, angle.roll );
+	}
+
 	public static void Apply( PlayerController owner, Angles impulse, bool reset )
 	{
 		var effect = ForOwner( owner );

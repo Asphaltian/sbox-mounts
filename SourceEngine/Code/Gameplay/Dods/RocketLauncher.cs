@@ -82,6 +82,7 @@ public sealed class Rocket : Projectile
 		if ( !tr.GameObject.GetComponentInParent<PlayerController>().IsValid() )
 			Scorch( tr.GameObject, WeaponEffects.DecalTransform( tr.GameObject, tr.EndPosition, tr.Normal ), MountName, large: true );
 		WorldPosition += tr.Normal * 0.6f;
+		Stun.Burst( Scene, WorldPosition, 150, 0.75f );
 		Explode( particle: "explosioncore_floor", rotation: Rotation.LookAt( tr.Normal ) );
 	}
 }

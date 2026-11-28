@@ -105,6 +105,7 @@ public sealed class BombTarget : Component, Component.IPressable
 		{
 			Deactivate();
 			this.RunDoo( OnExploded );
+			Stun.Burst( Scene, WorldPosition, 500, 1 );
 			new Explosion { Position = WorldPosition, Source = GameObject, Attacker = _planter, Damage = 200, Radius = 500, ForceScale = 1.5f }.Spawn();
 			return;
 		}

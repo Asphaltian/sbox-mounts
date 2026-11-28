@@ -48,6 +48,7 @@ public sealed class FragGrenade : ThrownGrenade, Component.IPressable
 	{
 		Damage = 150;
 		Radius = Damage * 2.5f;
+		Stun.Burst( Scene, WorldPosition, Radius, 1 );
 		SceneTraceResult TraceFloor( Vector3 start ) => Scene.Trace.Ray( start, start + Vector3.Down * 32 )
 			.IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "trigger" ).Run();
 		var floor = TraceFloor( WorldPosition + Vector3.Up * 8 );
