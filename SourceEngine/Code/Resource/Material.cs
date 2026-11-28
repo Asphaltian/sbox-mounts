@@ -61,6 +61,7 @@ internal sealed partial class SourceMaterialBuilder
 			"teeth" => CreateTeeth( parameters, resourceName ),
 			"refract" or "core" => CreateRefract( shaderName == "core", resourceName, screenOverlay: screenOverlay ),
 			"aftershock" => CreateRefract( false, resourceName, aftershock: true ),
+			"cloud" => CreateCloud( resourceName ),
 			"volumeclouds" => CreateVolumeClouds( resourceName ),
 			"monitorscreen" => CreateMonitor( resourceName, mapSurface ),
 			"water" => CreateEffect( true, parameters, transforms, alpha, animation, resourceName ),

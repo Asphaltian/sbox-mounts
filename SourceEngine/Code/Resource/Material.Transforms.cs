@@ -36,7 +36,7 @@ internal sealed partial class SourceMaterialBuilder
 	{
 		"water" or "refract" or "core" => key is "$bumptransform" or "$normalmaptransform" or "$bumptransform2",
 		"unlittwotexture" => key is "$basetexturetransform" or "$texture2transform",
-		"modulate" => key == "$basetexturetransform",
+		"modulate" or "cloud" => key == "$basetexturetransform",
 		"worldtwotextureblend" => key is "$basetexturetransform" or "$bumptransform",
 		"vertexlitgeneric" or "lightmappedgeneric" or "unlitgeneric" or "worldvertextransition" or "vortwarp"
 			=> key is "$basetexturetransform" or "$basetexturetransform2" or "$bumptransform" or "$bumptransform2"

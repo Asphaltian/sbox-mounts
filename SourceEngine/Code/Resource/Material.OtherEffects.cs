@@ -21,6 +21,20 @@ internal sealed partial class SourceMaterialBuilder
 		return material;
 	}
 
+	private Material CreateCloud( string resourceName )
+	{
+		var material = CreateShaderMaterial( "shaders/source1/cloud.shader", resourceName );
+		material.SetFeature( "F_TRANSLUCENT", 1 );
+		material.SetFeature( "F_ADDITIVE_BLEND", parameters.Boolean( "$additive" ) ? 1 : 0 );
+		material.SetFeature( "F_RENDER_BACKFACES", parameters.Boolean( "$nocull" ) ? 1 : 0 );
+		LoadSurfaceTexture( parameters.String( "$basetexture", "shadertest/cloud" ), parameters.Integer( "$frame" ) ).Bind( material, "g_tColor" );
+		LoadSurfaceTexture( parameters.String( "$cloudalphatexture", "shadertest/cloudalpha" ) ).Bind( material, "g_tMask" );
+		material.Set( "g_vCloudScale", parameters.Pair( "$cloudscale", Vector2.One ) );
+		material.Set( "g_vMaskScale", parameters.Pair( "$maskscale", Vector2.One ) );
+		transforms.Get( "$basetexturetransform" ).Bind( material, "Base" );
+		return material;
+	}
+
 	private Material CreateVolumeClouds( string resourceName )
 	{
 		var material = CreateShaderMaterial( "shaders/source1/volumeclouds.shader", resourceName );
