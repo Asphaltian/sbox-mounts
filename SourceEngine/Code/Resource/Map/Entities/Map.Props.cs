@@ -15,12 +15,12 @@ partial class MapLoader
 		{
 			Parent = world
 		};
-		public void BuildProp( MapProp prop, MapEntity entity = null )
+		public GameObject BuildProp( MapProp prop, MapEntity entity = null, bool animated = false )
 		{
 			if ( string.IsNullOrWhiteSpace( prop.Model ) || !prop.Model.EndsWith( ".mdl", StringComparison.OrdinalIgnoreCase ) )
 			{
 				Log.Trace( $"Prop '{prop.Name}' has no supported MDL model; omitted." );
-				return;
+				return null;
 			}
 
 			if ( !float.IsFinite( prop.Scale ) || prop.Scale <= 0 || prop.Skin < 0 )
@@ -35,7 +35,7 @@ partial class MapLoader
 				if ( resource is null )
 				{
 					Log.Trace( $"Prop model '{path}' is missing; its instances were omitted." );
-					return;
+					return null;
 				}
 
 				try
@@ -52,13 +52,13 @@ partial class MapLoader
 				catch ( Exception e ) when ( e is IOException or InvalidDataException or NotSupportedException or InvalidOperationException )
 				{
 					Log.Trace( $"Prop model '{path}' could not be imported: {e.Message}; its instances were omitted." );
-					return;
+					return null;
 				}
 			}
 
 			model ??= LoadModel( path );
 			if ( model is null )
-				return;
+				return null;
 			ReportPhysicsSettings( prop, model, path );
 			var useGameplay = !skybox && CanBuildGameplayProp( prop, model, path );
 			var isStatic = prop.Physics == PropPhysics.Static && !useGameplay;
@@ -76,6 +76,7 @@ partial class MapLoader
 				instance.Tags.Add( "source1_entity" );
 			if ( entity is not null )
 			{
+				TrackParent( entity, instance );
 				GarrysMod.PhysicsGun.TagMapEntity( instance, entity );
 				// A physics prop flagged as debris, which characters walk through.
 				if ( prop.Physics == PropPhysics.Rigid && (entity.Integer( "spawnflags" ) & 4) != 0 )
@@ -90,11 +91,16 @@ partial class MapLoader
 			if ( useGameplay )
 			{
 				AddGameplayProp( prop, instance, model, materialGroup );
-				return;
+				if ( entity?.Get( "OnBreak" ) is not null )
+				{
+					instance.NetworkMode = NetworkMode.Object;
+					RegisterEntityIO( entity, instance.GetOrAddComponent<PropDamage>() );
+				}
+				return instance;
 			}
 
 			var ragdollRenderer = prop.Physics == PropPhysics.Ragdoll ? instance.AddComponent<SkinnedModelRenderer>() : null;
-			var renderer = ragdollRenderer ?? instance.AddComponent<ModelRenderer>();
+			ModelRenderer renderer = ragdollRenderer ?? (animated ? instance.AddComponent<SkinnedModelRenderer>() : instance.AddComponent<ModelRenderer>());
 			renderer.Model = model;
 			renderer.Tint = prop.Tint;
 			renderer.Enabled = prop.Visible;
@@ -102,12 +108,15 @@ partial class MapLoader
 			if ( prop.StaticPropIndex >= 0 && (prop.StaticPropFlags & 0x10) != 0 )
 				renderer.RenderType = ModelRenderer.ShadowRenderType.Off;
 			AddPhysics( prop, renderer, ragdollRenderer, path );
+			return instance;
 		}
 
 		public void Finish()
 		{
 			if ( !skybox )
 			{
+				ParentMovers();
+				if ( propDoors.Count > 1 ) LinkPropDoors();
 				BuildPostProcessing();
 				WireEntityIO();
 			}

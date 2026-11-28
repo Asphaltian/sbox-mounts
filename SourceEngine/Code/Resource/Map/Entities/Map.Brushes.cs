@@ -134,6 +134,7 @@ partial class MapLoader
 				LocalPosition = entity.Vector( "origin" ),
 				LocalRotation = Rotation.From( loader.ReadAngles( entity ) )
 			};
+			TrackParent( entity, instance );
 			instance.Tags.Add( "world" );
 			instance.Tags.Add( "source1_entity" );
 			GarrysMod.PhysicsGun.TagMapEntity( instance, entity );
@@ -151,6 +152,7 @@ partial class MapLoader
 				return;
 
 			var moving = !skybox && loader.AddInteraction( this, entity, instance, bsp.Models[index] );
+			moving |= entity.Get( "parentname" ) is { Length: > 0 };
 			instance.IsStatic = !moving;
 			if ( loader.IsSolid( entity ) )
 			{

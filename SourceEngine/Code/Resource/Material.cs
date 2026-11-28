@@ -57,6 +57,7 @@ internal sealed partial class SourceMaterialBuilder
 			"eyes" or "eyerefract" => CreateEye( shaderName == "eyerefract", parameters, resourceName ),
 			"unlittwotexture" => CreateTwoTexture( parameters, transforms, animation, resourceName ),
 			"modulate" => CreateModulate( parameters, transforms, alpha, animation, resourceName ),
+			"windowimposter" => CreateWindowImposter( resourceName ),
 			"shatteredglass" => CreateShatteredGlass( resourceName ),
 			"teeth" => CreateTeeth( parameters, resourceName ),
 			"refract" or "core" => CreateRefract( shaderName == "core", resourceName, screenOverlay: screenOverlay ),
@@ -75,6 +76,16 @@ internal sealed partial class SourceMaterialBuilder
 		material.Set( "g_bFogEnabled", !screenOverlay && !parameters.Boolean( "$nofog" ) );
 		material.Attributes.Set( "PhysicsSurfaceProperties", Host.GetSurfaceBindingName( parameters.String( "$surfaceprop", "default" ), FullPath ) );
 		UpdateProbeUsage( material );
+		return material;
+	}
+
+	private Material CreateWindowImposter( string name )
+	{
+		var material = CreateShaderMaterial( "shaders/source1/windowimposter.shader", name );
+		material.SetFeature( "F_TRANSLUCENT", 1 );
+		var environment = parameters.String( "$envmap" );
+		if ( !string.IsNullOrWhiteSpace( environment ) && !environment.Equals( "env_cubemap", StringComparison.OrdinalIgnoreCase ) )
+			LoadEnvironmentTexture( environment, parameters.Integer( "$envmapframe" ) ).Bind( material, "g_tEnvCube" );
 		return material;
 	}
 

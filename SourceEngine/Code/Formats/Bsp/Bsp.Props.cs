@@ -4,6 +4,7 @@ internal enum PropPhysics
 {
 	Static,
 	Rigid,
+	Kinematic,
 	Ragdoll
 }
 

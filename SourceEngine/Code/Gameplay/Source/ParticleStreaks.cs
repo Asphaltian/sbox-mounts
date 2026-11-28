@@ -6,7 +6,7 @@ namespace Source1;
 [Hide]
 public sealed class ParticleStreaks : Renderer
 {
-	readonly VertexBuffer _vertices = new();
+	[ThreadStatic] static VertexBuffer _vertices;
 	ParticleEffect _particles;
 	SceneCustomObject _batch;
 	Material _material;
@@ -63,18 +63,19 @@ public sealed class ParticleStreaks : Renderer
 	void Draw( SceneObject obj )
 	{
 		if ( !_particles.IsValid() || !_material.IsValid() ) return;
-		_vertices.Init( true );
+		var vertices = _vertices ??= new VertexBuffer();
+		vertices.Init( true );
 
 		foreach ( var p in _particles.Particles )
 		{
-			_vertices.Default.Color = p.Color.WithAlpha( p.Color.a * p.Alpha );
+			vertices.Default.Color = p.Color.WithAlpha( p.Color.a * p.Alpha );
 			var end = End( p );
 			var delta = end - p.Position;
 			var across = delta.Cross( p.Position - Graphics.CameraPosition ).Normal;
 			var halfWidth = across * (0.5f * MathF.Min( delta.Length, p.Size.x ));
-			_vertices.AddQuad( p.Position + halfWidth, p.Position - halfWidth, end - halfWidth, end + halfWidth );
+			vertices.AddQuad( p.Position + halfWidth, p.Position - halfWidth, end - halfWidth, end + halfWidth );
 		}
-		_vertices.Draw( _material, Attributes );
+		vertices.Draw( _material, Attributes );
 	}
 
 	protected override void OnEnabled()

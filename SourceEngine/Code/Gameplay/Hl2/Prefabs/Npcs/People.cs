@@ -12,7 +12,7 @@ public static class People
 			Build = p =>
 			{
 				var npc = p.Npc<CombatNpc>();
-				p.Navigation( run: 180, walk: 85 );
+				p.Navigation( run: 180, walk: 85, opensDoors: true );
 				p.Skill( "sk_alyx_health" );
 
 				npc.Friendly = true;
@@ -32,7 +32,7 @@ public static class People
 			Build = p =>
 			{
 				var npc = p.Npc<CombatNpc>();
-				p.Navigation( run: 180, walk: 85 );
+				p.Navigation( run: 180, walk: 85, opensDoors: true );
 				p.Skill( "sk_barney_health" );
 
 				npc.Friendly = true;
@@ -51,7 +51,7 @@ public static class People
 			Build = p =>
 			{
 				var npc = p.Npc<CreatureNpc>();
-				p.Navigation();
+				p.Navigation( opensDoors: true );
 				p.Skill( "sk_breen_health" );
 
 				npc.Idle = "idle_subtle";
@@ -69,7 +69,7 @@ public static class People
 			Build = p =>
 			{
 				var npc = p.Npc<CreatureNpc>();
-				p.Navigation();
+				p.Navigation( opensDoors: true );
 				p.Skill( "sk_citizen_health" );
 
 				npc.Idle = "idle_subtle";
@@ -87,7 +87,7 @@ public static class People
 			Build = p =>
 			{
 				var npc = p.Npc<CreatureNpc>();
-				p.Navigation();
+				p.Navigation( opensDoors: true );
 				p.Skill( "sk_eli_health" );
 
 				npc.Idle = "idle_subtle";
@@ -105,7 +105,7 @@ public static class People
 			Build = p =>
 			{
 				var npc = p.Npc<CreatureNpc>();
-				p.Navigation();
+				p.Navigation( opensDoors: true );
 				p.Skill( "sk_gman_health" );
 
 				npc.Idle = "idle_subtle";
@@ -124,7 +124,7 @@ public static class People
 			Build = p =>
 			{
 				var npc = p.Npc<CombatNpc>();
-				p.Navigation( run: 180, walk: 85 );
+				p.Navigation( run: 180, walk: 85, opensDoors: true );
 				p.Skill( "sk_grigori_health" );
 
 				npc.Friendly = true;
@@ -142,7 +142,7 @@ public static class People
 			Build = p =>
 			{
 				var npc = p.Npc<CreatureNpc>();
-				p.Navigation();
+				p.Navigation( opensDoors: true );
 				p.Skill( "sk_kleiner_health" );
 
 				npc.Idle = "idle_subtle";
@@ -160,7 +160,7 @@ public static class People
 			Build = p =>
 			{
 				var npc = p.Npc<CreatureNpc>();
-				p.Navigation();
+				p.Navigation( opensDoors: true );
 				p.Skill( "sk_mossman_health" );
 
 				npc.Idle = "idle_subtle";
@@ -179,7 +179,7 @@ public static class People
 			Build = p =>
 			{
 				var npc = p.Npc<CombatNpc>();
-				p.Navigation( run: 180, walk: 85 );
+				p.Navigation( run: 180, walk: 85, opensDoors: true );
 				p.Skill( "sk_odessa_health" );
 
 				npc.Friendly = true;
@@ -204,7 +204,7 @@ public static class People
 			Build = p =>
 			{
 				var npc = p.Npc<CombatNpc>();
-				p.Navigation( run: 180, walk: 85 );
+				p.Navigation( run: 180, walk: 85, opensDoors: true );
 				p.Skill( "sk_citizen_health" );
 
 				npc.Friendly = true;

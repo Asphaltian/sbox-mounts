@@ -104,7 +104,7 @@ public static class Creatures
 			Build = p =>
 			{
 				var npc = p.Npc<CreatureNpc>();
-				p.Navigation( height: 105, radius: 30 );
+				p.Navigation( height: 105, radius: 30, opensDoors: true );
 				p.Skill( "sk_dog_health" );
 
 				npc.Friendly = true;
@@ -176,7 +176,7 @@ public static class Creatures
 			Build = p =>
 			{
 				var npc = p.Npc<CreatureNpc>();
-				p.Navigation();
+				p.Navigation( opensDoors: true );
 				p.Skill( "sk_vortigaunt_health", damage: "sk_vortigaunt_dmg_zap" );
 
 				npc.Friendly = true;

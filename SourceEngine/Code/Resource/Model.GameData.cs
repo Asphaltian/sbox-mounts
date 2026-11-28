@@ -19,6 +19,8 @@ internal sealed partial class SourceModelBuilder
 
 		try
 		{
+			if ( mdl.KeyValues.FirstOrDefault( node => node.IsBlock && node.Name.Equals( "door_options", StringComparison.OrdinalIgnoreCase ) ) is { } options )
+				builder.WithData( DoorOptions.Read( options ) );
 			var hasAuthoredPieces = physics?.Text.Any( block => block.IsBlock
 				&& block.Name.Equals( "break", StringComparison.OrdinalIgnoreCase ) ) == true;
 			var (prop, physGun, modifiers) = Host.GetPropData().Read( mdl.KeyValues, FullPath, message => Log.Trace( message ), hasAuthoredPieces );

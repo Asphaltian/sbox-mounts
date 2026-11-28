@@ -171,13 +171,14 @@ internal sealed class EntityPrefab( GameObject root, SourceGameMount mount, Enti
 		return npc;
 	}
 
-	public void Navigation( float radius = 13, float height = 72, float acceleration = 2000, float? run = null, float? walk = null )
+	public void Navigation( float radius = 13, float height = 72, float acceleration = 2000, float? run = null, float? walk = null, bool opensDoors = false )
 	{
 		var agent = root.AddComponent<NavMeshAgent>();
 		agent.Radius = radius;
 		agent.Height = height;
 		agent.Acceleration = acceleration;
-		var navigation = root.AddComponent<NavigationLayer>();
+		var navigation = root.AddComponent<DoorNavigation>();
+		navigation.OpensDoors = opensDoors;
 		if ( run.HasValue ) navigation.RunSpeed = run.Value;
 		if ( walk.HasValue ) navigation.WalkSpeed = walk.Value;
 	}

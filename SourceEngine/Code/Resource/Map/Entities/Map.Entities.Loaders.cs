@@ -1,4 +1,5 @@
 using System;
+using DoorMode = Sandbox.Mapping.Door.DoorMode;
 
 namespace Source1;
 
@@ -9,8 +10,9 @@ partial class MapLoader
 		{
 			"worldspawn" => new WorldEntityLoader(),
 			"info_player_start" or "info_player_deathmatch" or "info_player_counterterrorist" or "info_player_terrorist" or "info_player_teamspawn" => new SpawnEntityLoader(),
-			"prop_static" or "prop_ragdoll_attached" or "prop_door_rotating" or "prop_detail" or "prop_vehicle"
+			"prop_static" or "prop_ragdoll_attached" or "prop_detail" or "prop_vehicle"
 				or "prop_vehicle_driveable" or "prop_vehicle_jeep" or "prop_vehicle_airboat" or "prop_vehicle_prisoner_pod" => new PropEntityLoader(),
+			"prop_door_rotating" or "prop_door_rotating_checkpoint" or "dz_door" => new PropDoorLoader(),
 			"prop_dynamic" or "prop_dynamic_override" => new DynamicPropEntityLoader(),
 			"prop_physics" or "prop_physics_override" or "prop_physics_multiplayer" or "prop_physics_respawnable" => new PhysicsPropEntityLoader(),
 			"prop_ragdoll" => new RagdollEntityLoader(),
@@ -21,15 +23,18 @@ partial class MapLoader
 			"func_lod" => new LodBrushEntityLoader(),
 			"func_useableladder" => new EndpointLadderLoader(),
 			"func_conveyor" => new ConveyorEntityLoader(),
-			"func_rot_button" or "func_movelinear" or "func_rotating" or "func_train" or "func_tracktrain" => new UnsimulatedBrushEntityLoader(),
+			"func_lookdoor" => new LookDoorLoader(),
+			"momentary_door" or "func_movelinear" => new LinearMoverLoader(),
+			"func_rot_button" or "func_rotating" or "func_train" or "func_tracktrain" => new UnsimulatedBrushEntityLoader(),
 			"func_breakable" or "func_breakable_surf" => new BreakableEntityLoader(),
-			"func_door" => new DoorEntityLoader(),
-			"func_door_rotating" => new RotatingDoorEntityLoader(),
+			"func_door" => new DoorEntityLoader( DoorMode.Sliding ),
+			"func_door_rotating" => new DoorEntityLoader( DoorMode.Rotating ),
 			"func_button" => new ButtonEntityLoader(),
 			"dod_bomb_target" => new BombTargetLoader(),
 			"info_target" => new NamedTargetLoader(),
 			"npc_antlion_template_maker" => new AntlionMakerLoader(),
 			"info_node_hint" => new NodeHintLoader(),
+			"trigger_multiple" or "trigger_once" => new PlayerTriggerLoader(),
 			"logic_relay" => new RelayLoader(),
 			"point_bugbait" => new BugbaitSensorLoader(),
 			"infodecal" => new DecalEntityLoader(),
@@ -61,9 +66,11 @@ partial class MapLoader
 		foreach ( var prop in bsp.StaticProps )
 			if ( bsp.IsSkyboxProp( prop, skybox ) )
 				builder.BuildProp( prop );
+		List<MapEntity> portalWindows = [];
 		foreach ( var entity in bsp.Entities )
 		{
 			var className = entity.Get( "classname" );
+			if ( !skybox && className == "func_areaportalwindow" ) portalWindows.Add( entity );
 			var loader = className is null ? null : FindEntityLoader( className );
 			if ( loader is not null )
 			{
@@ -93,6 +100,19 @@ partial class MapLoader
 			}
 		}
 
+		foreach ( var entity in portalWindows )
+		{
+			ModelRenderer FindBrush( string key ) => entity.Get( key ) is { Length: > 0 } name
+				? world.Scene.Directory.FindByName( name ).FirstOrDefault( o => o.Tags.Has( "source1_entity" ) )?.GetComponent<ModelRenderer>( true )
+				: null;
+			if ( FindBrush( "target" ) is not { } target ) continue;
+			var window = target.GameObject.AddComponent<AreaPortalWindow>();
+			window.Renderer = target;
+			window.Background = FindBrush( "BackgroundBModel" );
+			window.FadeStart = entity.Number( "FadeStartDist" );
+			window.FadeEnd = entity.Number( "FadeDist" );
+			window.MinimumOpacity = entity.Number( "TranslucencyLimit" );
+		}
 		builder.Finish();
 	}
 

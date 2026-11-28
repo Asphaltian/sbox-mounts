@@ -18,8 +18,10 @@ internal sealed partial class MdlFile
 		var text = Encoding.UTF8.GetString( bytes, 0, end < 0 ? bytes.Length : end );
 		try
 		{
-			return VmtFile.ParseKeyValues( text, "MDL keyvalues",
+			var roots = VmtFile.ParseKeyValues( text, "MDL keyvalues",
 				diagnostic => throw new NotSupportedException( diagnostic.Message ) );
+			return roots.Count == 1 && roots[0].IsBlock && roots[0].Name.Equals( "mdlkeyvalue", StringComparison.OrdinalIgnoreCase )
+				? roots[0].Children : roots;
 		}
 		catch ( InvalidDataException e )
 		{

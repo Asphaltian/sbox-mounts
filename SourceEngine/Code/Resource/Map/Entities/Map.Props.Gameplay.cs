@@ -14,9 +14,9 @@ partial class MapLoader
 				return false;
 			}
 
-			if ( !prop.Visible || prop.Solid == 0 || !prop.MotionEnabled || model.Physics is { Parts.Count: > 1 } )
+			if ( !prop.Visible || prop.Solid == 0 || model.Physics is { Parts.Count: > 1 } )
 			{
-				Log.Trace( $"Prop '{prop.Name}' model '{path}' requires visibility, collision, motion or multi-body settings not supported by the existing Prop component; retaining its original setup without breakable gameplay." );
+				Log.Trace( $"Prop '{prop.Name}' model '{path}' requires unsupported visibility, collision or multi-body settings." );
 				return false;
 			}
 
@@ -31,6 +31,8 @@ partial class MapLoader
 			gameplay.Model = model;
 			gameplay.Tint = prop.Tint;
 			gameplay.MaterialGroup = materialGroup;
+			if ( !prop.MotionEnabled && !gameplay.IsStatic )
+				instance.GetOrAddComponent<Rigidbody>().MotionEnabled = false;
 			gameplay.Enabled = true;
 			PropDamage.Attach( gameplay );
 			if ( !gameplay.IsStatic ) PropAirDrag.Attach( instance, model );

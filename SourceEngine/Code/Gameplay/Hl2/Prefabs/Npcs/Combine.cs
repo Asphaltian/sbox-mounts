@@ -14,7 +14,7 @@ public static class Combine
 			Build = p =>
 			{
 				var npc = p.Npc<CombatNpc>();
-				p.Navigation( run: 180, walk: 85 );
+				p.Navigation( run: 180, walk: 85, opensDoors: true );
 				p.Skill( "sk_combine_guard_health" );
 
 				npc.DistractedByBugbait = true;
@@ -37,7 +37,7 @@ public static class Combine
 			Build = p =>
 			{
 				var npc = p.Npc<CombatNpc>();
-				p.Navigation( acceleration: 150, height: 64, radius: 16, run: 180, walk: 85 );
+				p.Navigation( acceleration: 150, height: 64, radius: 16, run: 180, walk: 85, opensDoors: true );
 				var sensesLayer = p.Root.GetComponent<SensesLayer>( true );
 				sensesLayer.FieldOfView = 200;
 				sensesLayer.SightRange = 8192;
@@ -62,7 +62,7 @@ public static class Combine
 			Build = p =>
 			{
 				var npc = p.Npc<CombatNpc>();
-				p.Navigation( run: 180, walk: 85 );
+				p.Navigation( run: 180, walk: 85, opensDoors: true );
 				p.Skill( "sk_metropolice_health" );
 
 				npc.Health = 40;
@@ -83,7 +83,7 @@ public static class Combine
 			Build = p =>
 			{
 				var npc = p.Npc<CombatNpc>();
-				p.Navigation( run: 180, walk: 85 );
+				p.Navigation( run: 180, walk: 85, opensDoors: true );
 				p.Skill( "sk_metropolice_health" );
 
 				npc.Health = 40;
@@ -104,7 +104,7 @@ public static class Combine
 			Build = p =>
 			{
 				var npc = p.Npc<CombatNpc>();
-				p.Navigation( run: 180, walk: 85 );
+				p.Navigation( run: 180, walk: 85, opensDoors: true );
 				p.Skill( "sk_combine_s_health" );
 
 				npc.DistractedByBugbait = true;

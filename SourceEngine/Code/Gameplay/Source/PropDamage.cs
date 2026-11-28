@@ -3,6 +3,7 @@ namespace Source1;
 /// <summary>Applies the mounted model's damage modifiers before the prop loses health.</summary>
 public sealed class PropDamage : Component
 {
+	[Property] public Doo OnBreak { get; set; }
 	Prop _prop;
 	PropFire _fire;
 
@@ -15,13 +16,20 @@ public sealed class PropDamage : Component
 	protected override void OnEnabled()
 	{
 		_prop = GetComponent<Prop>();
-		if ( _prop.IsValid() ) _prop.OnPropTakeDamage += OnDamage;
+		if ( !_prop.IsValid() ) return;
+		_prop.OnPropTakeDamage += OnDamage;
+		if ( OnBreak is not null ) _prop.OnPropBreak += BreakOutput;
 	}
 
 	protected override void OnDisabled()
 	{
-		if ( _prop.IsValid() ) _prop.OnPropTakeDamage -= OnDamage;
+		if ( !_prop.IsValid() ) return;
+		_prop.OnPropTakeDamage -= OnDamage;
+		_prop.OnPropBreak -= BreakOutput;
 	}
+
+	[Rpc.Host]
+	void BreakOutput() => RunDoo( OnBreak, c => c.SetArgument( "user", _prop.LastAttacker ) );
 
 	void OnDamage( DamageInfo hit )
 	{

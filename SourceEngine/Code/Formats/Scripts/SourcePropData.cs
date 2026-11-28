@@ -20,8 +20,6 @@ internal sealed class SourcePropData
 
 	internal (ModelPropData Prop, PhysGunInteractions PhysGun, PropDamageModifiers Modifiers) Read( IReadOnlyList<VmtNode> roots, string path, Action<string> report, bool hasAuthoredPieces = false )
 	{
-		if ( roots.Count == 1 && roots[0].IsBlock && roots[0].Name.Equals( "mdlkeyvalue", StringComparison.OrdinalIgnoreCase ) )
-			roots = roots[0].Children;
 		PhysGunInteractions physGun = null;
 		var interactions = roots.FirstOrDefault( node => node.IsBlock && node.Name.Equals( "physgun_interactions", StringComparison.OrdinalIgnoreCase ) );
 		if ( interactions is not null && interactions.Values.TryGetValue( "preferred_carryangles", out var text ) && Angles.TryParse( text, out var angles ) )
