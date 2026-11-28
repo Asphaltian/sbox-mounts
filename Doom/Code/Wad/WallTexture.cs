@@ -50,7 +50,7 @@ public sealed class WallTexture
 			var patch = patches[i] = resolvePatch( Patches[i].PatchName );
 			if ( patch is null )
 			{
-				Log.Warning( $"Doom: texture {Name} uses missing patch {Patches[i].PatchName}" );
+				Log.Trace( $"Doom: texture {Name} uses missing patch {Patches[i].PatchName}" );
 				continue;
 			}
 

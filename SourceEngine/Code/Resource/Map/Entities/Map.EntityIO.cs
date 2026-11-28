@@ -43,22 +43,6 @@ partial class MapLoader
 						break;
 				}
 			}
-			foreach ( var entity in bsp.Entities )
-				foreach ( var (key, value) in entity.KeyValues.Where( entry => entry.Key.StartsWith( "On", StringComparison.OrdinalIgnoreCase )
-					|| entry.Key.StartsWith( "Out", StringComparison.OrdinalIgnoreCase ) ) )
-				{
-					if ( postProcessing.HandledOutputs.Contains( (entity, key, value) ) )
-						continue;
-					var supported = ioEntities.TryGetValue( entity, out var component ) && (component is Door
-						&& (key.Equals( "OnOpen", StringComparison.OrdinalIgnoreCase ) || key.Equals( "OnClose", StringComparison.OrdinalIgnoreCase ))
-						|| component is Dods.BombTarget && key.ToLowerInvariant() is ("onbombplanted" or "onbombexploded" or "onbombdefused" or "onbombtargetactivated" or "onbombtargetdeactivated")
-						|| component is MapRelay && key.Equals( "OnTrigger", StringComparison.OrdinalIgnoreCase )
-						|| component is Hl2.BugbaitSensor && key.Equals( "OnBaited", StringComparison.OrdinalIgnoreCase )
-					|| component is SourceGlassPane && key.Equals( "OnBreak", StringComparison.OrdinalIgnoreCase )
-						|| component is Button && key.Equals( "OnPressed", StringComparison.OrdinalIgnoreCase ));
-					if ( !supported )
-						warnings.Add( $"Entity '{entity.Get( "classname" )}' output '{key}' has no native component/Doo event; omitted." );
-				}
 		}
 
 		private Doo BuildOutput( MapEntity source, string output, bool hasUser, List<MapOutputConnection> relayOutputs = null )
@@ -69,13 +53,13 @@ partial class MapLoader
 				var connection = BspEntityConnection.Read( output, value );
 				var targets = ResolveTargets( source, connection.Target ).ToArray();
 				if ( targets.Length == 0 )
-					warnings.Add( $"Output '{output}' target '{connection.Target}' has no imported native receiver; omitted." );
+					Log.Trace( $"Output '{output}' target '{connection.Target}' has no imported native receiver; omitted." );
 				var blocks = new List<Doo.Block>();
 				foreach ( var target in targets )
 				{
 					var action = BuildInput( target, connection.Input, hasUser, connection.Parameter );
 					if ( action is not null ) blocks.Add( action );
-					else warnings.Add( $"Input '{connection.Input}' on '{target.GetType().Name}' is not supported by the engine's public Doo methods; omitted." );
+					else Log.Trace( $"Input '{connection.Input}' on '{target.GetType().Name}' is not supported by the engine's public Doo methods; omitted." );
 				}
 				if ( blocks.Count == 0 ) continue;
 				if ( relayOutputs is null && connection.FireCount < 0 )

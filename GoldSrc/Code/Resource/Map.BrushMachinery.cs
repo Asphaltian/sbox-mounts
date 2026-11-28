@@ -73,7 +73,7 @@ partial class MapBuilder
 		pendulum.Rope = (entity.SpawnFlags & 2) != 0;
 		RegisterTarget( entity, pendulum );
 		if ( pendulum.Rope )
-			Log.Warning( $"{FilePath}: {EntityName( entity )} requires player movement ownership for its rope attachment." );
+			Log.Trace( $"{FilePath}: {EntityName( entity )} requires player movement ownership for its rope attachment." );
 	}
 
 	private void AddMomentaryButton( GameObject go, Entity entity )
@@ -215,8 +215,8 @@ partial class MapBuilder
 		RegisterTarget( entity, breakable );
 		WireTrigger( entity, breakable );
 		if ( breakable.Pushable )
-			Log.Warning( $"{FilePath}: {EntityName( entity )} requires push-step movement and buoyancy; only its breakable behavior is active." );
+			Log.Trace( $"{FilePath}: {EntityName( entity )} requires push-step movement and buoyancy; only its breakable behavior is active." );
 		if ( entity.GetInt( "explodemagnitude" ) > 0 )
-			Log.Warning( $"{FilePath}: {EntityName( entity )} requires radial explosion damage and temporary explosion effects when broken." );
+			Log.Trace( $"{FilePath}: {EntityName( entity )} requires radial explosion damage and temporary explosion effects when broken." );
 	}
 }

@@ -40,7 +40,7 @@ partial class MapLoader
 			}
 			builder.RegisterEntityIO( entity, door );
 			if ( (flags & 1024) != 0 )
-				builder.ReportWarning( $"Door '{instance.Name}' requests touch activation, which has no equivalent native door event; only supported use and Doo inputs are imported." );
+				Log.Trace( $"Door '{instance.Name}' requests touch activation, which has no equivalent native door event; only supported use and Doo inputs are imported." );
 			door.Enabled = true;
 			return true;
 		}

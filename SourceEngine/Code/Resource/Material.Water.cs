@@ -59,7 +59,7 @@ internal sealed partial class SourceMaterialBuilder
 
 			)
 				if ( parameters.Contains( key ) )
-					Log.Warning( $"{FullPath}: water {key} is not represented; rendering normal-map water without that input." );
+					Log.Trace( $"{FullPath}: water {key} is not represented; rendering normal-map water without that input." );
 		}
 
 		transforms.Get( transforms.Contains( "$bumptransform" ) ? "$bumptransform" : "$normalmaptransform" ).Bind( material, "Normal" );

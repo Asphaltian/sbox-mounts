@@ -86,7 +86,7 @@ public sealed class TurretNpc : BaseNpc
 		}
 		catch ( Exception e )
 		{
-			Log.Warning( $"Mounted turret sounds: {e.Message}" );
+			Log.Trace( $"Mounted turret sounds: {e.Message}" );
 		}
 		_skill = await SkillData.Read( _mountName );
 	}

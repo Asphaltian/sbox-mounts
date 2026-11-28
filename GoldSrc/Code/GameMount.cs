@@ -106,7 +106,7 @@ public abstract partial class GameMount : BaseGameMount
 					}
 					catch ( System.Exception ex )
 					{
-						Log.Warning( $"Failed to load WAD {fullPath}: {ex.Message}" );
+						Log.Trace( $"Failed to load WAD {fullPath}: {ex.Message}" );
 					}
 
 					continue;

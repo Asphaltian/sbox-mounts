@@ -124,7 +124,7 @@ public abstract class MapEntity : Component
 
 		if ( _depth >= MaxDepth )
 		{
-			Log.Warning( $"GoldSrc: IO chain exceeded {MaxDepth} nested fires at '{TargetName}' ({GetType().Name}) - the map has a zero-delay loop." );
+			Log.Trace( $"GoldSrc: IO chain exceeded {MaxDepth} nested fires at '{TargetName}' ({GetType().Name}) - the map has a zero-delay loop." );
 			return;
 		}
 

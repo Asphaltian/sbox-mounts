@@ -57,7 +57,7 @@ public abstract partial class SourceGameMount
 			}
 			catch ( Exception e ) when ( e is IOException or InvalidDataException or NotSupportedException )
 			{
-				Log.Warning( $"{Title}: soundscape manifest '{root}{manifest}' could not be imported: {e.Message}" );
+				Log.Trace( $"{Title}: soundscape manifest '{root}{manifest}' could not be imported: {e.Message}" );
 				registration.AddError( $"Soundscape manifest '{root}{manifest}' could not be imported: {e.Message}" );
 				return Array.Empty<string>();
 			}
@@ -73,7 +73,7 @@ public abstract partial class SourceGameMount
 			}
 			catch ( Exception e ) when ( e is IOException or InvalidDataException or NotSupportedException )
 			{
-				Log.Warning( $"{Title}: soundscape script '{root}{path}' could not be imported: {e.Message}" );
+				Log.Trace( $"{Title}: soundscape script '{root}{path}' could not be imported: {e.Message}" );
 			}
 		}
 
@@ -92,7 +92,7 @@ public abstract partial class SourceGameMount
 				}
 				catch ( Exception e ) when ( e is IOException or InvalidDataException or NotSupportedException or ArithmeticException )
 				{
-					Log.Warning( $"{Title}: soundscape '{name}' was not registered: {e.Message}" );
+					Log.Trace( $"{Title}: soundscape '{name}' was not registered: {e.Message}" );
 				}
 			}
 		}

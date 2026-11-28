@@ -99,7 +99,7 @@ public sealed class Rollermine : BaseNpc, Component.ICollisionListener
 		}
 		catch ( Exception e )
 		{
-			Log.Warning( $"Mounted rollermine: {e.Message}" );
+			Log.Trace( $"Mounted rollermine: {e.Message}" );
 		}
 	}
 

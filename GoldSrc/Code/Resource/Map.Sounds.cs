@@ -191,7 +191,7 @@ partial class MapBuilder
 		ambient.LfoVolume = entity.GetInt( "lfomodvol" );
 		ambient.IncrementalSpinUp = entity.GetInt( "cspinup" );
 		if ( ambient.Sound is null && ambient.Sentence is null )
-			Log.Warning( $"{FilePath}: ambient_generic '{entity.TargetName}' cannot play '{wav}'; missing WAV or unsupported sentence." );
+			Log.Trace( $"{FilePath}: ambient_generic '{entity.TargetName}' cannot play '{wav}'; missing WAV or unsupported sentence." );
 
 		ambient.StartSilent = (entity.SpawnFlags & SF_AMBIENT_START_SILENT) != 0;
 		ambient.OneShot = (entity.SpawnFlags & SF_AMBIENT_NOT_LOOPING) != 0;

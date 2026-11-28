@@ -505,7 +505,7 @@ public class BulletWeapon : Weapon
 		}
 		catch ( Exception e )
 		{
-			Log.Warning( $"Couldn't configure mounted weapon: {e.Message}" );
+			Log.Trace( $"Couldn't configure mounted weapon: {e.Message}" );
 		}
 	}
 

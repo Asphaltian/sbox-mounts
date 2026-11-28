@@ -14,7 +14,7 @@ partial class MapBuilder
 		var open = bsp.Leaves.Where( leaf => !leaf.Solid && leaf.HasVolume ).Select( leaf => leaf.Bounds ).ToArray();
 		if ( open.Length == 0 )
 		{
-			Log.Warning( $"{FilePath}: no open BSP leaves; model light probes were not created." );
+			Log.Trace( $"{FilePath}: no open BSP leaves; model light probes were not created." );
 			return;
 		}
 		var world = BBox.FromBoxes( open );
@@ -33,7 +33,7 @@ partial class MapBuilder
 
 		var root = new GameObject( false, "GoldSrc model lighting" );
 		if ( bsp.Lighting.Length == 0 )
-			Log.Warning( $"{FilePath}: BSP has no lightmap samples; using fullbright model probes." );
+			Log.Trace( $"{FilePath}: BSP has no lightmap samples; using fullbright model probes." );
 		int totalProbes = 0;
 		int reflectionProbes = 0;
 		int volumeIndex = 0;
@@ -97,13 +97,13 @@ partial class MapBuilder
 			}
 			else
 			{
-				Log.Warning( $"{FilePath}: model probe volume {volumeIndex} has no open capture position; no reflection probe was created." );
+				Log.Trace( $"{FilePath}: model probe volume {volumeIndex} has no open capture position; no reflection probe was created." );
 			}
 			go.Enabled = true;
 			totalProbes += probes;
 		}
 		root.Enabled = true;
-		Log.Info( $"{FilePath}: {cells.Count} native model probe volumes, {totalProbes} probes, {totalProbes * 48L / 1048576f:F2} MiB ambient texture data, {reflectionProbes} startup reflection captures." );
+		Log.Trace( $"{FilePath}: {cells.Count} native model probe volumes, {totalProbes} probes, {totalProbes * 48L / 1048576f:F2} MiB ambient texture data, {reflectionProbes} startup reflection captures." );
 	}
 
 	private static Vector3Int ProbeCounts( Vector3 size )

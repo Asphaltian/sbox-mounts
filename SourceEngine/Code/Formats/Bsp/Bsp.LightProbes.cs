@@ -43,7 +43,7 @@ internal partial class BspFile
 			return;
 		ReadSpatialData( stream, fileStart, lumps );
 		if ( Hdr && !hdr && !embedded )
-			Log.Warning( "BSP has no HDR leaf ambient samples; using its LDR leaf ambient data." );
+			Log.Trace( "BSP has no HDR leaf ambient samples; using its LDR leaf ambient data." );
 		var leafData = embedded ? ReadRaw( stream, fileStart, lumps[10], 1 ) : [];
 		var indices = !embedded && lumps[sampleLump].version == 1
 			? ReadRaw( stream, fileStart, lumps[indexLump], version: null ) : [];

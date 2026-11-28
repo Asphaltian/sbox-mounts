@@ -99,7 +99,7 @@ public sealed class GameData
 		}
 		catch ( Exception e )
 		{
-			Log.Warning( $"[{Mount.Ident}] Failed to decode image {path}: {e.Message}" );
+			Log.Trace( $"[{Mount.Ident}] Failed to decode image {path}: {e.Message}" );
 			return null;
 		}
 	}

@@ -40,7 +40,7 @@ public abstract partial class SourceGameMount
 		}
 		catch ( Exception e ) when ( e is IOException or UnauthorizedAccessException )
 		{
-			Log.Warning( $"{directory}: content directory was not indexed: {e.Message}" );
+			Log.Trace( $"{directory}: content directory was not indexed: {e.Message}" );
 			return [];
 		}
 	}
@@ -161,9 +161,8 @@ public abstract partial class SourceGameMount
 			return true;
 		}
 
-		public IReadOnlyList<string> RemoveUnavailableModels()
+		public void RemoveUnavailableModels()
 		{
-			var diagnostics = new List<string>();
 			Resources.RemoveAll( resource =>
 			{
 				if ( resource.Factory.Type != ResourceType.Model )
@@ -172,13 +171,8 @@ public abstract partial class SourceGameMount
 				var vtxPath = Path.ChangeExtension( resource.Path, ".dx90.vtx" );
 				var hasVertices = Files.ContainsKey( vvdPath );
 				var hasIndices = Files.ContainsKey( vtxPath );
-				if ( (hasVertices && hasIndices) || Files.ContainsKey( Path.ChangeExtension( resource.Path, ".phy" ) ) )
-					return false;
-				var missing = !hasVertices && !hasIndices ? $"{vvdPath}, {vtxPath}" : !hasVertices ? vvdPath : vtxPath;
-				diagnostics.Add( $"{resource.Path}: missing {missing}" );
-				return true;
+				return !(hasVertices && hasIndices) && !Files.ContainsKey( Path.ChangeExtension( resource.Path, ".phy" ) );
 			} );
-			return diagnostics;
 		}
 
 		public void Retain() => Interlocked.Increment( ref references );
@@ -221,7 +215,7 @@ public abstract partial class SourceGameMount
 				{
 					var error = $"{source.Path}: archive was not indexed: {e.Message}";
 					files.Errors.Add( error );
-					Log.Warning( error );
+					Log.Trace( error );
 					continue;
 				}
 				finally

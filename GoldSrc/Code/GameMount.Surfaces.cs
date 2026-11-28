@@ -41,11 +41,11 @@ public abstract partial class GameMount
 		if ( materials is null )
 		{
 			_textureTypes.Clear();
-			Log.Warning( $"{Title}: sound/materials.txt is missing; unclassified textures use concrete surface sounds." );
+			Log.Trace( $"{Title}: sound/materials.txt is missing; unclassified textures use concrete surface sounds." );
 		}
 		else
 		{
-			_textureTypes = GoldSrcSurfaces.Parse( FileSystem.ReadAllText( materials ), materials, message => Log.Warning( message ), SurfaceProfile );
+			_textureTypes = GoldSrcSurfaces.Parse( FileSystem.ReadAllText( materials ), materials, message => Log.Trace( message ), SurfaceProfile );
 		}
 
 		foreach ( var definition in GoldSrcSurfaces.GetDefinitions( SurfaceProfile ) )
@@ -67,7 +67,7 @@ public abstract partial class GameMount
 					if ( file is null )
 					{
 						_surfaceWaves[wave] = [];
-						Log.Warning( $"{Title}: surface sound WAV '{wave}' is missing; affected sounds use remaining variants, or remain unavailable if none exist." );
+						Log.Trace( $"{Title}: surface sound WAV '{wave}' is missing; affected sounds use remaining variants, or remain unavailable if none exist." );
 						continue;
 					}
 

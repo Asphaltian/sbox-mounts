@@ -23,7 +23,7 @@ internal sealed class MapLightingBuilder( BspFile bsp, MapLoader loader, BspLigh
 		string FullPath = loader.FullPath;
 		if ( bsp.ambientLighting is null )
 		{
-			Log.Warning( $"{FullPath}: BSP has no leaf ambient lighting; native light probes were not created." );
+			Log.Trace( $"{FullPath}: BSP has no leaf ambient lighting; native light probes were not created." );
 			return;
 		}
 
@@ -32,8 +32,6 @@ internal sealed class MapLightingBuilder( BspFile bsp, MapLoader loader, BspLigh
 			Parent = world
 		};
 		var worldIndices = CreateIndexedWorldLights( root, skybox );
-		int volumes = 0;
-		int totalProbes = 0;
 		Span<Vector3> cube = stackalloc Vector3[6];
 		Span<int> indices = stackalloc int[4];
 		Span<float> strengths = stackalloc float[4];
@@ -93,17 +91,13 @@ internal sealed class MapLightingBuilder( BspFile bsp, MapLoader loader, BspLigh
 			var component = go.AddComponent<LightProbeVolume>();
 			component.Bounds = new BBox( bounds.Mins - bounds.Center, bounds.Maxs - bounds.Center );
 			component.Priority = -(int)Math.Ceiling( Math.Log2( Math.Max( 1, bounds.Size.LengthSquared ) ) );
-			int probes = counts.x * counts.y * counts.z;
-			totalProbes += probes;
 
 			probeTextures.Add( component, counts, textures );
 			go.Enabled = true;
-			volumes++;
 		}
 
 		probeTextures.Finish();
 		root.Enabled = true;
-		Log.Info( $"{FullPath}: created {volumes} native leaf probe volumes ({totalProbes} probes, {probeTextures.Count} atlas textures) with {worldIndices.Count( index => index >= 0 )} indexed world lights." );
 	}
 
 	private int[] CreateIndexedWorldLights( GameObject root, bool skybox )
@@ -119,7 +113,7 @@ internal sealed class MapLightingBuilder( BspFile bsp, MapLoader loader, BspLigh
 			.ToArray();
 		int indexedLightCount = eligible.Length;
 		if ( indexedLightCount > 255 )
-			Log.Warning( $"BSP has {indexedLightCount} world lights; lights beyond the native 255-index limit are folded into ambient cubes." );
+			Log.Trace( $"BSP has {indexedLightCount} world lights; lights beyond the native 255-index limit are folded into ambient cubes." );
 		int nextBakeIndex = 0;
 		foreach ( int index in eligible )
 		{

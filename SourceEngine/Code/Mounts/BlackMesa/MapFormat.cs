@@ -25,7 +25,7 @@ internal sealed class MapFormat : BspFormat
 		}
 		catch ( Exception e ) when ( e is IOException or InvalidDataException )
 		{
-			Log.Warning( $"{path}: could not read cubemap volumes: {e.Message}" );
+			Log.Trace( $"{path}: could not read cubemap volumes: {e.Message}" );
 		}
 	}
 

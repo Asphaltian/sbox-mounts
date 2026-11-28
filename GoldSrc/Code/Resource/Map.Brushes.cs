@@ -84,7 +84,7 @@ partial class MapBuilder
 			if ( material is >= 0 and <= 9 )
 				surfaceOverride = GoldSrcSurfaces.BreakableType( material );
 			else
-				Log.Warning( $"{FilePath}: {EntityName( entity )} has unsupported breakable material {material}; using its texture surface." );
+				Log.Trace( $"{FilePath}: {EntityName( entity )} has unsupported breakable material {material}; using its texture surface." );
 		}
 
 		var isStatic = className is "func_wall" or "func_illusionary"

@@ -50,14 +50,7 @@ public abstract partial class SourceGameMount : BaseGameMount
 		{
 			IndexSources( next, sources );
 			IndexMapPaks( next );
-			var unavailable = next.RemoveUnavailableModels();
-			if ( unavailable.Count > 0 )
-			{
-				foreach ( var diagnostic in unavailable )
-					Log.Trace( $"{Title}: model was not registered: {diagnostic}" );
-				Log.Trace( $"{Title}: skipped {unavailable.Count} models with unavailable geometry. {string.Join( "; ", unavailable.Take( 3 ) )}"
-					+ (unavailable.Count > 3 ? "; remaining details are logged at trace verbosity." : "") );
-			}
+			next.RemoveUnavailableModels();
 			ReplaceIndex( next );
 			IsInstalled = next.Resources.Count > 0;
 			next = null;

@@ -44,7 +44,7 @@ public sealed class Charger : Component, Component.IPressable
 					if ( Sounds.Sound( name, _mountName ) is { } sound )
 						foreach ( var wave in sound.Sounds ) await wave.LoadAsync();
 		}
-		catch ( Exception e ) { Log.Warning( $"Mounted charger: {e.Message}" ); }
+		catch ( Exception e ) { Log.Trace( $"Mounted charger: {e.Message}" ); }
 	}
 
 	static IDamageable HealthOf( PlayerController player ) => Npcs.HealthOf( player.IsValid() ? player.GameObject : null );

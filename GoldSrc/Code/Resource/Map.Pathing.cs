@@ -111,7 +111,7 @@ partial class MapBuilder
 			else
 			{
 				train.Path = null;
-				Log.Warning( $"{FilePath}: {EntityName( entity )} has no valid {(tracked ? "path_track" : "path_corner")} target '{entity.Target}'." );
+				Log.Trace( $"{FilePath}: {EntityName( entity )} has no valid {(tracked ? "path_track" : "path_corner")} target '{entity.Target}'." );
 			}
 		} );
 	}

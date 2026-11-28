@@ -43,7 +43,7 @@ internal sealed class StaticPropLighting( string name, string contentRoot, VtxFi
 			}
 			catch ( Exception e ) when ( e is InvalidDataException or NotSupportedException or ArithmeticException )
 			{
-				Log.Warning( $"{ContentRoot}{filename}: baked vertex lighting was not imported: {e.Message}" );
+				Log.Trace( $"{ContentRoot}{filename}: baked vertex lighting was not imported: {e.Message}" );
 				return false;
 			}
 		}
@@ -70,7 +70,7 @@ internal sealed class StaticPropLighting( string name, string contentRoot, VtxFi
 			catch ( Exception e ) when ( e is InvalidDataException or NotSupportedException or ArithmeticException )
 			{
 				textures.Clear();
-				Log.Warning( $"{ContentRoot}{filename}: baked texel lighting was not imported: {e.Message}" );
+				Log.Trace( $"{ContentRoot}{filename}: baked texel lighting was not imported: {e.Message}" );
 				return false;
 			}
 		}

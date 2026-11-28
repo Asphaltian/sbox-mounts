@@ -14,7 +14,7 @@ internal sealed class BspPhysicsMesh
 	public BspCollisionKind Kind;
 }
 
-internal sealed record BspPhysicsHull( List<Vector3> Vertices, string SurfaceName, bool MixedSurfaces, BspCollisionKind Kind );
+internal sealed record BspPhysicsHull( List<Vector3> Vertices, string SurfaceName, BspCollisionKind Kind );
 internal sealed record BspPhysicsFluid( Vector4 Plane, Vector3 Velocity, string SurfaceName, bool IsSlime )
 {
 	public readonly List<BspPhysicsHull> Hulls = [];
@@ -393,7 +393,7 @@ internal partial class BspFile
 
 		if ( fluid )
 		{
-			hulls.Add( new( vertices, surface, false, BspCollisionKind.Solid ) );
+			hulls.Add( new( vertices, surface, BspCollisionKind.Solid ) );
 			return;
 		}
 
@@ -412,7 +412,7 @@ internal partial class BspFile
 
 		if ( !hasSky )
 		{
-			hulls.Add( new( vertices, surfaceNames.Count == 1 ? surfaceNames.First() : surface, surfaceNames.Count > 1, otherKind ) );
+			hulls.Add( new( vertices, surfaceNames.Count == 1 ? surfaceNames.First() : surface, otherKind ) );
 			return;
 		}
 
@@ -438,7 +438,7 @@ internal partial class BspFile
 
 		if ( !anySky || !anyOther )
 		{
-			hulls.Add( new( vertices, surfaceNames.Count == 1 ? surfaceNames.First() : surface, surfaceNames.Count > 1, anySky ? BspCollisionKind.Sky : otherKind ) );
+			hulls.Add( new( vertices, surfaceNames.Count == 1 ? surfaceNames.First() : surface, anySky ? BspCollisionKind.Sky : otherKind ) );
 			return;
 		}
 
@@ -495,7 +495,7 @@ internal partial class BspFile
 		if ( materialTable.TryGetValue( index, out var name ) )
 			return name;
 		if ( _missingPhysicsMaterials.Add( index ) )
-			Log.Warning( $"BSP physics material index {index} has no compiled mapping; using the solid's surface '{surface}'." );
+			Log.Trace( $"BSP physics material index {index} has no compiled mapping; using the solid's surface '{surface}'." );
 		return surface;
 	}
 }

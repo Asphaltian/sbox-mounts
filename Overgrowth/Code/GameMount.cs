@@ -115,7 +115,7 @@ public partial class GameMount : BaseGameMount, IHotloadManaged
 				break;
 			case "Actor":
 				try { MountActor( context, path ); }
-				catch ( InvalidDataException ex ) { Log.Warning( $"Skipping Overgrowth actor {path}: {ex.Message}" ); }
+				catch ( InvalidDataException ex ) { Log.Trace( $"Skipping Overgrowth actor {path}: {ex.Message}" ); }
 				break;
 			case "character": context.Add(ResourceType.Model,path,new CharacterLoader(path)); break;
 			case "Object":
@@ -143,7 +143,7 @@ public partial class GameMount : BaseGameMount, IHotloadManaged
 			prefab.Tags.Add( "weapon" );
 			context.Add( ResourceType.PrefabFile, path, prefab );
 		}
-		catch ( InvalidDataException ex ) { Log.Warning( $"Skipping Overgrowth weapon {path}: {ex.Message}" ); }
+		catch ( InvalidDataException ex ) { Log.Trace( $"Skipping Overgrowth weapon {path}: {ex.Message}" ); }
 	}
 
 	/// <summary>

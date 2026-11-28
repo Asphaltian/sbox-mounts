@@ -26,7 +26,7 @@ partial class MapLoader
 		int nx = grid.Nx, ny = grid.Ny, nz = grid.Nz;
 		if ( nx > 2048 || ny > 2048 || nz * 6 > 2048 )
 		{
-			Log.Warning( $"{_path}: light grid {nx}x{ny}x{nz} is too large for a light probe texture" );
+			Log.Trace( $"{_path}: light grid {nx}x{ny}x{nz} is too large for a light probe texture" );
 			return false;
 		}
 

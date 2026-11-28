@@ -20,8 +20,6 @@ internal sealed class BspProbeTextures( string resourcePrefix ) : IDisposable
 	private readonly Dictionary<(int Width, int Height), Page> pages = [];
 	private readonly HashSet<Texture> textures = [];
 
-	public int Count => textures.Count;
-
 	public void Add( LightProbeVolume volume, Vector3Int counts, BspProbeTextureData data )
 	{
 		var size = (counts.x, counts.y);

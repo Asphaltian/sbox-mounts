@@ -426,7 +426,7 @@ class MapLoader( string filePath ) : SceneLoader<GameMount>
 					}
 					catch ( Exception e )
 					{
-						Log.Warning( e, $"Could not bake static prop '{modelPath}' in '{FilePath}'." );
+						Log.Trace( $"Could not bake static prop '{modelPath}' in '{FilePath}'.: {e.Message}" );
 					}
 					staticProps[modelPath] = prop;
 					if ( prop?.Translucent is not null ) renderModels.Add( prop.Translucent );

@@ -108,7 +108,7 @@ public partial class Npc : BaseNpc
 		}
 		catch ( Exception e )
 		{
-			Log.Warning( $"Could not load Half-Life NPC '{ClassName}': {e.Message}" );
+			Log.Trace( $"Could not load Half-Life NPC '{ClassName}': {e.Message}" );
 		}
 	}
 

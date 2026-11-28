@@ -190,7 +190,7 @@ public partial class ModelLoader
 		}
 		catch ( Exception ex )
 		{
-			Log.Warning( $"SE3 collision shape failed to build: {ex.Message}" );
+			Log.Trace( $"SE3 collision shape failed to build: {ex.Message}" );
 		}
 	}
 
@@ -234,7 +234,7 @@ public partial class ModelLoader
 				}
 				catch ( Exception ex )
 				{
-					Log.Warning( $"joint {parentBoneName}->{boneName} failed: {ex.Message}" );
+					Log.Trace( $"joint {parentBoneName}->{boneName} failed: {ex.Message}" );
 				}
 			}
 		}

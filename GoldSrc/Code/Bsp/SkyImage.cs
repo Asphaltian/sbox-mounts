@@ -31,7 +31,7 @@ public sealed class SkyImage
 		}
 		catch ( Exception e )
 		{
-			Log.Warning( $"Failed to read sky image {filePath}: {e.Message}" );
+			Log.Trace( $"Failed to read sky image {filePath}: {e.Message}" );
 			return null;
 		}
 	}

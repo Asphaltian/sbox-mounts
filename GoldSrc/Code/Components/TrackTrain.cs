@@ -444,7 +444,7 @@ public sealed class TrackTrain : MapEntity
 
 		if ( time > 0f && Speed != 0f )
 		{
-			Log.Warning( $"GoldSrc train '{TargetName}' exceeded its path traversal limit; check for zero-length path cycles." );
+			Log.Trace( $"GoldSrc train '{TargetName}' exceeded its path traversal limit; check for zero-length path cycles." );
 			SetSpeed( 0f );
 		}
 	}

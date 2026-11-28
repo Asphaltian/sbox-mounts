@@ -373,7 +373,7 @@ internal sealed partial class MdlFile
 			{
 				if ( sources.Count >= MaxAnimationSources )
 				{
-					Log.Warning( $"{file.Path}: further included animation models were ignored; the limit is {MaxAnimationSources - 1}." );
+					Log.Trace( $"{file.Path}: further included animation models were ignored; the limit is {MaxAnimationSources - 1}." );
 					break;
 				}
 				var include = "";
@@ -425,7 +425,7 @@ internal sealed partial class MdlFile
 			autoplay = sequences.Where( x => (x.Source.Sequences[x.Index].Flags & SequenceAutoplay) != 0 ).ToList();
 			if ( autoplay.Count > 64 )
 			{
-				Log.Warning( $"{sources[0].Path}: {autoplay.Count - 64} automatic animation layers were ignored." );
+				Log.Trace( $"{sources[0].Path}: {autoplay.Count - 64} automatic animation layers were ignored." );
 				autoplay.RemoveRange( 64, autoplay.Count - 64 );
 			}
 

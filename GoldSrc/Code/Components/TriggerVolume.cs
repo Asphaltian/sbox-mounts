@@ -119,7 +119,7 @@ public sealed class TriggerVolume : MapEntity, Component.ITriggerListener
 		if ( Damage < 0f && !_warnedHealing )
 		{
 			_warnedHealing = true;
-			Log.Warning( $"GoldSrc: healing trigger '{TargetName}' requires game-provided health integration." );
+			Log.Trace( $"GoldSrc: healing trigger '{TargetName}' requires game-provided health integration." );
 		}
 		var controller = other.GetComponentInParent<PlayerController>();
 		var activator = controller.IsValid() ? controller.GameObject : other.GameObject;

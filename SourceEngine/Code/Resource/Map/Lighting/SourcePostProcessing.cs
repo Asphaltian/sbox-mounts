@@ -34,8 +34,6 @@ internal sealed class SourcePostProcessing
 
 	public Dictionary<MapEntity, TonemapSettings> Controllers { get; } = [];
 	public Dictionary<MapEntity, ColorCorrectionSettings> Corrections { get; } = [];
-	public HashSet<(MapEntity Entity, string Output, string Value)> HandledOutputs { get; } = [];
-	public HashSet<string> Warnings { get; } = new( StringComparer.Ordinal );
 	public MapEntity Master { get; private set; }
 	public float Rate { get; private set; } = 1;
 	public TonemapSettings Global => Master is null ? new() : Controllers[Master];
@@ -59,35 +57,25 @@ internal sealed class SourcePostProcessing
 			}
 		}
 
-		var inputs = new List<(MapEntity Source, string Output, string Value, BspEntityConnection Connection)>();
+		var inputs = new List<(MapEntity Source, BspEntityConnection Connection)>();
 		foreach ( var source in entities.Where( entity => string.Equals( entity.Get( "classname" ), "logic_auto", StringComparison.OrdinalIgnoreCase ) ) )
 		{
 			if ( !string.IsNullOrEmpty( source.Get( "globalstate" ) ) )
 				continue;
 			foreach ( var output in new[] { "OnNewGame", "OnMapSpawn", "OnMultiNewMap" } )
 				foreach ( var (key, value) in source.KeyValues.Where( pair => pair.Key.Equals( output, StringComparison.OrdinalIgnoreCase ) ) )
-					inputs.Add( (source, key, value, BspEntityConnection.Read( key, value )) );
+					inputs.Add( (source, BspEntityConnection.Read( key, value )) );
 		}
 
-		foreach ( var (source, output, value, connection) in inputs.OrderBy( input => input.Connection.Delay ) )
+		foreach ( var (source, connection) in inputs.OrderBy( input => input.Connection.Delay ) )
 		{
-			var targets = BspEntityConnection.ResolveTargets( source, connection.Target, entities ).ToArray();
-			var handled = 0;
-			foreach ( var target in targets )
-			{
-				if ( !result.Apply( target, connection.Input, connection.Parameter ) )
-					continue;
-				handled++;
-				if ( connection.Delay > 0 )
-					result.Warnings.Add( "Post-processing startup delays are baked into the initial look; timed transitions are not simulated." );
-			}
-			if ( handled > 0 && handled == targets.Length )
-				result.HandledOutputs.Add( (source, output, value) );
+			foreach ( var target in BspEntityConnection.ResolveTargets( source, connection.Target, entities ) )
+				result.Apply( target, connection.Input, connection.Parameter );
 		}
 		return result;
 	}
 
-	private bool Apply( MapEntity target, string input, string parameter )
+	private void Apply( MapEntity target, string input, string parameter )
 	{
 		if ( Controllers.TryGetValue( target, out var controller ) )
 		{
@@ -96,38 +84,34 @@ internal sealed class SourcePostProcessing
 				case "setautoexposuremin":
 					controller.MinimumExposure = Number( target, input, parameter );
 					if ( controller.MinimumExposure <= 0 ) controller.MinimumExposure = 0.5f;
-					return true;
+					return;
 				case "setautoexposuremax":
 					controller.MaximumExposure = Number( target, input, parameter );
 					if ( controller.MaximumExposure <= 0 ) controller.MaximumExposure = 2;
-					return true;
+					return;
 				case "usedefaultautoexposure":
 					controller.MinimumExposure = 0.5f;
 					controller.MaximumExposure = 2;
-					return true;
+					return;
 				case "setbloomscale":
 					controller.BloomScale = Math.Max( 0, Number( target, input, parameter ) );
-					return true;
+					return;
 				case "usedefaultbloomscale":
 					controller.BloomScale = 1;
-					return true;
+					return;
 				case "settonemaprate":
 					Rate = Math.Max( 0, Number( target, input, parameter ) );
-					return true;
+					return;
 			}
 		}
 		if ( Corrections.TryGetValue( target, out var correction ) && (input.Equals( "Enable", StringComparison.OrdinalIgnoreCase )
 			|| input.Equals( "Disable", StringComparison.OrdinalIgnoreCase )) )
 		{
 			if ( correction.IsClientSelected )
-				return false;
+				return;
 			correction.Enabled = input.Equals( "Enable", StringComparison.OrdinalIgnoreCase );
 			correction.Weight = correction.Enabled ? Math.Max( 0, target.Number( "maxweight", 1 ) ) : 0;
-			if ( target.Number( "fadeInDuration" ) > 0 || target.Number( "fadeOutDuration" ) > 0 || target.Number( "fadeDuration" ) > 0 )
-				Warnings.Add( "Color-correction startup fades are baked into the initial look; temporal fades are not simulated." );
-			return true;
 		}
-		return false;
 	}
 
 	private static float Number( MapEntity entity, string input, string value )

@@ -19,7 +19,7 @@ internal sealed class SourceParticlePrefabLoader( string sourcePath, PcfFile.Ele
 		}
 
 		if ( unsupported.Count > 0 )
-			Log.Warning( $"{sourcePath}/{definition.Name}: particle features not imported: {string.Join( ", ", unsupported )}" );
+			Log.Trace( $"{sourcePath}/{definition.Name}: particle features not imported: {string.Join( ", ", unsupported )}" );
 
 		prefab = builder.Create() ?? throw new InvalidOperationException( $"{Path}: could not create particle prefab." );
 		return prefab;

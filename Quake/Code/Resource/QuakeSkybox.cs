@@ -24,7 +24,7 @@ public class QuakeSkybox( string PakDir, string FileName ) : ResourceLoader<Quak
 			if ( fileBytes is null )
 			{
 				missing++;
-				Log.Warning( $"Skybox face missing: '{FileName}_{suffix}.tga' ({PakDir})" );
+				Log.Trace( $"Skybox face missing: '{FileName}_{suffix}.tga' ({PakDir})" );
 				continue;
 			}
 
@@ -36,7 +36,7 @@ public class QuakeSkybox( string PakDir, string FileName ) : ResourceLoader<Quak
 
 			if ( rotated.Width != w || rotated.Height != h )
 			{
-				Log.Warning( $"Skybox face size mismatch: '{FileName}_{suffix}.tga' ({rotated.Width}x{rotated.Height}) doesn't match expected {w}x{h}, skipping" );
+				Log.Trace( $"Skybox face size mismatch: '{FileName}_{suffix}.tga' ({rotated.Width}x{rotated.Height}) doesn't match expected {w}x{h}, skipping" );
 				if ( rotated != bitmap ) rotated.Dispose();
 				missing++;
 				continue;

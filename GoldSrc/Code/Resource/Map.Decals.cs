@@ -16,7 +16,7 @@ partial class MapBuilder
 			var name = entity.GetString( "texture", "" );
 			if ( string.IsNullOrEmpty( name ) )
 			{
-				Log.Warning( $"{FilePath}: infodecal at {entity.Origin} has no texture; omitted." );
+				Log.Trace( $"{FilePath}: infodecal at {entity.Origin} has no texture; omitted." );
 				continue;
 			}
 			var definition = Host.GetDecal( name );
@@ -61,7 +61,7 @@ partial class MapBuilder
 			}
 			if ( receiver is null )
 			{
-				Log.Warning( $"{FilePath}: decal '{name}' at {entity.Origin} has no eligible surface within 5 units; omitted." );
+				Log.Trace( $"{FilePath}: decal '{name}' at {entity.Origin} has no eligible surface within 5 units; omitted." );
 				continue;
 			}
 

@@ -86,7 +86,7 @@ public sealed class MonsterMaker : MapEntity
 		var prefab = GameObject.GetPrefab( PrefabPath );
 		if ( !prefab.IsValid() )
 		{
-			Log.Warning( $"{GameObject.Name}: missing monster prefab '{PrefabPath}'." );
+			Log.Trace( $"{GameObject.Name}: missing monster prefab '{PrefabPath}'." );
 			_exhausted = true;
 			return false;
 		}

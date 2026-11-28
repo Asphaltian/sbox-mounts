@@ -36,23 +36,16 @@ partial class MapLoader
 	private void SpawnThings()
 	{
 		var table = Host.ThingTable;
-		var unknown = new SortedSet<int>();
 		var parent = new GameObject( true, "Things" ) { Parent = Root };
 
 		foreach ( var thing in Map.Things )
 		{
 			if ( !table.TryGetValue( thing.Type, out var type ) )
-			{
-				unknown.Add( thing.Type );
 				continue;
-			}
 
 			if ( ShouldSpawn( thing, type ) )
 				SpawnThing( thing, type, parent );
 		}
-
-		if ( unknown.Count > 0 )
-			Log.Info( $"Doom: {Map.Name} has things of unknown types: {string.Join( ", ", unknown )}" );
 	}
 
 	/// <summary>

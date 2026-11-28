@@ -336,7 +336,7 @@ public sealed class WadFile : IDisposable
 
 			if ( width <= 0 || height <= 0 || patchCount < 0 || offset + 22L + patchCount * 10L > data.Length )
 			{
-				Log.Warning( $"Doom: {Name} {lump.Name} texture '{name}' is malformed, skipping it" );
+				Log.Trace( $"Doom: {Name} {lump.Name} texture '{name}' is malformed, skipping it" );
 				continue;
 			}
 

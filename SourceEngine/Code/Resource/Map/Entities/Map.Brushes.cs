@@ -159,7 +159,7 @@ partial class MapLoader
 					collider.Enabled = visible || loader.CollidesWhenHidden( entity );
 			}
 			if ( !skybox && loader.HasUnsupportedBehavior )
-				warnings.Add( $"Entity '{className}' has no equivalent native behavior; retaining its geometry and collision without Source simulation." );
+				Log.Trace( $"Entity '{className}' has no equivalent native behavior; retaining its geometry and collision without Source simulation." );
 			if ( !skybox && (entity.Integer( "effects" ) & 16) == 0 )
 			{
 				if ( !shadowBrushModels.TryGetValue( index, out var shadowModel ) )

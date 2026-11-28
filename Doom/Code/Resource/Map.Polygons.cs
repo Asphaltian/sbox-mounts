@@ -45,7 +45,7 @@ partial class MapLoader
 
 			bsp ??= BuildBspPolygons();
 			if ( edges[i] is not null )
-				Log.Warning( $"Doom: {Map.Name} sector {i} couldn't be triangulated from its outline, using BSP leaves" );
+				Log.Trace( $"Doom: {Map.Name} sector {i} couldn't be triangulated from its outline, using BSP leaves" );
 
 			output[i] = bsp[i];
 		}

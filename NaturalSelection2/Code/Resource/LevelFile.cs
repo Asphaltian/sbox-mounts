@@ -356,15 +356,6 @@ internal sealed class LevelMesh
 			}
 		}
 
-		var missingMappings = new HashSet<int>();
-		foreach ( int id in mesh.FaceMappingGroup )
-		{
-			if ( id != -1 && !mesh.TextureMappings.ContainsKey( id ) )
-				missingMappings.Add( id );
-		}
-		if ( missingMappings.Count > 0 )
-			Log.Warning( $"NS2 level references missing texture mapping groups {string.Join( ", ", missingMappings )}; retaining face UV mappings." );
-
 		mesh.FaceHidden = new bool[mesh.FaceMaterial.Length];
 		mesh.FaceNonSolid = new bool[mesh.FaceMaterial.Length];
 		mesh.FaceShadowOnly = new bool[mesh.FaceMaterial.Length];

@@ -78,7 +78,7 @@ public sealed class BeamEffect : MapEntity
 			var end = Map?.Find( EndTarget );
 			if ( !start.IsValid() || !end.IsValid() )
 			{
-				Log.Warning( $"GoldSrc beam '{TargetName}' has missing endpoints '{StartTarget}'/'{EndTarget}'." );
+				Log.Trace( $"GoldSrc beam '{TargetName}' has missing endpoints '{StartTarget}'/'{EndTarget}'." );
 				return;
 			}
 			var startPoint = IsPoint( start );

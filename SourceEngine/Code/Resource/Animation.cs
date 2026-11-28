@@ -80,7 +80,7 @@ internal sealed class ClipLoader( string name ) : ResourceLoader<SourceGameMount
 		}
 		catch ( Exception e ) when ( MdlFile.IsDataError( e ) )
 		{
-			Log.Warning( $"{Path}: animation was not decoded: {e.Message}" );
+			Log.Trace( $"{Path}: animation was not decoded: {e.Message}" );
 			return null;
 		}
 

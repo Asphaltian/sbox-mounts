@@ -54,7 +54,7 @@ internal partial class BspFile
 		activeSkyboxArea = cameraLeaf.Area;
 		if ( cameraLeaf.Area == 0 )
 		{
-			Log.Warning( "BSP sky_camera has no isolated area; shared geometry is retained in both views." );
+			Log.Trace( "BSP sky_camera has no isolated area; shared geometry is retained in both views." );
 		}
 		else
 		{

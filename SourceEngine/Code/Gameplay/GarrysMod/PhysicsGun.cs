@@ -179,7 +179,7 @@ public sealed partial class PhysicsGun : Weapon, PlayerController.IEvents
 	void NotifyUnfrozen( int count )
 	{
 		var text = Game.Language.GetPhrase( "physgun.unfrozen", new() { { "count", count.ToString() } } );
-		Log.Info( text );
+		Log.Trace( text );
 		var file = SoundFile.Load( "mount://gmod/sound/npc/roller/mine/rmine_chirp_answer1.wav.vsnd" );
 		if ( file.IsValid() ) Sound.Play( new SoundEvent { UI = true, Sounds = [file] } );
 	}

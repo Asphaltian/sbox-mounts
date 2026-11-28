@@ -30,7 +30,7 @@ class WadTextureLoader( Wad wad, string lumpName, bool decal ) : ResourceLoader<
 		var paletteSize = br.ReadInt16();
 		if ( paletteSize != 256 )
 		{
-			Log.Warning( $"Unexpected palette size: {paletteSize}" );
+			Log.Trace( $"Unexpected palette size: {paletteSize}" );
 			return null;
 		}
 

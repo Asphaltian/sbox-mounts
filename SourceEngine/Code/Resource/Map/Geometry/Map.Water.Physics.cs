@@ -13,7 +13,7 @@ partial class MapLoader
 			var normal = new Vector3( settings.Plane.x, settings.Plane.y, settings.Plane.z );
 			if ( (normal - Vector3.Up).LengthSquared > 0.000001f )
 			{
-				Log.Warning( $"{FullPath}: Sandbox water requires a horizontal surface; fluid plane {settings.Plane} was not imported." );
+				Log.Trace( $"{FullPath}: Sandbox water requires a horizontal surface; fluid plane {settings.Plane} was not imported." );
 				continue;
 			}
 			var origin = normal * settings.Plane.w;

@@ -27,9 +27,6 @@ partial class MapLoader
 		bool hasDisplacements = modelIndex == 0 && virtualTerrain && AddDisplacementPhysics( bsp, name => GetBody( name, BspCollisionKind.Solid ), GetMaterial, skybox );
 		if ( hulls.Count == 0 && meshes.Count == 0 && !hasDisplacements )
 			return;
-		var mixed = hulls.Count( hull => hull.MixedSurfaces );
-		if ( mixed > 0 )
-			Log.Warning( $"{FullPath}: {mixed} convex collision hulls have multiple Source surfaces; native hull builders cannot store per-face surfaces, so those hulls retain their solid's surface. Geometry is unchanged." );
 		foreach ( var group in bodies.GroupBy( entry => entry.Key.Kind ) )
 		{
 			var kind = group.Key;
@@ -137,13 +134,13 @@ partial class MapLoader
 					materialPath = VmtFile.NormalizePath( bsp.GetTexDataString( texData ), ".vmt" );
 					if ( Host.GetContentPath( materialPath, ContentRoot ) is null )
 						materialPath = $"{GetBaseMaterialPath( materialPath[..^4] )}.vmt";
-					var material = VmtFile.Load( materialPath, path => Host.OpenContentFile( path, ContentRoot ), null, diagnostic => Log.Warning( $"{diagnostic.Path}:{diagnostic.Line}: {diagnostic.Message}" ) );
+					var material = VmtFile.Load( materialPath, path => Host.OpenContentFile( path, ContentRoot ), null, diagnostic => Log.Trace( $"{diagnostic.Path}:{diagnostic.Line}: {diagnostic.Message}" ) );
 					parameters = new VmtParameters( material.Parameters, materialPath );
 					primary = parameters.Value.String( "$surfaceprop", "default" );
 				}
 				catch ( Exception e ) when ( e is FileNotFoundException or InvalidDataException or NotSupportedException )
 				{
-					Log.Warning( $"{FullPath}: displacement surface properties could not be read from '{materialPath}': {e.Message} Using the mount's default surface." );
+					Log.Trace( $"{FullPath}: displacement surface properties could not be read from '{materialPath}': {e.Message} Using the mount's default surface." );
 				}
 
 				var layers = new byte[4];
@@ -183,7 +180,7 @@ partial class MapLoader
 			}
 
 			if ( multiblend && disp.BlendStart < 0 )
-				Log.Warning( $"{FullPath}: virtualterrain displacement {face.DispInfo} uses multiblend; its primary surface is used because multiblend data is not imported." );
+				Log.Trace( $"{FullPath}: virtualterrain displacement {face.DispInfo} uses multiblend; its primary surface is used because multiblend data is not imported." );
 			var meshIndices = new uint[indices.Count];
 			for ( int index = 0; index < meshIndices.Length; index++ )
 				meshIndices[index] = (uint)indices[index];

@@ -41,7 +41,7 @@ partial class MapBuilder
 		}
 
 		foreach ( var texture in missing )
-			Log.Warning( $"{FilePath}: texture '{texture.Name}' was not found in the map's WADs; using black." );
+			Log.Trace( $"{FilePath}: texture '{texture.Name}' was not found in the map's WADs; using black." );
 	}
 
 	/// <summary>

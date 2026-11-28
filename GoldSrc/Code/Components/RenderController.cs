@@ -33,7 +33,7 @@ public sealed class RenderController : MapEntity
 				if ( (Mask & 4) == 0 && !_warnedBeamMode )
 				{
 					_warnedBeamMode = true;
-					Log.Warning( $"GoldSrc: env_render '{TargetName}' cannot change packed beam endpoint flags." );
+					Log.Trace( $"GoldSrc: env_render '{TargetName}' cannot change packed beam endpoint flags." );
 				}
 			}
 			else if ( target.GetComponent<RenderAppearance>() is { } appearance )
@@ -48,7 +48,7 @@ public sealed class RenderController : MapEntity
 		if ( (Mask & 1) == 0 && RenderFx != 0 && !_warnedFx )
 		{
 			_warnedFx = true;
-			Log.Warning( $"GoldSrc: env_render '{TargetName}' requests unsupported renderfx {RenderFx}." );
+			Log.Trace( $"GoldSrc: env_render '{TargetName}' requests unsupported renderfx {RenderFx}." );
 		}
 	}
 

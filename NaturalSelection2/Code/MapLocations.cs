@@ -45,7 +45,7 @@ public sealed partial class MapLocations : Component
 		{
 			readVents = true;
 			try { vents = new( mount.ReadAllBytes( AlienGridPath ) ); }
-			catch ( System.Exception e ) { Log.Warning( e, $"Could not load alien navigation from {AlienGridPath}" ); }
+			catch ( System.Exception e ) { Log.Trace( $"Could not load alien navigation from {AlienGridPath}: {e.Message}" ); }
 		}
 		return vents?.Contains( position ) == true;
 	}
@@ -156,7 +156,7 @@ public sealed partial class MapLocations : Component
 			var bytes = mount.ReadAllBytes( GridPath );
 			directPaths = await GameTask.RunInThreadAsync( () => SparkRoomRoutes.Build( bytes, volumes, destinations, height, climb ) );
 		}
-		catch ( System.Exception e ) { Log.Warning( e, $"Could not load exploration routes from {GridPath}" ); }
+		catch ( System.Exception e ) { Log.Trace( $"Could not load exploration routes from {GridPath}: {e.Message}" ); }
 		finally { readingGrid = false; }
 	}
 

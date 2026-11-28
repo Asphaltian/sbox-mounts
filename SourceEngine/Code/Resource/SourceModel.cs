@@ -70,7 +70,7 @@ internal sealed class SourceModel( SourceGameMount mount, string path, (MdlFile 
 			}
 			catch ( Exception e ) when ( MdlFile.IsDataError( e ) )
 			{
-				Log.Warning( $"{filename}: animations were not imported: {e.Message}" );
+				Log.Trace( $"{filename}: animations were not imported: {e.Message}" );
 				animations = new( [], [], [], [], [] );
 			}
 		}

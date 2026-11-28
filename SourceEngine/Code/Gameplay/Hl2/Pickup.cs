@@ -40,7 +40,7 @@ public sealed class Pickup : Component, Component.ITriggerListener, Component.IC
 			_ready = Amount > 0;
 			Collider.Enabled = true;
 		}
-		catch ( Exception e ) { Log.Warning( $"Mounted pickup: {e.Message}" ); }
+		catch ( Exception e ) { Log.Trace( $"Mounted pickup: {e.Message}" ); }
 	}
 
 	bool CanPickup( GameObject player, BaseInventoryComponent inventory ) => _ready && (Kind switch

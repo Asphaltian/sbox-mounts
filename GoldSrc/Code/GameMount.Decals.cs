@@ -32,7 +32,7 @@ public abstract partial class GameMount
 					continue;
 				if ( lump.Compression != 0 )
 				{
-					Log.Warning( $"{path}: compressed decal '{lump.Name}' is unsupported." );
+					Log.Trace( $"{path}: compressed decal '{lump.Name}' is unsupported." );
 					continue;
 				}
 				if ( !_decalWads.TryAdd( lump.Name, wad ) )
@@ -45,7 +45,7 @@ public abstract partial class GameMount
 		}
 
 		if ( _decalWads.Count == 0 )
-			Log.Warning( $"{Title}: no usable decals.wad is available; GoldSrc decals cannot be imported." );
+			Log.Trace( $"{Title}: no usable decals.wad is available; GoldSrc decals cannot be imported." );
 
 		MountDecalGroup( context, "shot", Enumerable.Range( 1, 5 ).Select( x => $"{{shot{x}" ) );
 		MountDecalGroup( context, "glass", Enumerable.Range( 1, 3 ).Select( x => $"{{break{x}" ) );
@@ -56,11 +56,11 @@ public abstract partial class GameMount
 	{
 		var requested = names.ToArray();
 		foreach ( var name in requested.Where( name => !_decalWads.ContainsKey( name ) ) )
-			Log.Warning( $"{Title}: impact decal '{name}' is missing from decals.wad; that variant is omitted." );
+			Log.Trace( $"{Title}: impact decal '{name}' is missing from decals.wad; that variant is omitted." );
 		var available = requested.Where( _decalWads.ContainsKey ).ToArray();
 		if ( available.Length == 0 )
 		{
-			Log.Warning( $"{Title}: impact decal group '{group}' has no available textures; its surface slot will be empty." );
+			Log.Trace( $"{Title}: impact decal group '{group}' has no available textures; its surface slot will be empty." );
 			return;
 		}
 		context.Add( ResourceType.PrefabFile, $"decals/impact_{group}.prefab", new GoldSrcDecalPrefabLoader( available ) );
@@ -74,12 +74,12 @@ public abstract partial class GameMount
 	{
 		if ( !_decalWads.ContainsKey( name ) )
 		{
-			Log.Warning( $"{Title}: decal '{name}' is missing from decals.wad; omitted." );
+			Log.Trace( $"{Title}: decal '{name}' is missing from decals.wad; omitted." );
 			return null;
 		}
 		var decal = GameResource.Load<DecalDefinition>( $"mount://{Ident}/{DecalPath( name )}.decal" );
 		if ( decal is null )
-			Log.Warning( $"{Title}: decal '{name}' could not be loaded; omitted." );
+			Log.Trace( $"{Title}: decal '{name}' could not be loaded; omitted." );
 		return decal;
 	}
 
@@ -94,7 +94,7 @@ public abstract partial class GameMount
 		var prefab = PrefabFile.Load( $"mount://{Ident}/decals/impact_{group}.prefab" );
 		if ( prefab is null )
 		{
-			Log.Warning( $"{Title}: impact decal prefab '{group}' is unavailable; its surface slot will be empty." );
+			Log.Trace( $"{Title}: impact decal prefab '{group}' is unavailable; its surface slot will be empty." );
 			return null;
 		}
 		return SceneUtility.GetPrefabScene( prefab );

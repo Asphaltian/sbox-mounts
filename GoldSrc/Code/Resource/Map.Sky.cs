@@ -94,7 +94,7 @@ partial class MapBuilder
 
 			if ( path is null )
 			{
-				Log.Warning( $"Sky \"{skyName}\" is missing side \"{SkyFaces[i].Suffix}\"" );
+				Log.Trace( $"Sky \"{skyName}\" is missing side \"{SkyFaces[i].Suffix}\"" );
 				return null;
 			}
 

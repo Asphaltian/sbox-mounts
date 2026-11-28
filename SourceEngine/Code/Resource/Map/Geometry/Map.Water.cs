@@ -94,7 +94,7 @@ partial class MapLoader
 		path = VmtFile.NormalizePath( path, ".vmt" );
 		if ( Host.GetContentPath( path, root ) is null )
 		{
-			Log.Warning( $"{FullPath}: water bottom material '{path}' is missing; retaining the surface material." );
+			Log.Trace( $"{FullPath}: water bottom material '{path}' is missing; retaining the surface material." );
 			return material;
 		}
 		return Host.LoadContentMaterial( path, root );
@@ -121,7 +121,7 @@ partial class MapLoader
 			var material = LoadWorldMaterial( bsp, bsp.TexInfos[data.TexInfo].TexData, -1, Material.Load( "materials/error.vmat" ) );
 			if ( Host.GetMaterialSource( material ) is null )
 			{
-				Log.Warning( $"{FullPath}: water volume {index} has no valid Source material; its fog was not imported." );
+				Log.Trace( $"{FullPath}: water volume {index} has no valid Source material; its fog was not imported." );
 				continue;
 			}
 			material = WaterBottomMaterial( material );
@@ -158,7 +158,7 @@ partial class MapLoader
 				}
 				catch ( Exception e ) when ( e is FileNotFoundException or InvalidDataException or NotSupportedException )
 				{
-					Log.Warning( $"{FullPath}: underwater overlay '{overlayPath}' was not imported: {e.Message}" );
+					Log.Trace( $"{FullPath}: underwater overlay '{overlayPath}' was not imported: {e.Message}" );
 				}
 			}
 			child.Enabled = true;

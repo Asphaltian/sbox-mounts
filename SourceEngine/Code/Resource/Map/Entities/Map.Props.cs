@@ -11,7 +11,6 @@ partial class MapLoader
 
 		private readonly Dictionary<string, Model> models = new( StringComparer.OrdinalIgnoreCase );
 		private readonly Dictionary<string, SourceModel> sourceModels = new( StringComparer.OrdinalIgnoreCase );
-		private readonly HashSet<string> warnings = new( StringComparer.Ordinal );
 		private readonly GameObject parent = new( false, "props" )
 		{
 			Parent = world
@@ -20,7 +19,7 @@ partial class MapLoader
 		{
 			if ( string.IsNullOrWhiteSpace( prop.Model ) || !prop.Model.EndsWith( ".mdl", StringComparison.OrdinalIgnoreCase ) )
 			{
-				warnings.Add( $"Prop '{prop.Name}' has no supported MDL model; omitted." );
+				Log.Trace( $"Prop '{prop.Name}' has no supported MDL model; omitted." );
 				return;
 			}
 
@@ -35,7 +34,7 @@ partial class MapLoader
 				var resource = owner.Host.GetContentPath( path, owner.ContentRoot );
 				if ( resource is null )
 				{
-					warnings.Add( $"Prop model '{path}' is missing; its instances were omitted." );
+					Log.Trace( $"Prop model '{path}' is missing; its instances were omitted." );
 					return;
 				}
 
@@ -52,7 +51,7 @@ partial class MapLoader
 				}
 				catch ( Exception e ) when ( e is IOException or InvalidDataException or NotSupportedException or InvalidOperationException )
 				{
-					warnings.Add( $"Prop model '{path}' could not be imported: {e.Message}; its instances were omitted." );
+					Log.Trace( $"Prop model '{path}' could not be imported: {e.Message}; its instances were omitted." );
 					return;
 				}
 			}
@@ -115,8 +114,6 @@ partial class MapLoader
 			parent.Enabled = true;
 			foreach ( var (entity, projected) in authoredDecals )
 				BuildAuthoredDecal( entity, projected );
-			foreach ( var warning in warnings )
-				Log.Warning( $"{owner.FullPath}: {warning}" );
 		}
 
 		private Model LoadModel( string path )
@@ -127,7 +124,7 @@ partial class MapLoader
 			model = resource is null ? null : Model.Load( $"{resource}.vmdl" );
 			if ( model is null || !model.IsValid || model.IsError )
 			{
-				warnings.Add( $"Prop model '{path}' is missing or could not be loaded; its instances were omitted." );
+				Log.Trace( $"Prop model '{path}' is missing or could not be loaded; its instances were omitted." );
 				model = null;
 			}
 
@@ -149,7 +146,7 @@ partial class MapLoader
 				}
 			}
 
-			warnings.Add( $"Prop model '{path}' has no skin {index}; using the default skin." );
+			Log.Trace( $"Prop model '{path}' has no skin {index}; using the default skin." );
 			return null;
 		}
 	}

@@ -54,7 +54,7 @@ public sealed class MovementTrigger : MapEntity, Component.ITriggerListener
 		if ( !destination.IsValid() )
 		{
 			if ( !_missingDestination )
-				Log.Warning( $"GoldSrc: teleport destination '{Target}' was not found." );
+				Log.Trace( $"GoldSrc: teleport destination '{Target}' was not found." );
 			_missingDestination = true;
 			return;
 		}

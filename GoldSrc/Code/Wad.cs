@@ -43,7 +43,7 @@ public class Wad
 		}
 		catch ( Exception ex )
 		{
-			Log.Warning( $"Error loading WAD file: {ex.Message}" );
+			Log.Trace( $"Error loading WAD file: {ex.Message}" );
 		}
 	}
 
@@ -58,7 +58,7 @@ public class Wad
 		}
 		catch ( Exception ex )
 		{
-			Log.Warning( $"Error loading WAD data: {ex.Message}" );
+			Log.Trace( $"Error loading WAD data: {ex.Message}" );
 		}
 	}
 
@@ -98,7 +98,7 @@ public class Wad
 		var lump = Lumps.Find( l => l.Name.Equals( lumpName, StringComparison.OrdinalIgnoreCase ) );
 		if ( lump == null )
 		{
-			Log.Warning( $"Lump '{lumpName}' not found." );
+			Log.Trace( $"Lump '{lumpName}' not found." );
 			return null;
 		}
 
@@ -132,7 +132,7 @@ public class Wad
 		}
 		catch ( Exception ex )
 		{
-			Log.Warning( $"Error reading lump data: {ex.Message}" );
+			Log.Trace( $"Error reading lump data: {ex.Message}" );
 			return null;
 		}
 	}

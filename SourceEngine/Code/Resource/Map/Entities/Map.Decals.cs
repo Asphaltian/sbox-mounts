@@ -23,7 +23,7 @@ partial class MapLoader
 		{
 			if ( !string.IsNullOrWhiteSpace( entity.Get( "targetname" ) ) )
 			{
-				warnings.Add( $"Triggered decal '{entity.Get( "targetname" )}' was omitted; Source entity inputs are not simulated." );
+				Log.Trace( $"Triggered decal '{entity.Get( "targetname" )}' was omitted; Source entity inputs are not simulated." );
 				return;
 			}
 
@@ -56,7 +56,7 @@ partial class MapLoader
 
 			if ( !hit )
 			{
-				warnings.Add( $"Authored decal '{path}' at {origin} has no eligible world surface; omitted." );
+				Log.Trace( $"Authored decal '{path}' at {origin} has no eligible world surface; omitted." );
 				return;
 			}
 
@@ -82,7 +82,7 @@ partial class MapLoader
 			}
 			catch ( Exception e ) when ( e is IOException or InvalidDataException or NotSupportedException )
 			{
-				warnings.Add( $"Authored decal '{path}' could not be imported: {e.Message}" );
+				Log.Trace( $"Authored decal '{path}' could not be imported: {e.Message}" );
 			}
 		}
 	}

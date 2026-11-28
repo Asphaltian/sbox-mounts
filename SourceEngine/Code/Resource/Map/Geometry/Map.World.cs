@@ -64,7 +64,7 @@ partial class MapLoader
 					continue;
 				}
 
-				Log.Warning( $"{FullPath}: water face {faceIdx} is not a horizontal plane; retaining its material without planar views." );
+				Log.Trace( $"{FullPath}: water face {faceIdx} is not a horizontal plane; retaining its material without planar views." );
 			}
 
 			var cell = useAggregates && !materialGroup.IsTranslucent ? FaceCell( bsp, face ) : Vector3.Zero;

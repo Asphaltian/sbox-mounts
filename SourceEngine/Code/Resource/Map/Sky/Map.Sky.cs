@@ -29,7 +29,7 @@ partial class MapLoader
 			}
 			catch ( Exception e ) when ( e is FileNotFoundException or InvalidDataException or NotSupportedException or EndOfStreamException )
 			{
-				warnings.Add( $"Sky '{name}' was not imported: {e.Message}" );
+				Log.Trace( $"Sky '{name}' was not imported: {e.Message}" );
 			}
 		}
 	}
@@ -86,7 +86,7 @@ partial class MapLoader
 		string texture;
 		if ( hdr && parameters.Contains( "$hdrcompressedtexture0" ) && string.IsNullOrWhiteSpace( compressed ) )
 		{
-			Log.Warning( $"{path}: legacy three-texture HDR sky is unsupported; using its LDR texture." );
+			Log.Trace( $"{path}: legacy three-texture HDR sky is unsupported; using its LDR texture." );
 			texture = parameters.String( "$basetexture" );
 		}
 		else
@@ -100,7 +100,7 @@ partial class MapLoader
 		if ( source.FaceCount != 1 || source.Depth != 1 || (uint)frame >= source.FrameCount )
 			throw new InvalidDataException( $"{texturePath}: sky faces require a 2D texture and a valid frame." );
 		if ( vmt.Root.GetBlock( "proxies" ) is not null )
-			Log.Warning( $"{path}: sky proxies are not imported; using authored static values." );
+			Log.Trace( $"{path}: sky proxies are not imported; using authored static values." );
 		return new SkyFace( texturePath, frame, source.Header, !string.IsNullOrWhiteSpace( compressed ), parameters.Vector( "$color", Vector3.One ), parameters.Transform( "$basetexturetransform" ) );
 	}
 }

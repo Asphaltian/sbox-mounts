@@ -14,7 +14,7 @@ public sealed class Counter : MapEntity
 		if ( !NoMessage && activator.IsValid()
 			&& (activator.Tags.Has( "player" ) || activator.GetComponentInParent<PlayerController>().IsValid()) )
 		{
-			Log.Info( Remaining switch
+			Log.Trace( Remaining switch
 			{
 				0 => "Sequence completed!",
 				1 => "Only 1 more to go...",

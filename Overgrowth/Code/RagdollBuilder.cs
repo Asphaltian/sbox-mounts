@@ -124,7 +124,7 @@ static class RagdollBuilder
 		{
 			if ( source.BoneA == source.BoneB )
 			{
-				Log.Warning( $"Overgrowth joint connects bone {source.BoneA} to itself; skipping it as Overgrowth does." );
+				Log.Trace( $"Overgrowth joint connects bone {source.BoneA} to itself; skipping it as Overgrowth does." );
 				continue;
 			}
 			int point = SharedPoint( skeleton.Bones[source.BoneA], skeleton.Bones[source.BoneB] );

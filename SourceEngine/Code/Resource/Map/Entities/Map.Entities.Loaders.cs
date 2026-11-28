@@ -91,8 +91,6 @@ partial class MapLoader
 				}
 				trigger.Enabled = true;
 			}
-			else if ( className?.StartsWith( "prop_", StringComparison.OrdinalIgnoreCase ) == true || className?.StartsWith( "env_soundscape", StringComparison.OrdinalIgnoreCase ) == true || string.Equals( className, "infodecal", StringComparison.OrdinalIgnoreCase ) || string.Equals( className, "info_projecteddecal", StringComparison.OrdinalIgnoreCase ) || string.Equals( className, "ambient_generic", StringComparison.OrdinalIgnoreCase ) || string.Equals( className, "info_particle_system", StringComparison.OrdinalIgnoreCase ) )
-				builder.ReportUnsupported( className );
 		}
 
 		builder.Finish();
@@ -248,11 +246,5 @@ partial class MapLoader
 			};
 			instance.AddComponent<SpawnPoint>();
 		}
-	}
-
-	private sealed partial class EntityBuilder
-	{
-		public void ReportWarning( string warning ) => warnings.Add( warning );
-		public void ReportUnsupported( string className ) => warnings.Add( $"Entity class '{className}' has no registered loader; omitted." );
 	}
 }

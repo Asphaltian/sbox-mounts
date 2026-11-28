@@ -77,7 +77,7 @@ internal partial class BspFile
 		var layout = (format ?? BspFormat.Default).StaticProps( version );
 		if ( layout.Stride == 0 )
 		{
-			Log.Warning( $"BSP static-prop version {version} is unsupported; static props were omitted." );
+			Log.Trace( $"BSP static-prop version {version} is unsupported; static props were omitted." );
 			return [];
 		}
 
@@ -115,7 +115,7 @@ internal partial class BspFile
 			throw new InvalidDataException( "Truncated BSP static-prop records." );
 		if ( stride != layout.Stride )
 		{
-			Log.Warning( $"BSP static-prop layout v{version}/{stride} bytes is unsupported; {propCount} static props were omitted." );
+			Log.Trace( $"BSP static-prop layout v{version}/{stride} bytes is unsupported; {propCount} static props were omitted." );
 			return [];
 		}
 

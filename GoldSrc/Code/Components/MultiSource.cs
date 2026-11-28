@@ -39,7 +39,7 @@ public sealed class MultiSource : MapEntity
 		int index = Inputs.IndexOf( Caller );
 		if ( index < 0 || index >= InputStates.Length )
 		{
-			Log.Warning( $"GoldSrc: multisource '{TargetName}' was used by a non-member." );
+			Log.Trace( $"GoldSrc: multisource '{TargetName}' was used by a non-member." );
 			return;
 		}
 		InputStates[index] = !InputStates[index];

@@ -5,7 +5,7 @@ internal sealed class SourceSoundscapeLoader( SourceSoundscapes.Definition defin
 	protected override object Load()
 	{
 		foreach ( var diagnostic in definition.Diagnostics )
-			Log.Warning( diagnostic );
+			Log.Trace( diagnostic );
 		var soundscape = new Soundscape();
 		for ( var i = 0; i < definition.Entries.Count; i++ )
 		{

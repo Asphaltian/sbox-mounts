@@ -97,7 +97,7 @@ public abstract partial class SourceGameMount
 			{
 				var diagnostic = $"{map.Path}: BSP pak was not indexed: {e.Message}";
 				files.Errors.Add( diagnostic );
-				Log.Warning( diagnostic );
+				Log.Trace( diagnostic );
 				continue;
 			}
 			finally

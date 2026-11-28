@@ -761,7 +761,7 @@ public partial class ModelLoader( string fullPath ) : ResourceLoader<GameMount>
 			}
 			catch ( InvalidDataException e )
 			{
-				Log.Warning( e, $"Could not read prop animation graph {path}." );
+				Log.Trace( $"Could not read prop animation graph {path}.: {e.Message}" );
 			}
 		}
 		return new();
@@ -1027,7 +1027,7 @@ public partial class ModelLoader( string fullPath ) : ResourceLoader<GameMount>
 		if ( model.Animations.Length > 0 || string.IsNullOrEmpty( model.ExternalModel ) ) return this;
 		var path = ResolveExternalPath( model.ExternalModel );
 		if ( path is not null && Host.GetByPath( $"mount://{Host.Ident}/{path}.vmdl" ) is ModelLoader source ) return externalAnimationSource = source;
-		Log.Warning( $"NS2 model: could not resolve external model '{model.ExternalModel}'" );
+		Log.Trace( $"NS2 model: could not resolve external model '{model.ExternalModel}'" );
 		return this;
 	}
 

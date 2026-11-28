@@ -22,7 +22,7 @@ public sealed class SourceWaterAudio : Component, Component.DontExecuteOnServer
 		_sound = Sound.Play( Ambient );
 		if ( !_sound.IsValid() )
 		{
-			Log.Warning( "Source underwater ambience could not be played." );
+			Log.Trace( "Source underwater ambience could not be played." );
 			return;
 		}
 

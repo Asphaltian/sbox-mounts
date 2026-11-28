@@ -44,7 +44,6 @@ partial class MapLoader
 		private void BuildPostProcessing()
 		{
 			postProcessing = SourcePostProcessing.Read( bsp.Entities );
-			warnings.UnionWith( postProcessing.Warnings );
 			var volume = CreatePostProcessVolume( World, "source post processing", new SceneVolume { Type = SceneVolume.VolumeTypes.Infinite } );
 			ConfigureTonemapping( volume, postProcessing.Global, bsp.Hdr, postProcessing.Rate );
 			var globalCorrections = postProcessing.Corrections.Values.Where( correction => correction.IsGlobal && correction.Enabled && correction.Weight > 0 ).ToArray();
@@ -56,7 +55,7 @@ partial class MapLoader
 				}
 				catch ( Exception e ) when ( e is IOException or InvalidDataException or NotSupportedException )
 				{
-					warnings.Add( $"Global color correction was not imported: {e.Message}" );
+					Log.Trace( $"Global color correction was not imported: {e.Message}" );
 				}
 			}
 			volume.GameObject.Enabled = true;
@@ -68,7 +67,7 @@ partial class MapLoader
 				var controller = postProcessing.Controllers.Keys.FirstOrDefault( controller => string.Equals( controller.Get( "targetname" ), entity.Get( "TonemapName" ), StringComparison.OrdinalIgnoreCase ) );
 				if ( controller is null )
 				{
-					warnings.Add( $"Tonemap trigger '{entity.Get( "targetname" )}' has no imported controller '{entity.Get( "TonemapName" )}'; omitted." );
+					Log.Trace( $"Tonemap trigger '{entity.Get( "targetname" )}' has no imported controller '{entity.Get( "TonemapName" )}'; omitted." );
 					continue;
 				}
 				var local = CreateBrushPostProcessVolume( entity );
@@ -103,11 +102,11 @@ partial class MapLoader
 				catch ( Exception e ) when ( e is IOException or InvalidDataException or NotSupportedException )
 				{
 					local?.GameObject.Destroy();
-					warnings.Add( $"Color correction '{correction.Entity.Get( "targetname" )}' was not imported: {e.Message}" );
+					Log.Trace( $"Color correction '{correction.Entity.Get( "targetname" )}' was not imported: {e.Message}" );
 				}
 			}
 			if ( postProcessing.Corrections.Count > 0 )
-				warnings.Add( "Color correction uses native 16-sample LUTs resampled from Source's 32-sample sRGB tables; overlapping local LUTs use native volume selection rather than Source's additive lookup blending." );
+				Log.Trace( "Color correction uses native 16-sample LUTs resampled from Source's 32-sample sRGB tables; overlapping local LUTs use native volume selection rather than Source's additive lookup blending." );
 		}
 
 		private PostProcessVolume CreateBrushPostProcessVolume( MapEntity entity )
@@ -116,7 +115,7 @@ partial class MapLoader
 			if ( !path.StartsWith( '*' ) || !int.TryParse( path.AsSpan( 1 ), NumberStyles.None, CultureInfo.InvariantCulture, out var index ) || index <= 0 || index >= bsp.Models.Length )
 				throw new InvalidDataException( $"{owner.FullPath}: post-processing volume has invalid brush model '{path}'." );
 			var bounds = bsp.Models[index];
-			warnings.Add( "Brush post-processing volumes use native box bounds and camera position, not exact Source trigger solids/player-origin tests or temporal entry/exit fades." );
+			Log.Trace( "Brush post-processing volumes use native box bounds and camera position, not exact Source trigger solids/player-origin tests or temporal entry/exit fades." );
 			return CreatePostProcessVolume( World, entity.Get( "targetname", entity.Get( "classname" ) ),
 				new SceneVolume { Type = SceneVolume.VolumeTypes.Box, Box = new BBox( bounds.Mins, bounds.Maxs ) },
 				entity.Vector( "origin" ), Rotation.From( entity.Angles ), priority: 1 );

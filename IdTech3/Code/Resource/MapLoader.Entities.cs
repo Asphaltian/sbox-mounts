@@ -26,7 +26,7 @@ sealed partial class MapLoader
 			}
 			catch ( Exception ex )
 			{
-				Log.Warning( $"[{_game.Ident}] {_path}: failed to spawn {e}: {ex.Message}" );
+				Log.Trace( $"[{_game.Ident}] {_path}: failed to spawn {e}: {ex.Message}" );
 			}
 		}
 	}

@@ -16,7 +16,7 @@ partial class MapLoader
 			if ( Host.GetContentPath( path, ContentRoot ) is not null )
 				material = Host.LoadContentMaterial( path, ContentRoot );
 			else
-				Log.Warning( $"{FullPath}: world material '{matName}' is missing; using the engine default material." );
+				Log.Trace( $"{FullPath}: world material '{matName}' is missing; using the engine default material." );
 		}
 
 		material ??= defaultMaterial;

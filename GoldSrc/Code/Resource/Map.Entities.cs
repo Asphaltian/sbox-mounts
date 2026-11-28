@@ -11,7 +11,7 @@ partial class MapBuilder
 	private void WarnUnsupportedEntity( Entity entity )
 	{
 		if ( _unsupportedEntities.Add( entity.ClassName ) )
-			Log.Warning( $"{FilePath}: '{entity.ClassName}' behavior is not implemented; it will not forward entity I/O." );
+			Log.Trace( $"{FilePath}: '{entity.ClassName}' behavior is not implemented; it will not forward entity I/O." );
 	}
 	private void SpawnEntities( BspFile bsp )
 	{

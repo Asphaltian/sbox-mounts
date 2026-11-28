@@ -57,7 +57,7 @@ partial class MapLoader
 			result.Add( CreateWorldModel( builder.WithViewBounds( bounds ), $"shadow_faces_{modelIndex}_{result.Count}.vmdl" ) );
 			triangles += chunk.Indices.Count / 3;
 		}
-		Log.Info( $"{FullPath}: model {modelIndex} shadow blockers contain {triangles} shadow triangles in {result.Count} spatial chunks." );
+		Log.Trace( $"{FullPath}: model {modelIndex} shadow blockers contain {triangles} shadow triangles in {result.Count} spatial chunks." );
 		return result;
 
 		MeshGroup ChunkFor( Vector3 point )

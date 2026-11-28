@@ -52,14 +52,14 @@ partial class MapLoader
 				return;
 			if ( model.Physics is not { Parts.Count: > 0 } )
 			{
-				warnings.Add( $"Solid prop model '{path}' has no imported physics; no substitute collision was created." );
+				Log.Trace( $"Solid prop model '{path}' has no imported physics; no substitute collision was created." );
 				return;
 			}
 
 			if ( prop.Solid != 6 )
-				warnings.Add( $"Prop model '{path}' uses solid mode {prop.Solid}; importing its authored model collision rather than Source-specific solid behavior." );
+				Log.Trace( $"Prop model '{path}' uses solid mode {prop.Solid}; importing its authored model collision rather than Source-specific solid behavior." );
 			if ( (prop.Gameplay || prop.Physics == PropPhysics.Rigid) && prop.MassScale > 0 && prop.MassScale != 1 )
-				warnings.Add( $"Prop model '{path}' uses entity mass scaling; retaining authored mass because ModelCollider overrides Rigidbody mass when creating its shapes." );
+				Log.Trace( $"Prop model '{path}' uses entity mass scaling; retaining authored mass because ModelCollider overrides Rigidbody mass when creating its shapes." );
 		}
 
 		private void AddPhysics( MapProp prop, ModelRenderer renderer, SkinnedModelRenderer ragdollRenderer, string path )
@@ -106,7 +106,7 @@ partial class MapLoader
 			{
 				if ( model.Bones.GetBone( part.BoneName ) is not null )
 					continue;
-				warnings.Add( $"Ragdoll model '{path}' has physics bodies without matching bones; no substitute collision was created." );
+				Log.Trace( $"Ragdoll model '{path}' has physics bodies without matching bones; no substitute collision was created." );
 				return;
 			}
 
@@ -118,7 +118,7 @@ partial class MapLoader
 				ApplyRagdollPose( renderer.GameObject, model, prop.RagdollPose, World.WorldTransform );
 			physics.StartAsleep = prop.StartAsleep;
 			if ( physics.StartAsleep )
-				warnings.Add( $"Ragdoll model '{path}' starts asleep; the engine can wake serialized ragdolls when restoring their physics." );
+				Log.Trace( $"Ragdoll model '{path}' starts asleep; the engine can wake serialized ragdolls when restoring their physics." );
 			physics.Enabled = true;
 		}
 	}

@@ -24,7 +24,7 @@ public abstract partial class SourceGameMount
 			}
 			catch ( Exception e ) when ( e is IOException or InvalidDataException or NotSupportedException )
 			{
-				Log.Warning( $"{entry.Key}: particles were not imported: {e.Message}" );
+				Log.Trace( $"{entry.Key}: particles were not imported: {e.Message}" );
 			}
 		}
 	}

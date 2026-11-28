@@ -23,7 +23,7 @@ public abstract class SparkSoundEmitter : Component
 		var mount = Sandbox.Mounting.Directory.Get( "ns2" ) as GameMount;
 		definition = mount?.FindSoundEvent( EventName );
 		if ( definition is null )
-			Log.Warning( $"NS2 sound event '{EventName}' is unavailable." );
+			Log.Trace( $"NS2 sound event '{EventName}' is unavailable." );
 	}
 
 	protected override void OnUpdate()

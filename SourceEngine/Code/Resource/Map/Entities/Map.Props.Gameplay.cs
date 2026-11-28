@@ -10,13 +10,13 @@ partial class MapLoader
 				return false;
 			if ( model.Data.Flammable || model.Data.Explosive )
 			{
-				warnings.Add( $"Prop '{prop.Name}' model '{path}' still has unsafe cached fire/explosion metadata; reload the mount before using breakable gameplay." );
+				Log.Trace( $"Prop '{prop.Name}' model '{path}' still has unsafe cached fire/explosion metadata; reload the mount before using breakable gameplay." );
 				return false;
 			}
 
 			if ( !prop.Visible || prop.Solid == 0 || !prop.MotionEnabled || model.Physics is { Parts.Count: > 1 } )
 			{
-				warnings.Add( $"Prop '{prop.Name}' model '{path}' requires visibility, collision, motion or multi-body settings not supported by the existing Prop component; retaining its original setup without breakable gameplay." );
+				Log.Trace( $"Prop '{prop.Name}' model '{path}' requires visibility, collision, motion or multi-body settings not supported by the existing Prop component; retaining its original setup without breakable gameplay." );
 				return false;
 			}
 

@@ -26,7 +26,7 @@ partial class GameMount
 		}
 		catch ( Exception e )
 		{
-			Log.Warning( $"Cannot mount sprite '{path}': {e.Message}" );
+			Log.Trace( $"Cannot mount sprite '{path}': {e.Message}" );
 		}
 	}
 }

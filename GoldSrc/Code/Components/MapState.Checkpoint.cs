@@ -94,7 +94,7 @@ public sealed partial class MapState : Component.IDamageable.IEvents
 		try
 		{
 			if ( !await TypeLibrary.GetType( system.GetType() ).GetMethod( "Load" ).InvokeWithReturn<Task<bool>>( system, [_checkpoint] ) )
-				Log.Warning( $"Could not load Half-Life checkpoint {_checkpoint}" );
+				Log.Trace( $"Could not load Half-Life checkpoint {_checkpoint}" );
 		}
 		finally { _loading = false; }
 	}
@@ -156,7 +156,7 @@ public sealed partial class MapState : Component.IDamageable.IEvents
 			var actor = go.GetComponent<Monster>( true );
 			if ( !actor.IsValid() || !actor.Npc.IsValid() )
 			{
-				Log.Warning( $"Could not restore transferred actor '{go.Name}' from {filename}" );
+				Log.Trace( $"Could not restore transferred actor '{go.Name}' from {filename}" );
 				go.Destroy();
 				continue;
 			}

@@ -62,7 +62,7 @@ public sealed class NpcRangedEffects : Component
 				foreach ( var wave in _sound.Sounds ) await wave.LoadAsync();
 			if ( IsValid ) _muzzlePrefab = MountedEffects.Prefab( MuzzleParticle, mountName );
 		}
-		catch ( Exception e ) { Log.Warning( $"Mounted NPC effects: {e.Message}" ); }
+		catch ( Exception e ) { Log.Trace( $"Mounted NPC effects: {e.Message}" ); }
 	}
 
 	/// <summary>Shows the windup for <paramref name="duration"/> seconds, until the shot it leads to.</summary>

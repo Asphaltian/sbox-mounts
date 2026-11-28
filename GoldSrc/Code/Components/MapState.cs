@@ -111,7 +111,7 @@ public sealed partial class MapState : Component
 		var entity = Find( name );
 		if ( entity is MultiSource source )
 			return source.IsTriggered;
-		Log.Warning( $"GoldSrc: master '{name}' is missing or is not a master entity." );
+		Log.Trace( $"GoldSrc: master '{name}' is missing or is not a master entity." );
 		return true;
 	}
 }

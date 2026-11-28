@@ -39,11 +39,11 @@ partial class MapLoader
 				trigger.Radius = radius;
 				trigger.StayActiveOnExit = true;
 				trigger.Enabled = entity.Integer( "StartDisabled" ) == 0;
-				warnings.Add( "Soundscapes use native selection without Source brush/water visibility traces, native fades and random scheduling rather than Source sine fades and half-interval first stings. DSP, fixed sound positions and entity inputs are not reproduced." );
+				Log.Trace( "Soundscapes use native selection without Source brush/water visibility traces, native fades and random scheduling rather than Source sine fades and half-interval first stings. DSP, fixed sound positions and entity inputs are not reproduced." );
 			}
 			catch ( Exception e ) when ( e is IOException or InvalidDataException or NotSupportedException )
 			{
-				warnings.Add( $"Soundscape '{entity.Get( "soundscape" )}' was not imported: {e.Message}" );
+				Log.Trace( $"Soundscape '{entity.Get( "soundscape" )}' was not imported: {e.Message}" );
 			}
 		}
 	}

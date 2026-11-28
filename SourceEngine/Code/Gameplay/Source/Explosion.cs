@@ -39,7 +39,7 @@ sealed class Explosion
 		var prefab = Prefab ?? ResourceLibrary.Get<PrefabFile>( DefaultPrefab );
 		if ( prefab is null )
 		{
-			Log.Warning( $"Can't find {DefaultPrefab}" );
+			Log.Trace( $"Can't find {DefaultPrefab}" );
 			return null;
 		}
 

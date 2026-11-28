@@ -71,7 +71,7 @@ partial class GameMount
 
 			SpriteFrameInfo[] death = null;
 			if ( type.Death is { } d && !TryGetSpriteFrames( stack, d.Sprite, d.Frames, out _, out death ) )
-				Log.Warning( $"{Title}: {wad.Name} has no {d.Sprite} frames for the {type.Name}'s death" );
+				Log.Trace( $"{Title}: {wad.Name} has no {d.Sprite} frames for the {type.Name}'s death" );
 
 			SpriteCanvas? canvas = null;
 			if ( frames is not null )
@@ -111,7 +111,7 @@ partial class GameMount
 		{
 			if ( map.Format != MapFormat.Doom )
 			{
-				Log.Info( $"{Title}: {wad.Name} {map.Name} is a {map.Format} format map, which isn't supported" );
+				Log.Trace( $"{Title}: {wad.Name} {map.Name} is a {map.Format} format map, which isn't supported" );
 				continue;
 			}
 

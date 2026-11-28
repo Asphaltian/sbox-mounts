@@ -69,7 +69,7 @@ public sealed class RenderAppearance : Component
 				if ( !_warnedMode )
 				{
 					_warnedMode = true;
-					Log.Warning( $"GoldSrc: '{GameObject.Name}' cannot change blending for shader '{slot.Material.ShaderName}'." );
+					Log.Trace( $"GoldSrc: '{GameObject.Name}' cannot change blending for shader '{slot.Material.ShaderName}'." );
 				}
 				continue;
 			}

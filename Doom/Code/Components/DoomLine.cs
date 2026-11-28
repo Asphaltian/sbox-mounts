@@ -193,7 +193,7 @@ public sealed class DoomLine : Component, Component.IPressable, Component.IDamag
 				return Teleport( activator );
 
 			case SectorAction.Exit or SectorAction.SecretExit:
-				Log.Info( $"Doom: {(action == SectorAction.Exit ? "exit" : "secret exit")} switch used" );
+				Log.Trace( $"Doom: {(action == SectorAction.Exit ? "exit" : "secret exit")} switch used" );
 				return true;
 
 			case SectorAction.LightTurnOn or SectorAction.LightTurnOff or SectorAction.LightStartStrobing or SectorAction.ScrollTextureLeft:

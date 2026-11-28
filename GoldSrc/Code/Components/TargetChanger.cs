@@ -12,7 +12,7 @@ public sealed class TargetChanger : MapEntity
 		var entity = Map.Find( Target );
 		if ( !entity.IsValid() )
 		{
-			Log.Warning( $"GoldSrc: trigger_changetarget could not find '{Target}'." );
+			Log.Trace( $"GoldSrc: trigger_changetarget could not find '{Target}'." );
 			return;
 		}
 		entity.ChangeTarget( NewTarget );

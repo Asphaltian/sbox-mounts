@@ -135,14 +135,14 @@ partial class MapLoader
 			if ( !table.TryGetValue( line.Special, out var special ) )
 			{
 				if ( unknown.Add( line.Special ) )
-					Log.Warning( $"Doom: {Map.Name} uses line special {line.Special}, which isn't supported" );
+					Log.Trace( $"Doom: {Map.Name} uses line special {line.Special}, which isn't supported" );
 				continue;
 			}
 
 			_lineSpecials[i] = special;
 
 			if ( special.Action is SectorAction.LightTurnOn or SectorAction.LightTurnOff or SectorAction.LightStartStrobing && unsupported.Add( special.Action ) )
-				Log.Info( $"Doom: {Map.Name} has light-changing specials, which aren't simulated (sector light is baked into the geometry)" );
+				Log.Trace( $"Doom: {Map.Name} has light-changing specials, which aren't simulated (sector light is baked into the geometry)" );
 
 			if ( special.Trigger == LineTrigger.Door )
 			{

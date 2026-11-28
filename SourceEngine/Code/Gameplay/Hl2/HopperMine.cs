@@ -59,7 +59,7 @@ public sealed class HopperMine : BaseNpc, Component.ICollisionListener
 		}
 		catch ( Exception e )
 		{
-			Log.Warning( $"Mounted mine sounds: {e.Message}" );
+			Log.Trace( $"Mounted mine sounds: {e.Message}" );
 		}
 	}
 

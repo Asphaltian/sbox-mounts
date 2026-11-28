@@ -66,7 +66,7 @@ public sealed class MountedModel : Component
 		{
 			if ( !IsValid || requested != ModelPath ) return;
 			_unavailable = true;
-			Log.Warning( $"Couldn't load {MountName} model '{ModelPath}': {e.Message}" );
+			Log.Trace( $"Couldn't load {MountName} model '{ModelPath}': {e.Message}" );
 		}
 	}
 

@@ -238,7 +238,7 @@ public sealed class ViewModelHands : Component
 			_failedModel = null;
 			configured = true;
 		}
-		catch ( Exception e ) { Log.Warning( $"Couldn't retarget HL2 hands: {e.Message}" ); }
+		catch ( Exception e ) { Log.Trace( $"Couldn't retarget HL2 hands: {e.Message}" ); }
 		finally
 		{
 			_loading = false;

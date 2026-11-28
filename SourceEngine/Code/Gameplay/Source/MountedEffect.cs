@@ -22,6 +22,6 @@ public sealed class MountedEffect : Component
 			MountedEffects.Attach( Particle, GameObject, MountName );
 			if ( Sounds.Sound( Sound, MountName ) is { } sound ) GameObject.PlaySound( sound );
 		}
-		catch ( Exception e ) { Log.Warning( $"Mounted effect '{Particle}': {e.Message}" ); }
+		catch ( Exception e ) { Log.Trace( $"Mounted effect '{Particle}': {e.Message}" ); }
 	}
 }

@@ -75,7 +75,7 @@ partial class MapBuilder
 			var triangles = Mesh.TriangulatePolygon( CollectionsMarshal.AsSpan( faceVertices ) );
 			if ( triangles.IsEmpty )
 			{
-				Log.Warning( $"{FilePath}: face {faceIndex} could not be triangulated." );
+				Log.Trace( $"{FilePath}: face {faceIndex} could not be triangulated." );
 				continue;
 			}
 

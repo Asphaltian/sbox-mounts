@@ -52,7 +52,7 @@ partial class MapBuilder
 		if ( unsupported is not null )
 		{
 			if ( _unsupportedEntities.Add( entity.ClassName ) )
-				Log.Warning( $"{FilePath}: '{entity.ClassName}' is not implemented: {unsupported}; it will not forward entity I/O." );
+				Log.Trace( $"{FilePath}: '{entity.ClassName}' is not implemented: {unsupported}; it will not forward entity I/O." );
 			return false;
 		}
 		if ( entity.ClassName is "env_spark" or "env_debris" )
@@ -67,7 +67,7 @@ partial class MapBuilder
 			spark.Sounds = Enumerable.Range( 1, 6 ).Select( index => BuildSoundEvent( $"buttons/spark{index}.wav" ) ).ToArray();
 			RegisterTarget( entity, spark );
 			if ( _unsupportedEntities.Add( "env_spark:particles" ) )
-				Log.Warning( $"{FilePath}: spark tracers use reconstructed client emission parameters; exact particle lifetimes, palette, width and distribution are not verified." );
+				Log.Trace( $"{FilePath}: spark tracers use reconstructed client emission parameters; exact particle lifetimes, palette, width and distribution are not verified." );
 			return true;
 		}
 		if ( entity.ClassName is not ("env_sprite" or "env_glow") )
@@ -77,7 +77,7 @@ partial class MapBuilder
 		var sprite = string.IsNullOrEmpty( model ) ? null : Host.GetSprite( model );
 		if ( sprite is null )
 		{
-			Log.Warning( $"{FilePath}: {entity.ClassName} '{entity.TargetName}' has missing or unsupported sprite '{model}'." );
+			Log.Trace( $"{FilePath}: {entity.ClassName} '{entity.TargetName}' has missing or unsupported sprite '{model}'." );
 			return true;
 		}
 		var go = new GameObject( true, EntityName( entity ) );
@@ -126,9 +126,9 @@ partial class MapBuilder
 			_ => SpriteRenderer.BillboardMode.Always
 		};
 		if ( entity.GetInt( "renderfx" ) is not (0 or 14) )
-			Log.Warning( $"{FilePath}: sprite '{model}' renderfx {entity.GetInt( "renderfx" )} is unsupported." );
+			Log.Trace( $"{FilePath}: sprite '{model}' renderfx {entity.GetInt( "renderfx" )} is unsupported." );
 		if ( sprite.Orientation == 1 )
-			Log.Warning( $"{FilePath}: sprite '{model}' facing-upright orientation uses camera-plane upright rendering; per-view facing-position billboards are unavailable." );
+			Log.Trace( $"{FilePath}: sprite '{model}' facing-upright orientation uses camera-plane upright rendering; per-view facing-position billboards are unavailable." );
 		RegisterTarget( entity, effect );
 		effect.Initialize();
 		return true;
@@ -140,7 +140,7 @@ partial class MapBuilder
 		var sprite = Host.GetSprite( model );
 		if ( sprite is null )
 		{
-			Log.Warning( $"{FilePath}: missing effect sprite '{model}'." );
+			Log.Trace( $"{FilePath}: missing effect sprite '{model}'." );
 			return null;
 		}
 		var result = new EffectSprite { TextureFormat = sprite.TextureFormat };
@@ -179,9 +179,9 @@ partial class MapBuilder
 		RegisterTarget( entity, explosion );
 		_explosions.Add( explosion );
 		if ( _unsupportedEntities.Add( "env_explosion:client-effects" ) )
-			Log.Warning( $"{FilePath}: env_explosion uses decoded fireball/smoke sprites; client explosion lights and secondary particles are not implemented, and smoke motion/color and spark tracer parameters are reconstructed rather than verified 1:1." );
+			Log.Trace( $"{FilePath}: env_explosion uses decoded fireball/smoke sprites; client explosion lights and secondary particles are not implemented, and smoke motion/color and spark tracer parameters are reconstructed rather than verified 1:1." );
 		if ( !explosion.NoDamage && _unsupportedEntities.Add( "env_explosion:host-damage" ) )
-			Log.Warning( $"{FilePath}: explosion damage reaches IDamageable receivers; health, armor and hitgroup responses belong to the host. IGoldSrcBlastTarget supplies exact BodyTarget/waterlevel; other receivers use bounds and BSP liquid sampling." );
+			Log.Trace( $"{FilePath}: explosion damage reaches IDamageable receivers; health, armor and hitgroup responses belong to the host. IGoldSrcBlastTarget supplies exact BodyTarget/waterlevel; other receivers use bounds and BSP liquid sampling." );
 	}
 
 	private DecalSurfaces PrepareExplosions( BspFile bsp )
@@ -215,7 +215,7 @@ partial class MapBuilder
 		var texture = string.IsNullOrEmpty( model ) ? null : LoadEffectSprite( model );
 		if ( texture is null )
 		{
-			Log.Warning( $"{FilePath}: {entity.ClassName} '{entity.TargetName}' has no usable beam texture '{model}'." );
+			Log.Trace( $"{FilePath}: {entity.ClassName} '{entity.TargetName}' has no usable beam texture '{model}'." );
 			return;
 		}
 		var go = new GameObject( true, EntityName( entity ) );
@@ -265,14 +265,14 @@ partial class MapBuilder
 			} );
 		}
 		if ( _unsupportedEntities.Add( "env_beam:client-rendering" ) )
-			Log.Warning( $"{FilePath}: beams use LineRenderer; client texture phase/tiling, per-view culling and ring tessellation are reconstructed rather than verified 1:1." );
+			Log.Trace( $"{FilePath}: beams use LineRenderer; client texture phase/tiling, per-view culling and ring tessellation are reconstructed rather than verified 1:1." );
 		if ( beam.NoiseAmplitude != 0 && _unsupportedEntities.Add( "env_beam:noise" ) )
-			Log.Warning( $"{FilePath}: beam noise displacement is not reproduced; the rendered centerline remains straight." );
+			Log.Trace( $"{FilePath}: beam noise displacement is not reproduced; the rendered centerline remains straight." );
 		if ( beam.EndSprite is not null && _unsupportedEntities.Add( "env_laser:end-glow" ) )
-			Log.Warning( $"{FilePath}: laser endpoint glow is depth-tested and world-sized; view-dependent glow occlusion/scaling is unavailable." );
+			Log.Trace( $"{FilePath}: laser endpoint glow is depth-tested and world-sized; view-dependent glow occlusion/scaling is unavailable." );
 		if ( (beam.SparkStart || beam.SparkEnd) && _unsupportedEntities.Add( "env_spark:particles" ) )
-			Log.Warning( $"{FilePath}: beam sparks use reconstructed client tracer parameters, not verified 1:1 particle emission." );
+			Log.Trace( $"{FilePath}: beam sparks use reconstructed client tracer parameters, not verified 1:1 particle emission." );
 		if ( beam.Damage != 0 && _unsupportedEntities.Add( "env_beam:host-damage" ) )
-			Log.Warning( $"{FilePath}: beam damage reaches IDamageable with DMG_ENERGYBEAM; host health, armor and hitgroup responses are not supplied by the mount." );
+			Log.Trace( $"{FilePath}: beam damage reaches IDamageable with DMG_ENERGYBEAM; host health, armor and hitgroup responses are not supplied by the mount." );
 	}
 }

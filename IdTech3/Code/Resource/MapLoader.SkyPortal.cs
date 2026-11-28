@@ -33,7 +33,7 @@ partial class MapLoader
 		var surfaces = _bsp.SurfacesVisibleFrom( entity.Origin );
 		if ( surfaces is null || surfaces.Count == 0 )
 		{
-			Log.Warning( $"{_path}: sky portal has no visibility data; drawing the sky without it" );
+			Log.Trace( $"{_path}: sky portal has no visibility data; drawing the sky without it" );
 			return null;
 		}
 
@@ -46,7 +46,7 @@ partial class MapLoader
 			foreach ( int si in LeafSurfaces( leaf ) )
 			{
 				if ( !surfaces.Contains( si ) ) continue;
-				Log.Warning( $"{_path}: sky portal can see the playable map; drawing the sky without it" );
+				Log.Trace( $"{_path}: sky portal can see the playable map; drawing the sky without it" );
 				return null;
 			}
 		}
@@ -93,7 +93,7 @@ partial class MapLoader
 		var scene = SceneFile.Load( path );
 		if ( scene is null )
 		{
-			Log.Warning( $"{_path}: could not load sky portal scene '{path}'" );
+			Log.Trace( $"{_path}: could not load sky portal scene '{path}'" );
 			return;
 		}
 
