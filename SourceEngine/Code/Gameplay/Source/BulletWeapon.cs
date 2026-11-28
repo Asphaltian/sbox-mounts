@@ -422,12 +422,8 @@ public class BulletWeapon : Weapon
 
 	void FireBullets()
 	{
-		if ( (UseSpreadDisk || Secondary == SecondaryFires.DoubleShot || AccuracyPenaltyPerShot > 0) && HasOwner && !NpcControlled )
-		{
-			if ( !TakePrimaryAmmo() ) return;
-			ShootEffects( FireVolley( Ballistics.Pellets ) );
-		}
-		else base.PrimaryAttack();
+		if ( IsHeld && !TakePrimaryAmmo() ) return;
+		ShootEffects( FireVolley( Ballistics.Pellets ) );
 	}
 
 	void FirePrimaryRound()
@@ -631,7 +627,7 @@ public class BulletWeapon : Weapon
 		var previous = _volley;
 		try
 		{
-			if ( HasOwner && !NpcControlled )
+			if ( HasOwner && !NpcControlled && (UseSpreadDisk || Secondary == SecondaryFires.DoubleShot || AccuracyPenaltyPerShot > 0) )
 			{
 				var aim = Rotation.LookAt( AimRay.Forward );
 				var cone = PrepareVolley();
