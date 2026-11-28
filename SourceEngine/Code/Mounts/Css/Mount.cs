@@ -30,6 +30,9 @@ public sealed class Mount : SourceGameMount
 
 	internal override void ApplyWeaponDefaults( BaseCombatWeapon weapon, WeaponSetup setup, string worldModel )
 	{
+		if ( weapon is Firearm gun && setup.Data?.PrimaryAmmo is { } ammo && AmmoTypes.TryGetValue( ammo, out var type ) )
+			gun.Ballistics = gun.Ballistics with { Force = type.Impulse };
+
 		setup.NpcDamageScale = Rules.NpcDamageScale;
 		setup.WeaponType ??= Rules.WeaponTypeOf( worldModel );
 		if ( Sounds.WeaponSound( setup.Data, "empty" ) is null && Sounds.Sound( Rules.EmptySound( setup.WeaponType ), Ident ) is { } click )
@@ -42,25 +45,25 @@ public sealed class Mount : SourceGameMount
 			(setup.FlashType, setup.FlashScale) = flash;
 	}
 
-	private static readonly Dictionary<string, (string Title, int? Capacity)> AmmoTypes = new( StringComparer.OrdinalIgnoreCase )
+	private static readonly Dictionary<string, (string Title, int Capacity, int Impulse)> AmmoTypes = new( StringComparer.OrdinalIgnoreCase )
 	{
-		["BULLET_PLAYER_50AE"] = (".50 Action Express", 35),
-		["BULLET_PLAYER_762MM"] = ("7.62 NATO", 90),
-		["BULLET_PLAYER_556MM"] = ("5.56 NATO", 90),
-		["BULLET_PLAYER_556MM_BOX"] = ("5.56 NATO Box", 200),
-		["BULLET_PLAYER_338MAG"] = (".338 Lapua Magnum", 30),
-		["BULLET_PLAYER_9MM"] = ("9mm Parabellum", 120),
-		["BULLET_PLAYER_BUCKSHOT"] = ("12 Gauge Buckshot", 32),
-		["BULLET_PLAYER_45ACP"] = (".45 ACP", 100),
-		["BULLET_PLAYER_357SIG"] = (".357 SIG", 52),
-		["BULLET_PLAYER_57MM"] = ("5.7 × 28mm", 100),
-		["AMMO_TYPE_HEGRENADE"] = ("HE Grenade", 1),
-		["AMMO_TYPE_FLASHBANG"] = ("Flashbang", 2),
-		["AMMO_TYPE_SMOKEGRENADE"] = ("Smoke Grenade", 1),
+		["BULLET_PLAYER_50AE"] = (".50 Action Express", 35, 2400),
+		["BULLET_PLAYER_762MM"] = ("7.62 NATO", 90, 2400),
+		["BULLET_PLAYER_556MM"] = ("5.56 NATO", 90, 2400),
+		["BULLET_PLAYER_556MM_BOX"] = ("5.56 NATO Box", 200, 2400),
+		["BULLET_PLAYER_338MAG"] = (".338 Lapua Magnum", 30, 2800),
+		["BULLET_PLAYER_9MM"] = ("9mm Parabellum", 120, 2000),
+		["BULLET_PLAYER_BUCKSHOT"] = ("12 Gauge Buckshot", 32, 600),
+		["BULLET_PLAYER_45ACP"] = (".45 ACP", 100, 2100),
+		["BULLET_PLAYER_357SIG"] = (".357 SIG", 52, 2000),
+		["BULLET_PLAYER_57MM"] = ("5.7x28mm", 100, 2000),
+		["AMMO_TYPE_HEGRENADE"] = ("HE Grenade", 1, 1),
+		["AMMO_TYPE_FLASHBANG"] = ("Flashbang", 2, 1),
+		["AMMO_TYPE_SMOKEGRENADE"] = ("Smoke Grenade", 1, 1),
 	};
 
 	private protected override (string Title, int? Capacity) AmmoDefaults( string ammo ) =>
-		AmmoTypes.TryGetValue( ammo, out var type ) ? type : base.AmmoDefaults( ammo );
+		AmmoTypes.TryGetValue( ammo, out var type ) ? (type.Title, type.Capacity) : base.AmmoDefaults( ammo );
 
 	protected internal override string[] VoicePatterns( VoiceLine line ) => line switch
 	{
