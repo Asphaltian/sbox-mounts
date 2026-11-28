@@ -12,9 +12,10 @@ public interface ISmokeCloud
 [Title( "Source Smoke Fog" )]
 [Category( "Source 1" )]
 [Alias( "Source1.Css.SmokeFog", "Source1.CssSmokeFog", "CssSmokeFog" )]
-public sealed class SmokeFog : PanelComponent
+public sealed class SmokeFog : Component
 {
 	const float Grey = 0.3f;
+	Panel _fog;
 
 	public static void Ensure( Scene scene )
 	{
@@ -26,27 +27,27 @@ public sealed class SmokeFog : PanelComponent
 		go.AddComponent<SmokeFog>();
 	}
 
+	protected override void OnStart()
+	{
+		_fog = GetOrAddComponent<ScreenPanel>().AddOverlay();
+		_fog.Style.BackgroundColor = new Color( Grey, Grey, Grey );
+	}
+
 	protected override void OnUpdate()
 	{
 		var camera = Scene.Camera;
-		var visible = Panel is not null && camera.IsValid();
 		var anyClouds = false;
 		double alpha = 0;
 		foreach ( var cloud in Scene.GetAllComponents<ISmokeCloud>() )
 		{
 			anyClouds = true;
-			if ( visible ) alpha += cloud.FogAlpha( camera.WorldPosition );
+			if ( camera.IsValid() ) alpha += cloud.FogAlpha( camera.WorldPosition );
 		}
 		if ( !anyClouds )
 		{
 			GameObject.Destroy();
 			return;
 		}
-		if ( Panel is null ) return;
-		Panel.Style.Position = Sandbox.UI.PositionMode.Absolute;
-		Panel.Style.Width = Sandbox.UI.Length.Percent( 100 );
-		Panel.Style.Height = Sandbox.UI.Length.Percent( 100 );
-		Panel.Style.BackgroundColor = new Color( Grey, Grey, Grey );
-		Panel.Style.Opacity = Math.Clamp( (float)alpha, 0, 1 );
+		_fog.Style.Opacity = Math.Clamp( (float)alpha, 0, 1 );
 	}
 }

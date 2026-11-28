@@ -1,4 +1,5 @@
 using System;
+using Sandbox.UI;
 
 namespace Source1;
 
@@ -10,7 +11,7 @@ namespace Source1;
 [Title( "Source Screen Fade" )]
 [Category( "Source 1" )]
 [Alias( "Source1.SourceScreenFade", "SourceScreenFade" )]
-public sealed class ScreenFade : PanelComponent
+public sealed class ScreenFade : Component
 {
 	Color _color;
 	float _hold;
@@ -20,8 +21,8 @@ public sealed class ScreenFade : PanelComponent
 	float _alpha;
 	TimeSince _age;
 	Texture _afterimage;
-	Sandbox.UI.Panel _burn;
-	Sandbox.UI.Panel _tint;
+	Panel _burn;
+	Panel _tint;
 
 	float Duration => _hold + _fade;
 
@@ -71,6 +72,14 @@ public sealed class ScreenFade : PanelComponent
 		camera.RenderToTexture( _afterimage );
 	}
 
+	protected override void OnStart()
+	{
+		var screen = GetOrAddComponent<ScreenPanel>();
+		_burn = screen.AddOverlay();
+		_burn.Style.BackgroundSizeX = _burn.Style.BackgroundSizeY = Length.Percent( 100 );
+		_tint = screen.AddOverlay();
+	}
+
 	protected override void OnUpdate()
 	{
 		var left = Duration - _age;
@@ -79,9 +88,6 @@ public sealed class ScreenFade : PanelComponent
 			GameObject.Destroy();
 			return;
 		}
-
-		if ( Panel is null )
-			return;
 
 		float alpha;
 		if ( _alpha < _color.a )
@@ -94,8 +100,6 @@ public sealed class ScreenFade : PanelComponent
 			alpha = left >= _fade ? _color.a : _color.a * MathF.Pow( left / _fade, _power );
 		}
 
-		_burn ??= new Sandbox.UI.Panel( Panel );
-		_tint ??= new Sandbox.UI.Panel( Panel );
 		_burn.Style.BackgroundImage = _afterimage;
 		_burn.Style.Opacity = Math.Clamp( _color.a * left / Duration, 0, _color.a );
 		_tint.Style.BackgroundColor = _color.WithAlpha( 1 );
