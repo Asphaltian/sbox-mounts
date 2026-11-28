@@ -2,7 +2,7 @@ using System;
 
 namespace Source1.GarrysMod;
 
-public sealed class SkyPaint : Component, IMapInput
+public class SkyPaint : Component, IMapInput
 {
 	internal const string Shader = "shaders/source1/gmod/painted_sky.shader";
 
@@ -103,9 +103,13 @@ public sealed class SkyPaint : Component, IMapInput
 	void Activate()
 	{
 		if ( Application.IsDedicatedServer || GameObject.IsDestroyed ) return;
-		var world = GameObject.Parent;
-		if ( !world.IsValid() || world.GetComponentsInChildren<SkyPaint>().Any( p => p != this && p._sky is not null ) ) return;
-		_sky = world.GetComponentsInChildren<SkyBox2D>().Select( sky => sky.SkyMaterial )
+		var active = Scene.GetAllComponents<SkyPaint>().FirstOrDefault( p => p != this && p._sky is not null );
+		if ( active is not null )
+		{
+			if ( this is not SkyEditor ) return;
+			active._sky = null;
+		}
+		_sky = Scene.GetAllComponents<SkyBox2D>().Select( sky => sky.SkyMaterial )
 			.FirstOrDefault( m => m?.ShaderName == Shader && m.Attributes.GetBool( "SkyPaintProxy" ) );
 		if ( _sky is null ) return;
 		_sky.Set( "StarPosition", 0f );
@@ -117,7 +121,8 @@ public sealed class SkyPaint : Component, IMapInput
 	{
 		if ( _sky is null ) return;
 		_sky = null;
-		GameObject.Parent?.GetComponentsInChildren<SkyPaint>().FirstOrDefault( p => p != this && p.Active )?.Activate();
+		if ( !Scene.IsDestroyed )
+			Scene.GetAllComponents<SkyPaint>().FirstOrDefault( p => p != this && p.Active && !p.GameObject.IsDestroyed )?.Activate();
 	}
 
 	void PaintChanged( Settings before, Settings after )
