@@ -36,11 +36,18 @@ partial class MapLoader
 
 	private Material CreateSkyMaterial( string name )
 	{
+		var resourceName = $"source1/{Host.Ident}/{System.IO.Path.ChangeExtension( FullPath, ".sky" )}";
+		var firstPath = VmtFile.NormalizePath( $"skybox/{name}{SkySuffixes[0]}", ".vmt" );
+		var first = LoadSkyFace( firstPath );
+		if ( Host.CreateProceduralSky( first, resourceName, ContentRoot ) is { } procedural )
+			return procedural;
+
 		var faces = new SkyFace[6];
 		var size = 0;
 		for ( var i = 0; i < faces.Length; i++ )
 		{
-			faces[i] = ReadSkyFace( $"skybox/{name}{SkySuffixes[i]}" );
+			var path = VmtFile.NormalizePath( $"skybox/{name}{SkySuffixes[i]}", ".vmt" );
+			faces[i] = ReadSkyFace( path, i == 0 ? first : LoadSkyFace( path ) );
 			size = Math.Max( size, Math.Max( faces[i].Header.Width, faces[i].Header.Height ) );
 		}
 
@@ -54,7 +61,6 @@ partial class MapLoader
 			WriteSkyFace( pixels.AsSpan( i * size * size * 8, size * size * 8 ), size, colors, face, i );
 		}
 
-		var resourceName = $"source1/{Host.Ident}/{System.IO.Path.ChangeExtension( FullPath, ".sky" )}";
 		var texture = Texture.CreateCube( size, size, ImageFormat.RGBA16161616F ).WithName( resourceName ).WithData( pixels ).Finish();
 		if ( texture is null || !texture.IsValid || texture.IsError )
 			throw new InvalidOperationException( $"{FullPath}: could not create sky texture." );
@@ -64,12 +70,13 @@ partial class MapLoader
 		return material;
 	}
 
-	private SkyFace ReadSkyFace( string name )
-	{
-		var path = VmtFile.NormalizePath( name, ".vmt" );
-		var vmt = VmtFile.Load( path, file => Host.OpenContentFile( file, ContentRoot ),
+	private VmtFile LoadSkyFace( string path ) =>
+		VmtFile.Load( path, file => Host.OpenContentFile( file, ContentRoot ),
 			symbol => symbol.Equals( "hdr", StringComparison.OrdinalIgnoreCase ) ? true : null,
 			diagnostic => Log.Trace( $"{diagnostic.Path}:{diagnostic.Line}: {diagnostic.Message}" ) );
+
+	private SkyFace ReadSkyFace( string path, VmtFile vmt )
+	{
 		var shader = VmtFile.NormalizeShaderName( vmt.ShaderName );
 		if ( shader is not ("sky" or "sky_hdr" or "unlitgeneric") )
 			throw new NotSupportedException( $"{path}: unsupported sky shader '{vmt.ShaderName}'." );

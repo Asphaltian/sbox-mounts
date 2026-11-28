@@ -73,6 +73,10 @@ partial class MapLoader
 					continue;
 				loader.Load( builder, entity );
 			}
+			else if ( !skybox && Host.CreateMapPoint( entity, world, bsp, ContentRoot ) is { } point )
+			{
+				builder.RegisterEntityIO( entity, point );
+			}
 			else if ( !skybox && Host.TriggerTag( className ) is { } tag )
 			{
 				var path = entity.Get( "model" );

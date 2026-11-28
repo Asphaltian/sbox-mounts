@@ -39,6 +39,9 @@ public abstract partial class SourceGameMount
 		return loader.Path;
 	}
 
+	internal virtual Material CreateProceduralSky( VmtFile face, string name, string contentRoot ) => null;
+	internal virtual Component CreateMapPoint( MapEntity entity, GameObject world, BspFile bsp, string contentRoot ) => null;
+
 	internal virtual string ResolveShader( string shader ) => shader;
 
 	internal SourceMaterial GetSourceMaterial( string path )

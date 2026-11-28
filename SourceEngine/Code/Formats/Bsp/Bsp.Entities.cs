@@ -5,6 +5,7 @@ namespace Source1;
 
 internal sealed class MapEntity( Dictionary<string, string> values, IReadOnlyList<KeyValuePair<string, string>> entries = null )
 {
+	internal IReadOnlyDictionary<string, string> Values => values;
 	internal IReadOnlyList<KeyValuePair<string, string>> KeyValues { get; } = entries ?? values.ToArray();
 	public string Get( string key, string fallback = null ) => values.GetValueOrDefault( key, fallback );
 	public Angles Angles

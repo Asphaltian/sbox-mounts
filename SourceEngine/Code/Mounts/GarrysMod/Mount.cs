@@ -2,7 +2,7 @@ using System;
 
 namespace Source1.GarrysMod;
 
-public sealed class Mount : SourceGameMount
+public sealed partial class Mount : SourceGameMount
 {
 	protected internal override string FallbackCubemap => "materials/engine/defaultcubemap.vtf";
 	protected override string ContentDirectory => "garrysmod";

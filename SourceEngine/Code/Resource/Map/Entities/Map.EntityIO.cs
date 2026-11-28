@@ -67,12 +67,6 @@ partial class MapLoader
 			foreach ( var (_, value) in source.KeyValues.Where( entry => entry.Key.Equals( output, StringComparison.OrdinalIgnoreCase ) ) )
 			{
 				var connection = BspEntityConnection.Read( output, value );
-				if ( connection.Parameter.Length > 0 && !connection.Input.Equals( "Shatter", StringComparison.OrdinalIgnoreCase )
-					&& !connection.Input.Equals( "SetFightTarget", StringComparison.OrdinalIgnoreCase ) )
-				{
-					warnings.Add( $"Output '{output}' to '{connection.Target}.{connection.Input}' requires an unsupported parameter; omitted." );
-					continue;
-				}
 				var targets = ResolveTargets( source, connection.Target ).ToArray();
 				if ( targets.Length == 0 )
 					warnings.Add( $"Output '{output}' target '{connection.Target}' has no imported native receiver; omitted." );
@@ -134,6 +128,9 @@ partial class MapLoader
 
 		private static Doo.Block BuildInput( Component target, string input, bool hasUser, string parameter )
 		{
+			if ( target is IMapInput receiver && receiver.BuildInput( input, parameter ) is { } action ) return action;
+			if ( parameter.Length > 0 && !input.Equals( "Shatter", StringComparison.OrdinalIgnoreCase )
+				&& !input.Equals( "SetFightTarget", StringComparison.OrdinalIgnoreCase ) ) return null;
 			if ( input.Equals( "Kill", StringComparison.OrdinalIgnoreCase ) )
 			{
 				return new Doo.InvokeBlock
@@ -207,4 +204,9 @@ partial class MapLoader
 			};
 		}
 	}
+}
+
+internal interface IMapInput
+{
+	Doo.Block BuildInput( string input, string parameter );
 }
