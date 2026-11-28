@@ -174,7 +174,7 @@ static partial class WeaponEffects
 				if ( spark is not null ) spark.Velocity = dir * Game.Random.Float( 128, maxSpeed ) * (2 - spread);
 			}
 		}
-		Hl2.FlatQuad.Create( "effects/yellowflare", origin, normal, Game.Random.Int( 24, 28 ), 0, 0.1f, mount, linear: true );
+		FlatQuad.Create( "effects/yellowflare", origin, normal, Game.Random.Int( 24, 28 ), 0, 0.1f, mount, linear: true );
 	}
 
 	internal static Transform DecalTransform( GameObject target, Vector3 position, Vector3 normal )

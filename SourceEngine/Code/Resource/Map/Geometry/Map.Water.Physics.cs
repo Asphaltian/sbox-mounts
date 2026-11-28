@@ -32,6 +32,7 @@ partial class MapLoader
 			_worldPhysics.Add( physics );
 			var child = new GameObject( false, "water physics" ) { Parent = world, IsStatic = true, LocalPosition = origin };
 			child.Tags.Add( "water" );
+			child.AddComponent<WaterImpact>().Mount = Host.Ident;
 			if ( settings.IsSlime ) child.Tags.Add( "slime" );
 			var collider = child.AddComponent<PhysicsCollider>();
 			collider.Physics = physics;

@@ -644,7 +644,7 @@ public class BulletWeapon : Weapon
 			for ( int i = 0; i < hits.Length; i++ )
 			{
 				var tr = hits[i];
-				effects[i] = new ShotEffect( tr.EndPosition, tr.Hit, tr.Normal, tr.GameObject, ImpactSurface( tr ), NoEvents: i > 0 );
+				effects[i] = new ShotEffect( tr.EndPosition, tr.Hit, tr.Normal, tr.GameObject, ImpactSurface( tr ), tr.StartPosition, NoEvents: i > 0 );
 			}
 			return effects;
 		}
@@ -787,7 +787,9 @@ public class BulletWeapon : Weapon
 
 	void PlayPelletEffects( ShotEffect shot, int pelletCount, bool first )
 	{
-		base.OnShootEffects( shot );
+		if ( shot.Origin is { } start ) WaterImpact.TrySplash( Scene, start, shot.HitPosition );
+		// Tracers and muzzle effects still originate at the weapon attachment.
+		base.OnShootEffects( shot with { Origin = null } );
 
 		DrawPelletTracer( shot, pelletCount, first );
 		EmitGunfireNoise( shot );
@@ -819,7 +821,7 @@ public class BulletWeapon : Weapon
 		if ( !shot.Hit ) return;
 		var mount = MountContent.OfWeapon( this );
 		if ( Setup.Data?.ClassName == "weapon_ar2" && !(shot.HitObject.IsValid() && shot.HitObject.Tags.Has( "source1_sky" )) )
-			Hl2.FlatQuad.Create( "effects/combinemuzzle2", shot.HitPosition + shot.Normal, shot.Normal, Game.Random.Float( 24, 32 ), 0, 0.25f, mount );
+			FlatQuad.Create( "effects/combinemuzzle2", shot.HitPosition + shot.Normal, shot.Normal, Game.Random.Float( 24, 32 ), 0, 0.25f, mount );
 
 		SurfaceImpact( shot, mount );
 	}

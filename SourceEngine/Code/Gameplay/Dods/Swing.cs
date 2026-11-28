@@ -13,7 +13,7 @@ internal struct Swing
 		_strong = allowStrong && victim.IsValid() && victim.EyeAngles.WithPitch( 0 ).Forward.Dot( weapon.AimRay.Forward ) > 0.3f;
 		weapon.SetNextFire( _strong ? 0.9f : 0.4f );
 		if ( trace.Hit ) _impact = _strong ? 0.4f : 0.2f;
-		weapon.MeleeSwingEffects( alternate: !allowStrong || _strong, playSound: !_strong );
+		weapon.MeleeSwingEffects( trace.StartPosition, trace.EndPosition, alternate: !allowStrong || _strong, playSound: !_strong );
 	}
 
 	public void Update( Weapon weapon, float damage )

@@ -335,8 +335,9 @@ public abstract class Weapon : BaseCombatWeapon
 	protected virtual void OnViewModelPlaced( ViewModel model ) { }
 
 	[Rpc.Broadcast( NetFlags.OwnerOnly )]
-	internal void MeleeSwingEffects( bool alternate, bool playSound )
+	internal void MeleeSwingEffects( Vector3 start, Vector3 end, bool alternate, bool playSound )
 	{
+		WaterImpact.TrySplash( Scene, start, end );
 		if ( alternate && WeaponModel is ViewModel view ) view.OnAlternateAttack( muzzleFlash: false );
 		else WeaponModel?.OnAttack();
 		if ( playSound ) Sounds.PlayWeaponSound( this, "melee_miss" );

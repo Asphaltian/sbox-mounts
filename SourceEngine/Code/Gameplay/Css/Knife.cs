@@ -69,6 +69,7 @@ public sealed class Knife : MeleeWeapon
 		WeaponModel?.OnAttack( shot.Hit ? shot.HitPosition : null, shot.Origin );
 		PostWeaponEvent( WeaponEvents.Attack );
 		if ( Application.IsDedicatedServer ) return;
+		if ( shot.Origin is { } start ) WaterImpact.TrySplash( Scene, start, shot.HitPosition );
 		if ( shot.Hit ) _ = PlayImpact( shot, stab );
 		else PlaySound( "Weapon_Knife.Slash" );
 	}

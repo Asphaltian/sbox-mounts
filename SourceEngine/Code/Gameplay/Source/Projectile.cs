@@ -194,6 +194,7 @@ public abstract partial class Projectile : Component
 		WorldRotation = NextRotation();
 		if ( !CanCollide )
 		{
+			WaterImpact.ProjectileCrossing( Scene, WorldPosition, end );
 			WorldPosition = end;
 			return;
 		}
@@ -201,6 +202,7 @@ public abstract partial class Projectile : Component
 		var trace = Scene.Trace.Ray( WorldPosition, end )
 			.IgnoreGameObjectHierarchy( LaunchIgnoreRoot ?? Attacker ).IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "projectile", "trigger" ).UseHitboxes();
 		var tr = TraceFlight( FlightHull( trace ) );
+		WaterImpact.ProjectileCrossing( Scene, WorldPosition, tr.EndPosition );
 		WorldPosition = tr.EndPosition;
 		if ( tr.Hit ) Hit( tr );
 	}

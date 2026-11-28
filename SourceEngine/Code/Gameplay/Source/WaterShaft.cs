@@ -1,8 +1,9 @@
-namespace Source1.Hl2;
+namespace Source1;
 
 /// <summary>A camera-facing sheet of spray rising from an underwater explosion.</summary>
-[Title( "HL2 Water Shaft" )]
-[Category( "Half-Life 2" )]
+[Title( "Water Shaft" )]
+[Category( "Source 1" )]
+[Alias( "Source1.Hl2.WaterShaft" )]
 public sealed class WaterShaft : Component
 {
 	SpriteRenderer _sprite;

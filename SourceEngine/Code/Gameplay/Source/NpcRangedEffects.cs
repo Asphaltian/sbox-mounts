@@ -131,6 +131,7 @@ public sealed class NpcRangedEffects : Component
 		}
 		if ( !Beam )
 		{
+			WaterImpact.TrySplash( Scene, origin, shot.HitPosition );
 			// The same FX_Tracer streak HL2 draws for everyone else's bullets.
 			WeaponEffects.DrawTracer( Scene, FlashType( renderer ), origin, shot.HitPosition, mount );
 			return;

@@ -406,19 +406,15 @@ static partial class WeaponEffects
 			MountedEffects.Spawn( "slime_splash_03", new Transform( position, Rotation.LookAt( Vector3.Up ) ), mount );
 			return;
 		}
-		var surface = Game.ActiveScene.Trace.Ray( position + Vector3.Up * 8, position + Vector3.Down * 64 )
-			.WithTag( "water" ).HitTriggersOnly().Run();
-		if ( surface.Hit && !surface.StartedSolid )
-			Hl2.FlatQuad.WaterRipple( surface.HitPosition, surface.Normal, mount );
-
+		FlatQuad.WaterRipple( position, Vector3.Up, mount );
 		SplashDrops( position, mount, explosion: false );
 		SplashPlume( position, mount, 1 );
 	}
 
 	internal static void ExplosionSplash( Vector3 surface, string mount )
 	{
-		Hl2.FlatQuad.ExplosionRipple( surface, mount );
-		Hl2.WaterShaft.CreatePair( surface, mount );
+		FlatQuad.ExplosionRipple( surface, mount );
+		WaterShaft.CreatePair( surface, mount );
 		SplashDrops( surface, mount, explosion: true );
 		SplashPlume( surface, mount, 2 );
 	}

@@ -130,30 +130,18 @@ public class MeleeWeapon : Weapon
 			}
 			OnShootImpact( shot );
 		}
-		else WaterImpact( shot );
+		else Splash( shot );
 
 		if ( shot.NoEvents ) return;
 		WeaponModel?.OnAttack( shot.Hit ? shot.HitPosition : null, shot.Origin );
 		PostWeaponEvent( WeaponEvents.Attack );
 	}
 
-	bool WaterImpact( in ShotEffect shot )
-	{
-		if ( shot.Origin is not { } start ) return false;
-		foreach ( var map in Scene.GetAll<SourceWaterMap>() )
-		{
-			if ( !map.Active || map.FindWater( shot.HitPosition ) < 0 || map.FindWater( start ) >= 0 ) continue;
-			var entry = Scene.Trace.Ray( start, shot.HitPosition ).WithTag( "water" ).HitTriggersOnly().Run();
-			if ( !entry.Hit ) continue;
-			WeaponEffects.WaterSplash( entry.HitPosition, MountContent.OfWeapon( this ), entry.GameObject.Tags.Has( "slime" ) );
-			return true;
-		}
-		return false;
-	}
+	bool Splash( in ShotEffect shot ) => shot.Origin is { } start && WaterImpact.TrySplash( Scene, start, shot.HitPosition );
 
 	protected override void OnShootImpact( in ShotEffect shot )
 	{
-		if ( !WaterImpact( shot ) ) SurfaceImpact( shot, MountContent.OfWeapon( this ) );
+		if ( !Splash( shot ) ) SurfaceImpact( shot, MountContent.OfWeapon( this ) );
 	}
 
 	/// <summary>Draws the aiming dot with the current attack availability.</summary>
