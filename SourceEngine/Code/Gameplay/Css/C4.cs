@@ -153,7 +153,7 @@ public sealed class PlantedC4 : Component
 
 	protected override void OnStart()
 	{
-		if ( Application.IsDedicatedServer ) return;
+		if ( GameObject.IsDestroyed || Application.IsDedicatedServer ) return;
 		_nextBeep = 1;
 		var mount = GetComponent<MountedModel>().MountName;
 		_beep = Sounds.Sound( "C4.PlantSound", mount );
@@ -177,7 +177,7 @@ public sealed class PlantedC4 : Component
 
 	protected override void OnFixedUpdate()
 	{
-		if ( !Networking.IsHost || Expires > 0 ) return;
+		if ( !Networking.IsHost || Expires > 0 || GameObject.IsDestroyed ) return;
 		var mount = GetComponent<MountedModel>().MountName;
 		ExplosionEffect.Shake( WorldPosition, 25, 3000 );
 		new Explosion

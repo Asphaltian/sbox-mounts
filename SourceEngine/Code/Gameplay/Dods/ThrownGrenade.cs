@@ -22,6 +22,7 @@ public abstract class ThrownGrenade : Projectile, Component.ICollisionListener
 
 	protected override void OnStart()
 	{
+		if ( GameObject.IsDestroyed ) return;
 		base.OnStart();
 		var gravity = -Scene.PhysicsWorld.Gravity.z;
 		if ( gravity > 0 ) GetComponent<Rigidbody>().GravityScale = 420 / gravity;
