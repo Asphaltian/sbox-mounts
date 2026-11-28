@@ -13,7 +13,7 @@ public sealed class ExplosionEffect : Component
 	[Property] public float Magnitude { get; set; } = 100;
 	[Property] public bool CreateScorch { get; set; } = true;
 
-	[Property] public string MountName { get; set; } = "css";
+	[Property] public string MountName { get; set; }
 	[Property] public string Sound { get; set; } = "BaseGrenade.Explode";
 
 	sealed class Puff

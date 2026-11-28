@@ -6,7 +6,7 @@ namespace Source1;
 [Title( "Source Projectile Weapon" )]
 [Category( "Source 1" )]
 [Alias( "Source1.SourceProjectileWeapon", "SourceProjectileWeapon" )]
-public sealed partial class ProjectileWeapon : Weapon
+public partial class ProjectileWeapon : Weapon
 {
 	public ProjectileWeapon()
 	{
@@ -25,7 +25,8 @@ public sealed partial class ProjectileWeapon : Weapon
 	/// <summary>HL2's launcher guides by default; the SDK's multiplayer rules toggle it with attack2.</summary>
 	[Sync( SyncFlags.FromHost )] public bool Guiding { get; private set; }
 	internal WeaponClips ThrowClips { get; set; }
-	enum ThrowStyle { Overhand, Lob, Roll }
+	internal virtual WeaponClips ConfigureThrow( Model model, WeaponClips clips ) => clips;
+	protected enum ThrowStyle { Overhand, Lob, Roll }
 	ThrowStyle _throwStyle;
 	internal float RedrawDuration { get; set; }
 	internal float? BoltChargeDelay { get; set; }
@@ -420,6 +421,11 @@ public sealed partial class ProjectileWeapon : Weapon
 	void FinishRedraw()
 	{
 		_redrawPending = false;
+		OnRedraw();
+	}
+
+	protected virtual void OnRedraw()
+	{
 		if ( IsLauncher && !UsesPrimaryClip ) OnReloadFinished();
 		else if ( IsHeld && AutoReload && CanReload() ) Reload();
 	}
@@ -429,16 +435,7 @@ public sealed partial class ProjectileWeapon : Weapon
 	{
 		var damage = GetComponentInParent<Sandbox.Npcs.BaseNpc>().IsValid() ? NpcDamage ?? ProjectileDamage : ProjectileDamage;
 		var inherited = Owner?.Velocity ?? Vector3.Zero;
-		var (origin, velocity) = Kind switch
-		{
-			Projectile.Kinds.Grenade when style == ThrowStyle.Roll && Owner.IsValid() => RollLaunch( forward, inherited ),
-			Projectile.Kinds.Grenade when style == ThrowStyle.Lob => (ThrowOrigin( eye, forward, 8, -8 ), inherited + forward * 350 + Vector3.Up * 50),
-			Projectile.Kinds.Grenade => (ThrowOrigin( eye, forward, 8 ), Hl2.Grenade.ThrowVelocity( forward, inherited )),
-			Projectile.Kinds.Bugbait => (eye + forward * 18 + Rotation.LookAt( forward ).Right * 12, Hl2.Bugbait.ThrowVelocity( forward, inherited )),
-			Projectile.Kinds.HeGrenade or Projectile.Kinds.Flashbang or Projectile.Kinds.SmokeGrenade => (ThrowOrigin( eye, forward, 0 ), Css.Rules.ThrowVelocity( forward, inherited )),
-			Projectile.Kinds.Rocket => (eye + Rotation.LookAt( forward ) * new Vector3( 12, -6, -3 ), Hl2.Rocket.LaunchVelocity( forward )),
-			_ => (eye, Hl2.CrossbowBolt.LaunchVelocity( Scene, eye, forward ))
-		};
+		var (origin, velocity) = LaunchTransform( eye, forward, inherited, style );
 		var radius = IsLauncher ? damage * 2 : ExplosionRadius;
 		attacker = ResolveLaunchAttacker( attacker );
 		if ( Kind == Projectile.Kinds.Grenade && style != ThrowStyle.Overhand )
@@ -475,6 +472,17 @@ public sealed partial class ProjectileWeapon : Weapon
 	[Rpc.Broadcast( NetFlags.HostOnly )]
 	void ThrowSound( string role ) => Sounds.PlayWeaponSound( this, role );
 
+	protected virtual (Vector3 Origin, Vector3 Velocity) LaunchTransform( Vector3 eye, Vector3 forward, Vector3 inherited, ThrowStyle style ) =>
+		Kind switch
+		{
+			Projectile.Kinds.Grenade when style == ThrowStyle.Roll && Owner.IsValid() => RollLaunch( forward, inherited ),
+			Projectile.Kinds.Grenade when style == ThrowStyle.Lob => (ThrowOrigin( eye, forward, 8, -8 ), inherited + forward * 350 + Vector3.Up * 50),
+			Projectile.Kinds.Grenade => (ThrowOrigin( eye, forward, 8 ), Hl2.Grenade.ThrowVelocity( forward, inherited )),
+			Projectile.Kinds.Bugbait => (eye + forward * 18 + Rotation.LookAt( forward ).Right * 12, Hl2.Bugbait.ThrowVelocity( forward, inherited )),
+			Projectile.Kinds.Rocket => (eye + Rotation.LookAt( forward ) * new Vector3( 12, -6, -3 ), Hl2.Rocket.LaunchVelocity( forward )),
+			_ => (eye, Hl2.CrossbowBolt.LaunchVelocity( Scene, eye, forward ))
+		};
+
 	(Vector3 Origin, Vector3 Velocity) RollLaunch( Vector3 forward, Vector3 inherited )
 	{
 		var feet = Owner.WorldPosition + Vector3.Up * 4;
@@ -485,14 +493,14 @@ public sealed partial class ProjectileWeapon : Weapon
 		return (CheckThrowPosition( center, feet + facing * 18 ), inherited + facing * 700);
 	}
 
-	Vector3 ThrowOrigin( Vector3 eye, Vector3 forward, float right, float up = 0 )
+	protected Vector3 ThrowOrigin( Vector3 eye, Vector3 forward, float right, float up = 0 )
 	{
 		return CheckThrowPosition( eye, eye + forward * 18 + Rotation.LookAt( forward ).Right * right + Vector3.Up * up );
 	}
 
-	Vector3 CheckThrowPosition( Vector3 eye, Vector3 target )
+	protected Vector3 CheckThrowPosition( Vector3 eye, Vector3 target, float hullSize = 12 )
 	{
-		var tr = Scene.Trace.Box( BBox.FromPositionAndSize( Vector3.Zero, 12 ), eye, target )
+		var tr = Scene.Trace.Box( BBox.FromPositionAndSize( Vector3.Zero, hullSize ), eye, target )
 			.IgnoreGameObjectHierarchy( AimIgnoreRoot ).WithoutTags( "trigger", "ragdoll", "projectile" ).Run();
 		return tr.Hit ? tr.EndPosition : target;
 	}

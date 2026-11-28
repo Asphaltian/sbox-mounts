@@ -12,7 +12,7 @@ sealed class WeaponSetup
 	public string FlashType;
 	public float FlashScale = 1;
 	public float NpcDamageScale = 1;
-	public (string Model, string Attachment, float? Speed)? Brass;
+	public ShellEjection Brass;
 	public string WeaponType;
 	public ViewModelMotion.Settings Motion { get; private set; } = ViewModelMotion.Settings.Default;
 	public float? PumpDelay;
@@ -176,9 +176,13 @@ sealed class WeaponSetup
 			Motion = source.ViewModelMovement;
 			source.ApplyWeaponDefaults( weapon, this, worldModel );
 		}
-		Brass = BrassOf( model );
+		Brass = BrassOf( model, mount as SourceGameMount );
 		if ( weapon is BulletWeapon gun )
 		{
+			if ( Data?.Bullets is null && gun.PelletCountSetting is { Length: > 0 } setting
+				&& mount.GetByPath( $"mount://{mount.Ident}/cfg/skill.cfg.json" ) is SkillConfigLoader skill
+				&& skill.Values.TryGetValue( setting, out var pellets ) )
+				gun.Ballistics = gun.Ballistics with { Pellets = (int)pellets };
 			PlayerDamage = gun.Ballistics.Damage;
 			FireSound = weapon.AttackSound;
 		}
@@ -192,7 +196,7 @@ sealed class WeaponSetup
 		{
 			if ( projectile.Kind == Projectile.Kinds.Bugbait && clips.SecondaryFire is not null )
 				projectile.SecondaryDelay = Duration( clips.SecondaryFire );
-			projectile.ThrowClips = clips;
+			projectile.ThrowClips = projectile.ConfigureThrow( model, clips );
 			// Thrown weapons draw a new item rather than swapping a magazine.
 			weapon.ReloadTime = draw;
 			projectile.RedrawDuration = weapon.ReloadTime;
@@ -235,14 +239,6 @@ sealed class WeaponSetup
 				bullet.AlternatePumpDelay = secondary;
 				bullet.PumpDuration = Duration( clips.Pump );
 			}
-			bullet.SilencerDuration = Duration( clips.AttachSilencer );
-			// Counter-Strike's attack2 is code; infer it from what the viewmodel authors for it.
-			if ( bullet.Secondary == Weapon.SecondaryFires.Default && bullet.AlternateProjectile is null )
-				bullet.Secondary = clips.AttachSilencer is not null ? Weapon.SecondaryFires.Silencer
-					: clips.Burst is not null ? Weapon.SecondaryFires.Burst
-					: model.Materials.Any( m => m.Name.Contains( "scope", StringComparison.OrdinalIgnoreCase ) ) ? Weapon.SecondaryFires.Zoom
-					: Weapon.SecondaryFires.Default;
-			if ( bullet.Secondary == Weapon.SecondaryFires.Zoom && bullet.ZoomLevels is not { Count: > 0 } ) bullet.ZoomLevels = [.. Css.Rules.ZoomLevels( WeaponType )];
 		}
 		// Warm each weapon's mounted dependencies once, keyed by path only so no
 		// model or task is rooted past scene teardown.
@@ -272,13 +268,13 @@ sealed class WeaponSetup
 		.Select( g => Sounds.Sound( g.Key + ".Single", mountName ) ).FirstOrDefault( x => x is not null );
 
 	/// <summary>CL_EVENT_EJECTBRASS1 leaves from the second attachment; Counter-Strike's brass events name theirs.</summary>
-	static (string Model, string Attachment, float? Speed)? BrassOf( Model model )
+	static ShellEjection BrassOf( Model model, SourceGameMount mount )
 	{
 		foreach ( var e in ModelSequences.Of( model ).Events )
 		{
 			if ( e.Id == AnimEvents.EjectBrass1 && model.Attachments.All.Count > 1 )
-				return (WeaponEffects.ShellModel( int.TryParse( e.Options, out var type ) ? type : 0 ), model.Attachments.All[1].Name, null);
-			if ( e.Name == "AE_CLIENT_EFFECT_ATTACH" && WeaponEffects.Brass( e.Options ) is { } brass ) return (brass.Model, brass.Attachment, brass.Speed);
+				return new( WeaponEffects.ShellModel( int.TryParse( e.Options, out var type ) ? type : 0 ), model.Attachments.All[1].Name );
+			if ( mount?.ReadBrassEvent( e ) is { } brass ) return brass;
 		}
 		return null;
 	}

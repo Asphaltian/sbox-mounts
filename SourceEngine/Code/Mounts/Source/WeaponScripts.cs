@@ -19,7 +19,7 @@ public abstract partial class SourceGameMount
 				var bytes = new byte[checked((int)stream.Length)];
 				stream.ReadExactly( bytes );
 				var root = WeaponScript.Parse( WeaponScript.Decode( bytes, entry.Key, WeaponScriptKey ), entry.Key );
-				var data = WeaponScript.Read( root, entry.Key, skill );
+				var data = WeaponScript.Read( root, entry.Key, skill, this );
 				if ( data is null ) continue;
 				data.Icon = MountWeaponIcon( context, files, entry.Key, SourceHudTexture.Read( root, "weapon" ) ?? SourceHudTexture.Read( root, "weapon_s" ), hudFonts );
 				data.PrimaryAmmoResource = AmmoResource( context, data.PrimaryAmmo );
@@ -40,9 +40,11 @@ public abstract partial class SourceGameMount
 
 		string AmmoResource( MountContext context, string name )
 		{
-			if ( (skill.AmmoCapacity( name ) ?? AmmoCarryLimit( name )) is not { } capacity ) return null;
+			if ( string.IsNullOrEmpty( name ) ) return null;
+			var (title, limit) = AmmoDefaults( name );
+			if ( (skill.AmmoCapacity( name ) ?? limit ) is not { } capacity ) return null;
 			var path = $"scripts/ammo/{Uri.EscapeDataString( name.ToLowerInvariant() )}.ammo";
-			if ( ammoResources.Add( path ) ) context.Add( ResourceType.GameResource, path, new AmmoLoader( name, capacity ) );
+			if ( ammoResources.Add( path ) ) context.Add( ResourceType.GameResource, path, new AmmoLoader( title, capacity ) );
 			return $"mount://{Ident}/{path}";
 		}
 	}
@@ -87,13 +89,19 @@ public abstract partial class SourceGameMount
 
 	protected internal virtual BaseAmmoResource CreateAmmoResource() => new();
 
+	internal virtual ShellEjection ReadBrassEvent( SourceModelSequenceData.Event e ) => null;
+
+	internal virtual bool DrawMuzzleFlash( string type, GameObject attachment, bool firstPerson, float scale ) => false;
+
+	internal virtual SourceModelWeaponData CreateWeaponData( VmtParameters script ) => new();
+
 	internal virtual void ApplyWeaponDefaults( BaseCombatWeapon weapon, WeaponSetup setup, string worldModel ) { }
 
 	/// <summary>The ICE key of this game's encrypted <c>.ctx</c> weapon scripts, if it ships any.</summary>
 	protected virtual string WeaponScriptKey => null;
 
-	/// <summary>How much of an ammo type a player carries, for a game that keeps it in code instead of <c>cfg/skill.cfg</c>'s sk_max_ values.</summary>
-	private protected virtual int? AmmoCarryLimit( string ammo ) => null;
+	/// <summary>The pickup title and fallback reserve limit for a weapon script's ammo type.</summary>
+	private protected virtual (string Title, int? Capacity) AmmoDefaults( string ammo ) => (ammo, null);
 
 	protected virtual string WeaponScriptPrefix => "scripts/weapon_";
 

@@ -22,17 +22,6 @@ public sealed class Mount : SourceGameMount
 	protected internal override bool UseDrawSequenceDuration => true;
 	protected internal override BaseAmmoResource CreateAmmoResource() => new GarrysMod.Ammo();
 
-	internal override void ApplyWeaponDefaults( BaseCombatWeapon weapon, WeaponSetup setup, string worldModel ) =>
-		ApplyShotgunDefaults( this, weapon, setup.Data );
-
-	internal static void ApplyShotgunDefaults( SourceGameMount mount, BaseCombatWeapon weapon, SourceModelWeaponData script )
-	{
-		if ( weapon is not BulletWeapon shotgun || script is not { Bullets: null, ClassName: "weapon_shotgun" } ) return;
-		var skill = mount.GetByPath( $"mount://{mount.Ident}/cfg/skill.cfg.json" ) as SkillConfigLoader;
-		var pellets = skill?.Values.Get( "sk_plr_num_shotgun_pellets", 7 ) ?? 7;
-		shotgun.Ballistics = shotgun.Ballistics with { Pellets = (int)pellets };
-	}
-
 	protected internal override string[] VoicePatterns( VoiceLine line ) => line switch
 	{
 		VoiceLine.Alert => ["{0}.Alert", "{0}.SeeEnemy", "{0}.FoundEnemy", "{0}.AlertNear"],

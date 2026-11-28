@@ -1,5 +1,3 @@
-using System;
-
 namespace Source1.Css;
 
 /// <summary>
@@ -11,8 +9,7 @@ namespace Source1.Css;
 [Alias( "Source1.CssKnife", "CssKnife" )]
 public sealed class Knife : MeleeWeapon
 {
-	/// <summary>Radius of the swing trace sphere.</summary>
-	[Property] public float SwingRadius { get; set; } = 10f;
+	static readonly BBox SwingHull = new( new Vector3( -16, -16, -18 ), new Vector3( 16, 16, 18 ) );
 
 	[Property] public float SwingForce { get; set; } = 1000f;
 
@@ -20,8 +17,8 @@ public sealed class Knife : MeleeWeapon
 	const float StabDamage = 65;
 	const float SlashRange = 48;
 	const float StabRange = 32;
-	const float SlashHitDelay = 0.4f;
-	const float SlashMissDelay = 0.5f;
+	const float SlashHitDelay = 0.5f;
+	const float SlashMissDelay = 0.4f;
 	const float StabHitDelay = 1.1f;
 	const float StabMissDelay = 1;
 
@@ -29,61 +26,64 @@ public sealed class Knife : MeleeWeapon
 
 	public override bool CanSecondaryAttack() => NextSecondaryFire <= 0 && NextPrimaryFire <= 0;
 
-	protected override bool OnAdding( BaseInventoryComponent inventory )
-	{
-		Setup.ConfigureAmmo( this );
-		return base.OnAdding( inventory );
-	}
+	TimeUntil _fullSlash;
 
-	protected override async void OnStart()
+	protected override void OnEquipped()
 	{
-		base.OnStart();
-		try
-		{
-			await WeaponSetup.ConfigureWeapon( this );
-			// The script's single_shot is a leftover Desert Eagle shot; CKnife plays its own sounds.
-			if ( IsValid ) AttackSound = null;
-		}
-		catch ( Exception e )
-		{
-			Log.Warning( $"Couldn't configure mounted knife: {e.Message}" );
-		}
+		base.OnEquipped();
+		_fullSlash = DeployTime + 0.4f;
+		if ( !Application.IsDedicatedServer ) PlaySound( "Weapon_Knife.Deploy" );
 	}
 
 	public override void PrimaryAttack() => Swing( false );
 
 	public override void SecondaryAttack() => Swing( true );
 
-	// KnifeSlash supplies its own contact sound.
-	protected override void OnShootImpact( in ShotEffect shot ) =>
-		ImpactPrefab( shot.HitObject, shot.Surface, shot.HitPosition, shot.Normal, GetShotDirection( shot ) );
-
 	void Swing( bool stab )
 	{
-		var tr = Scene.Trace.Ray( AimRay, stab ? StabRange : SlashRange )
+		var aim = AimRay;
+		var trace = Scene.Trace.Ray( aim, stab ? StabRange : SlashRange )
 			.IgnoreGameObjectHierarchy( AimIgnoreRoot )
-			.WithoutTags( "playercontroller" )
-			.UseHitboxes()
-			.Run();
-		if ( !tr.Hit )
-			tr = Scene.Trace.Ray( AimRay, stab ? StabRange : SlashRange ).Radius( SwingRadius )
-				.IgnoreGameObjectHierarchy( AimIgnoreRoot ).WithoutTags( "playercontroller" ).UseHitboxes().Run();
-		var hit = tr.GameObject.IsValid();
-		SetNextFire( stab ? (hit ? StabHitDelay : StabMissDelay) : (hit ? SlashHitDelay : SlashMissDelay) );
-		SwingEffects( new ShotEffect( tr.HitPosition, tr.Hit, tr.Normal, tr.GameObject, tr.Surface ), stab );
-		ShootBullet( tr, stab ? StabDamage : SlashDamage, SwingForce, hitboxTags: true );
-		KickView();
+			.WithoutTags( "trigger" );
+		var tr = trace.Run();
+		if ( !tr.Hit ) tr = trace.Size( SwingHull ).Run();
+		var delay = stab ? (tr.Hit ? StabHitDelay : StabMissDelay) : (tr.Hit ? SlashHitDelay : SlashMissDelay);
+		var damage = stab ? StabDamage : _fullSlash < 0 ? 20 : SlashDamage;
+		if ( stab && tr.GameObject.IsValid() && tr.GameObject.GetComponentInParent<PlayerController>() is { } victim )
+		{
+			var forward = victim.EyeTransform.Rotation.Forward.WithZ( 0 ).Normal;
+			var towards = (victim.WorldPosition - (Owner?.WorldPosition ?? aim.Position)).WithZ( 0 ).Normal;
+			if ( towards.Dot( forward ) > 0.8f ) damage *= 3;
+		}
+		_fullSlash = delay + 0.4f;
+		SetNextPrimaryFire( delay );
+		SetNextSecondaryFire( stab ? delay : SlashHitDelay );
+		SwingEffects( new ShotEffect( tr.HitPosition, tr.Hit, tr.Normal, tr.GameObject, tr.Surface, aim.Position ), stab );
+		tr.Direction = aim.Forward;
+		ShootBullet( tr, damage, SwingForce, hitboxTags: false );
 	}
 
 	[Rpc.Broadcast( NetFlags.OwnerOnly )]
 	void SwingEffects( ShotEffect shot, bool stab )
 	{
-		OnShootEffects( shot );
+		WeaponModel?.OnAttack( shot.Hit ? shot.HitPosition : null, shot.Origin );
+		PostWeaponEvent( WeaponEvents.Attack );
 		if ( Application.IsDedicatedServer ) return;
-		var flesh = shot.Surface?.ResourceName?.Contains( "flesh" ) == true;
-		var sound = !shot.Hit ? "Weapon_Knife.Slash" : !flesh ? "Weapon_Knife.HitWall" : stab ? "Weapon_Knife.Stab" : "Weapon_Knife.Hit";
-		if ( Sounds.Sound( sound, MountContent.OfWeapon( this ) ) is { } swing ) GameObject.PlaySound( swing );
-		// The base played the slash clip; a stab replaces it on the same frame.
-		if ( stab && WeaponModel is ViewModel view ) view.OnAlternateAttack();
+		if ( shot.Hit ) _ = PlayImpact( shot, stab );
+		else PlaySound( "Weapon_Knife.Slash" );
+	}
+
+	async Task PlayImpact( ShotEffect shot, bool stab )
+	{
+		await GameTask.DelaySeconds( stab ? 0.2f : 0.1f );
+		if ( !IsValid || !shot.HitObject.IsValid() ) return;
+		var player = shot.HitObject.GetComponentInParent<PlayerController>();
+		PlaySound( player.IsValid() ? stab ? "Weapon_Knife.Stab" : "Weapon_Knife.Hit" : "Weapon_Knife.HitWall" );
+		ImpactPrefab( shot.HitObject, shot.Surface, shot.HitPosition, shot.Normal, GetShotDirection( shot ) );
+	}
+
+	void PlaySound( string name )
+	{
+		if ( Sounds.Sound( name, MountContent.OfWeapon( this ) ) is { } sound ) GameObject.PlaySound( sound );
 	}
 }

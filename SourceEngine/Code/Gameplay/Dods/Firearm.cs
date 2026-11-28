@@ -1,5 +1,3 @@
-using System;
-
 namespace Source1.Dods;
 
 public class Firearm : BulletWeapon, PlayerController.IEvents
@@ -36,8 +34,7 @@ public class Firearm : BulletWeapon, PlayerController.IEvents
 			if ( Accuracy is not { } cone ) return base.CurrentSpread;
 			if ( Owner.IsValid() && Owner.Velocity.WithZ( 0 ).LengthSquared > 45 * 45 )
 				cone += Setup.Data.AccuracyMovePenalty ?? 0;
-			var degrees = 2 * MathF.Asin( Math.Clamp( cone, 0, 1 ) ).RadianToDegree();
-			return new Vector2( degrees, degrees ) * SpreadScale;
+			return SpreadDegrees( cone ) * SpreadScale;
 		}
 	}
 }

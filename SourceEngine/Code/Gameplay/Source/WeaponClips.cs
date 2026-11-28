@@ -39,6 +39,7 @@ sealed record WeaponClips
 	public string ThrowWindup { get; init; }
 	/// <summary>An ACT_VM_DRYFIRE that fires, Counter-Strike's last round, rather than an empty click.</summary>
 	public string LastShot { get; init; }
+	public string LastShotLeft { get; init; }
 	/// <summary>A secondary clip authoring three or more shots, Counter-Strike's burst fire.</summary>
 	public string Burst { get; init; }
 	/// <summary>Primary and secondary clips flash different muzzles, like Counter-Strike's dual Elites.</summary>
@@ -118,6 +119,7 @@ sealed record WeaponClips
 			Fire = throws ? release.Name : Find( "ACT_VM_PULLPIN", fire ),
 			DryFire = lastShot is null ? dryFire : null,
 			LastShot = Find( "ACT_VM_PRIMARYATTACK_EMPTY", lastShot ),
+			LastShotLeft = Find( "ACT_VM_DRYFIRE_LEFT", null ),
 			SecondaryFire = secondaryFire,
 			Burst = burst,
 			Alternates = burst is null && MuzzleOf( fire ) is { } primary && MuzzleOf( secondaryFire ) is { } other && primary != other,

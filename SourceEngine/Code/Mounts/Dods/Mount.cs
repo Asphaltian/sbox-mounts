@@ -11,7 +11,7 @@ public sealed class Mount : SourceGameMount
 	protected internal override ViewModelMotion.Settings ViewModelMovement { get; } = new( BobCycle: 0.8f, ForwardBob: 0.4f,
 		SideBob: 0, BobAcceleration: 320, TurnSway: 2.6f, MirrorSway: false );
 
-	private protected override int? AmmoCarryLimit( string ammo ) => ammo switch
+	private protected override (string Title, int? Capacity) AmmoDefaults( string ammo ) => (ammo, ammo switch
 	{
 		"DOD_AMMO_RIFLEGRENADE_GER" or "DOD_AMMO_RIFLEGRENADE_GER_LIVE" or
 		"DOD_AMMO_RIFLEGRENADE_US" or "DOD_AMMO_RIFLEGRENADE_US_LIVE" => 2,
@@ -30,7 +30,7 @@ public sealed class Mount : SourceGameMount
 		"DOD_AMMO_C96" => 60,
 		"DOD_AMMO_M1CARBINE" => 165,
 		_ => null
-	};
+	});
 
 	internal override void ApplyWeaponDefaults( BaseCombatWeapon weapon, WeaponSetup setup, string worldModel )
 	{

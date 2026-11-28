@@ -86,6 +86,7 @@ public sealed class ViewModel : BaseWeaponModel
 	bool _reloading;
 	bool _pumpAfterShot;
 	Model _configuredModel;
+	string _configuredHands;
 	Model _mirroredModel;
 	int[] _eventAttachments = [];
 	bool _attachmentsResolved;
@@ -104,9 +105,10 @@ public sealed class ViewModel : BaseWeaponModel
 	string _swingClip;
 	internal bool IsSwinging => _swingClip is not null && _animation?.Current == _swingClip;
 
-	SourceModelSequenceData[] _hitSwings = [], _missSwings = [];
+	SourceModelSequenceData[] _hitSwings = [], _missSwings = [], _primaryAttacks = [], _burstAttacks = [], _silencedAttacks = [];
 	string _flashType;
 	string _mount;
+	SourceGameMount _sourceMount;
 
 	void ConfigureSequences()
 	{
@@ -123,15 +125,23 @@ public sealed class ViewModel : BaseWeaponModel
 		EjectBrass = null;
 		TracerEffect = null;
 		_mount = MountContent.Of( model );
+		_sourceMount = Sandbox.Mounting.Directory.Get( _mount ) as SourceGameMount;
 		var sequences = ModelSequences.Of( model ).All;
 		var clips = model.AnimationClips();
-		SourceModelSequenceData[] Swings( string activity ) => _weapon is MeleeWeapon
-			? sequences.Where( s => !s.Delta && s.Activity == activity && clips.ContainsKey( s.Name ) ).ToArray() : [];
-		_hitSwings = Swings( "ACT_VM_HITCENTER" );
-		_missSwings = Swings( "ACT_VM_MISSCENTER" );
+		SourceModelSequenceData[] Activities( string activity ) =>
+			sequences.Where( s => !s.Delta && s.Activity == activity && clips.ContainsKey( s.Name ) ).ToArray();
+		_hitSwings = _weapon is MeleeWeapon ? Activities( "ACT_VM_HITCENTER" ) : [];
+		_missSwings = _weapon is MeleeWeapon ? Activities( "ACT_VM_MISSCENTER" ) : [];
 		_flashType = WeaponEffects.FlashType( sequences );
 		_plainClips = WeaponClips.Resolve( model, this );
+		if ( _weapon is ProjectileWeapon projectile && _plainClips.Throws )
+			_plainClips = projectile.ConfigureThrow( model, _plainClips );
+		_primaryAttacks = Activities( "ACT_VM_PRIMARYATTACK" );
+		if ( _missSwings.Length > 0 && _hitSwings.Length == 0 )
+			_hitSwings = [.. _primaryAttacks, .. Activities( "ACT_VM_SECONDARYATTACK" )];
+		_burstAttacks = _plainClips.Burst is null ? [] : Activities( "ACT_VM_SECONDARYATTACK" );
 		_silencedClips = _plainClips.AttachSilencer is null ? null : WeaponClips.Resolve( model, this, "_SILENCED" );
+		_silencedAttacks = _silencedClips is null ? [] : Activities( "ACT_VM_PRIMARYATTACK_SILENCED" );
 		_clips = _plainClips;
 		var lookup = ModelSequences.Of( model );
 		_deployedFire = lookup.FindActivity( "ACT_VM_PRIMARYATTACK_DEPLOYED" );
@@ -143,7 +153,7 @@ public sealed class ViewModel : BaseWeaponModel
 		IsIncremental = _clips.Incremental;
 		_choices = [.. Choices( _plainClips ), .. _silencedClips is null ? [] : Choices( _silencedClips ),
 			.. _deployedClips is null ? [] : Choices( _deployedClips ), (_deployClip, false), (_undeployClip, false), (_deployedFire, false),
-			.. _hitSwings.Select( s => (s.Name, false) ), .. _missSwings.Select( s => (s.Name, false) )];
+			.. _hitSwings.Concat( _missSwings ).Concat( _primaryAttacks ).Concat( _burstAttacks ).Concat( _silencedAttacks ).Select( s => (s.Name, false) )];
 		if ( _weapon is ProjectileWeapon { Kind: Projectile.Kinds.Rocket } )
 			_choices = [.. _choices, (_clips.LoweredIdle, true), (_clips.Lower, false), (_clips.Raise, false)];
 		_muzzleEventClips.Clear();
@@ -158,7 +168,7 @@ public sealed class ViewModel : BaseWeaponModel
 	}
 
 	static (string Name, bool Loop)[] Choices( WeaponClips clips ) => [(clips.Idle, true), (clips.EmptyIdle, true), (clips.Draw, false), (clips.EmptyDraw, false), (clips.Fire, false),
-		(clips.SecondaryFire, false), (clips.DryFire, false), (clips.LastShot, false), (clips.Reload, false), (clips.EmptyReload, false), (clips.ReloadInsert, false),
+		(clips.SecondaryFire, false), (clips.DryFire, false), (clips.LastShot, false), (clips.LastShotLeft, false), (clips.Reload, false), (clips.EmptyReload, false), (clips.ReloadInsert, false),
 		(clips.ReloadEnd, false), (clips.Pump, false), (clips.ThrowWindup, false), (clips.LowWindup, false), (clips.Lob.Clip, false), (clips.SecondaryWindup, false),
 		(clips.AttachSilencer, false), (clips.DetachSilencer, false), .. clips.BeltIdle.Select( name => (name, true) ), .. clips.BeltFire.Select( name => (name, false) ), .. clips.Recoil.Select( name => (name, false) )];
 
@@ -189,13 +199,13 @@ public sealed class ViewModel : BaseWeaponModel
 		// CL_EVENT_MUZZLEFLASH0-3 imply attachments 1-4. Counter-Strike's option numbers its attachment instead.
 		else if ( AnimEvents.IsMuzzleFlash( e.Id ) )
 			MuzzleFlash( EventAttachment( e.Options ) ?? AttachmentObject( (e.Id - AnimEvents.MuzzleFlash0) / 10 ), null );
-		else if ( e.Name == "AE_CLIENT_EFFECT_ATTACH" && WeaponEffects.Brass( e.Options ) is { } brass )
-			EjectShell( brass.Model, EventAttachment( brass.Attachment ), brass.Speed );
+		else if ( _sourceMount?.ReadBrassEvent( e ) is { } brass )
+			EjectShell( brass, EventAttachment( brass.Attachment ) );
 		// CL_EVENT_EJECTBRASS1 always uses attachment 2; its option is the shell type.
 		else if ( e.Id == AnimEvents.EjectBrass1 )
-			EjectShell( WeaponEffects.ShellModel( int.TryParse( e.Options, out var shell ) ? shell : 0 ), AttachmentObject( 1 ), null );
+			EjectShell( new( WeaponEffects.ShellModel( int.TryParse( e.Options, out var shell ) ? shell : 0 ), null ), AttachmentObject( 1 ) );
 		else if ( _weapon is Weapon weapon && weapon.BrassForEvent( e ) is { } casing )
-			EjectShell( casing, AttachmentObject( 1 ), null );
+			EjectShell( new( casing, null ), AttachmentObject( 1 ) );
 	}
 
 	/// <summary>An event's attachment by its 1-based number, as Source's GetAttachment( int ) reads it.</summary>
@@ -314,14 +324,11 @@ public sealed class ViewModel : BaseWeaponModel
 	/// Like Source's FormatViewModelAttachment, world brass starts where the viewmodel draws the port; that only
 	/// moves the origin, so the port's axes are used as posed. A mirrored model reflects them with its bones.
 	/// </summary>
-	void EjectShell( string model, GameObject attachment, float? speed )
+	void EjectShell( ShellEjection shell, GameObject attachment )
 	{
 		if ( !attachment.IsValid() || !Scene.Camera.IsValid() ) return;
-		var port = attachment.WorldRotation;
 		var owner = _weapon?.Owner;
-		var inherited = owner.IsValid() ? owner.Velocity : Vector3.Zero;
-		WeaponEffects.EjectBrass( model, DrawnPosition( attachment ), DrawnDirection( port.Forward ), DrawnDirection( port.Right ),
-			DrawnDirection( port.Up ), speed, Scene.Camera.WorldRotation, inherited, _mount );
+		shell.Eject( attachment, Scene.Camera.WorldRotation, owner.IsValid() ? owner.Velocity : Vector3.Zero, _mount, this );
 	}
 
 	void Play( string name, bool redraw = false, bool restart = true )
@@ -354,6 +361,7 @@ public sealed class ViewModel : BaseWeaponModel
 	/// <summary>The only entry point for the replacement hands; they configure themselves whenever the model changes.</summary>
 	void UpdateHands()
 	{
+		_configuredHands = ReplaceHands ? Hands : null;
 		if ( !ReplaceHands || string.IsNullOrWhiteSpace( HandsModel ) )
 		{
 			GetComponent<ViewModelHands>()?.Destroy();
@@ -386,6 +394,7 @@ public sealed class ViewModel : BaseWeaponModel
 		if ( !Renderer.IsValid() || !Renderer.SceneModel.IsValid() ) return;
 		ConfigureSequences();
 		UpdateMirror();
+		if ( _configuredHands != (ReplaceHands ? Hands : null) ) UpdateHands();
 		var hands = GetComponent<ViewModelHands>();
 		if ( hands.IsValid() && !hands.Prepare() ) return;
 		if ( !_animation.IsReady && !_animation.Ensure( Renderer, _choices, _pending ?? IdleClip ) ) return;
@@ -530,11 +539,14 @@ public sealed class ViewModel : BaseWeaponModel
 		var swings = hitPoint.HasValue ? _hitSwings : _missSwings;
 		if ( swings.Length > 0 )
 		{
-			_swingClip = PickSwing( swings );
+			_swingClip = PickSequence( swings );
 			Play( _swingClip );
 			return;
 		}
 		var clip = AttackClip();
+		if ( clip == _plainClips.Fire && _primaryAttacks.Length > 1 ) clip = PickSequence( _primaryAttacks );
+		else if ( clip == _silencedClips?.Fire && _silencedAttacks.Length > 1 ) clip = PickSequence( _silencedAttacks );
+		else if ( clip == _plainClips.Burst && _burstAttacks.Length > 1 ) clip = PickSequence( _burstAttacks );
 		// Later rounds of an authored burst are already in its clip.
 		if ( clip is null ) return;
 		FlashUnlessAuthored( clip );
@@ -585,27 +597,28 @@ public sealed class ViewModel : BaseWeaponModel
 		if ( !_muzzleEventClips.Contains( clip ?? "" ) ) MuzzleFlash( null, null );
 	}
 
-	string PickSwing( SourceModelSequenceData[] swings )
+	string PickSequence( SourceModelSequenceData[] sequences )
 	{
 		var total = 0;
-		foreach ( var swing in swings )
+		foreach ( var sequence in sequences )
 		{
-			if ( swing.ActivityWeight < 0 && swing.Name == _animation.Current ) return swing.Name;
-			total += Math.Abs( swing.ActivityWeight );
+			if ( sequence.ActivityWeight < 0 && sequence.Name == _animation.Current ) return sequence.Name;
+			total += Math.Abs( sequence.ActivityWeight );
 		}
 		var choice = Random.Shared.Next( total );
-		foreach ( var swing in swings )
+		foreach ( var sequence in sequences )
 		{
-			choice -= Math.Abs( swing.ActivityWeight );
-			if ( choice < 0 ) return swing.Name;
+			choice -= Math.Abs( sequence.ActivityWeight );
+			if ( choice < 0 ) return sequence.Name;
 		}
-		return swings[0].Name;
+		return sequences[0].Name;
 	}
 
 	string AttackClip()
 	{
 		if ( _clips.ThrowWindup is not null ) return _clips.ThrowWindup;
 		var weapon = _weapon;
+		if ( weapon is Weapon mounted && mounted.SelectAttackClip( _clips ) is { } selected ) return selected;
 		if ( BeltClip( _clips.BeltFire ) is { } belt ) return belt;
 		if ( weapon is BulletWeapon { BurstMode: true } burst && _clips.Burst is not null ) return burst.BurstFollowUp ? null : _clips.Burst;
 		if ( _deployedClips is null && _deployedFire is not null && weapon is Weapon { UsesDeployedClips: true } ) return _deployedFire;

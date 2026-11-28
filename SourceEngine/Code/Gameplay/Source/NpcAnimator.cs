@@ -10,7 +10,7 @@ namespace Source1;
 [Title( "Source NPC Animator" )]
 [Category( "Source 1" )]
 [Alias( "Source1.SourceNpcAnimator", "SourceNpcAnimator" )]
-public sealed class NpcAnimator : Component, BaseCombatWeapon.IEvents
+public class NpcAnimator : Component, BaseCombatWeapon.IEvents
 {
 	const string UpperLayer = "upper";
 	const string ReloadLayer = "reload";
@@ -79,6 +79,8 @@ public sealed class NpcAnimator : Component, BaseCombatWeapon.IEvents
 		}
 	}
 
+	protected virtual NpcWeaponLayers ResolveWeaponLayers( Model model, ModelSequences sequences, BaseCombatWeapon weapon, Model worldModel, NpcWeaponLayers legs ) => legs;
+
 	Model WeaponModel => Npc.Weapon?.WorldModel?.GetComponentInChildren<SkinnedModelRenderer>()?.Model;
 
 	/// <summary>
@@ -98,7 +100,7 @@ public sealed class NpcAnimator : Component, BaseCombatWeapon.IEvents
 		_link = new LinkAnimation( _sequences );
 		var weaponClass = Hl2.ActTable.WeaponClass( _sequences, weapon );
 		var acttable = Hl2.ActTable.Resolve( _sequences, weaponClass );
-		_layers = Css.PlayerAnimState.Resolve( model, _sequences, weapon, key.Item2, acttable ) ?? acttable;
+		_layers = ResolveWeaponLayers( model, _sequences, weapon, key.Item2, acttable );
 		_reloadClip = _layers.Reloads[0];
 		_aimLayer = FindAimLayer( weaponClass );
 

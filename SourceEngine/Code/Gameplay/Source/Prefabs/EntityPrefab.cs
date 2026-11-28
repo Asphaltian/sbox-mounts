@@ -27,7 +27,13 @@ internal sealed class EntityPrefab( GameObject root, SourceGameMount mount, Enti
 				weapon.ViewModelPrefab = p.Prefab( viewPath );
 				weapon.WorldModelPrefab = p.Prefab( worldPath );
 				configure( weapon );
-				WeaponSetup.ApplyInventoryData( weapon, p.Mount.FindWeaponScript( viewModel, worldModel, fallback, $"weapon_{name}" ) );
+				var script = p.Mount.FindWeaponScript( viewModel, worldModel, fallback, $"weapon_{name}" );
+				if ( script?.DroppedModel is { } dropped )
+				{
+					p.Model.ModelPath = dropped;
+					p.Model.FallbackModelPath = worldModel;
+				}
+				WeaponSetup.ApplyInventoryData( weapon, script );
 			}
 		};
 		yield return new( game, EntityKind.ViewModel, view, null, null, null )

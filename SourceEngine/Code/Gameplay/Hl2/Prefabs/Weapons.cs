@@ -264,7 +264,8 @@ public static class Weapons
 				w.DeployTime = 0.183333f;
 				w.PreferredSlot = 2;
 				w.AttackDamageTags = new TagSet( ["bullet", "buckshot"] );
-				w.Ballistics = w.Ballistics with { Damage = 8, Range = 56755.84f, Force = 1308.6818f, SpreadBase = new( 10, 10 ), SpreadGrowth = new( 0, 0 ) };
+				w.PelletCountSetting = "sk_plr_num_shotgun_pellets";
+				w.Ballistics = w.Ballistics with { Pellets = 7, Damage = 8, Range = 56755.84f, Force = 1308.6818f, SpreadBase = new( 10, 10 ), SpreadGrowth = new( 0, 0 ) };
 				w.ClipMaxSize = 45;
 				w.PunchResponse = Weapon.PunchResponses.AddImpulse;
 				w.PunchPitch = new( -2, -1 );

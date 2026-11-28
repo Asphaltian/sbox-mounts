@@ -3,8 +3,7 @@ using System;
 namespace Source1;
 
 /// <summary>
-/// Builds muzzle flashes and ejected shells from mounted sprites and models. HL2 animation events
-/// select the flash type. Counter-Strike weapon scripts specify the muzzle flash style.
+/// Builds muzzle flashes and ejected shells from mounted sprites and models.
 /// </summary>
 static partial class WeaponEffects
 {
@@ -25,78 +24,35 @@ static partial class WeaponEffects
 		.Where( e => e.Name is "AE_MUZZLEFLASH" or "AE_NPC_MUZZLEFLASH" ).Select( e => FlashType( e.Options ) ).FirstOrDefault( x => x is not null );
 
 	/// <summary>
-	/// A Counter-Strike AE_CLIENT_EFFECT_ATTACH brass event, "EjectBrass_556 2 150": the shell model,
-	/// the attachment it leaves from and its speed. Null for any other client effect.
-	/// </summary>
-	public static (string Model, string Attachment, float Speed)? Brass( string options )
-	{
-		var parts = options?.Split( ' ', StringSplitOptions.RemoveEmptyEntries ) ?? [];
-		const string prefix = "EjectBrass";
-		if ( parts.Length < 2 || parts[0].Length <= prefix.Length + 1 || !parts[0].StartsWith( prefix, StringComparison.OrdinalIgnoreCase ) ) return null;
-		var speed = parts.Length > 2 && float.TryParse( parts[2], out var value ) ? value : 100;
-		return ($"models/shells/shell_{parts[0][(prefix.Length + 1)..].ToLowerInvariant()}.mdl", parts[1], speed);
-	}
-
-	/// <summary>
-	/// Handgun and shotgun particles are emitted in world space. World flashes use the NPC scale for the type
-	/// or three quarters of the Counter-Strike weapon script's scale.
+	/// Handgun and shotgun particles are emitted in world space.
 	/// </summary>
 	public static void MuzzleFlash( string type, GameObject attachment, bool firstPerson, string mount, float scale = 1 )
 	{
-		if ( Application.IsDedicatedServer || !attachment.IsValid() || type == Css.Rules.FlashNone ) return;
+		if ( Application.IsDedicatedServer || !attachment.IsValid() ) return;
+		if ( Sandbox.Mounting.Directory.Get( mount ) is SourceGameMount source && source.DrawMuzzleFlash( type, attachment, firstPerson, scale ) ) return;
 		if ( !firstPerson && type is ("AR2" or "COMBINE") )
 		{
 			CombineWorldFlash( attachment, mount );
 			return;
 		}
 		var worldSpace = firstPerson && type is ("PISTOL" or "357" or "SHOTGUN");
-		var root = new GameObject( worldSpace ? null : attachment, false, "HL2 muzzle flash" );
+		var burst = CreateMuzzleBurst( attachment, worldSpace );
+		burst.DrawBeforeViewModel = firstPerson;
+		if ( firstPerson && type is ("SMG1" or "AR2" or "COMBINE") )
+			burst.UseViewModelLens( attachment.GetComponentInParent<ViewModel>() );
+		if ( firstPerson ) PlayerFlash( type, burst, mount );
+		else WorldFlash( type, burst, mount, WorldScale( type ) );
+		burst.GameObject.Enabled = true;
+	}
+
+	internal static SpriteBurst CreateMuzzleBurst( GameObject attachment, bool worldSpace = false )
+	{
+		var root = new GameObject( worldSpace ? null : attachment, false, "Muzzle flash" );
 		root.NetworkMode = NetworkMode.Never;
 		root.WorldTransform = attachment.WorldTransform;
 		var burst = root.AddComponent<SpriteBurst>();
-		burst.DrawBeforeViewModel = firstPerson && !Css.Rules.IsFlash( type );
 		burst.CameraFade = new Vector2( 16, 64 );
-		if ( firstPerson && type is ("SMG1" or "AR2" or "COMBINE") )
-			burst.UseViewModelLens( attachment.GetComponentInParent<ViewModel>() );
-		if ( firstPerson && Css.Rules.IsFlash( type ) ) CounterStrikePlayerFlash( type, burst, mount, scale );
-		else if ( firstPerson ) PlayerFlash( type, burst, mount );
-		else WorldFlash( type, burst, mount, Css.Rules.IsFlash( type ) ? scale * 0.75f : WorldScale( type ) );
-		root.Enabled = true;
-		if ( Css.Rules.IsFlash( type ) ) MuzzleLight( attachment );
-	}
-
-	/// <summary>
-	/// CS_MuzzleFlashCallback's three stacked sprites/muzzleflash4 (which draws effects/muzzleflash4) or
-	/// CS_MuzzleFlashXCallback's single effects/muzzleflashX, at the muzzle for 0.08 seconds, fading and shrinking.
-	/// </summary>
-	static void CounterStrikePlayerFlash( string type, SpriteBurst burst, string mount, float scale )
-	{
-		if ( type == Css.Rules.FlashX )
-		{
-			var size = 6 * scale * Game.Random.Float( 0.9f, 1.1f );
-			var x = burst.Add( "effects/muzzleflashx", mount, 0, size, Color.White * (130 / 255f), 0.08f, Game.Random.Float( -0.25f, 0.25f ).RadianToDegree() );
-			burst.FadeTo( x, size * 0.8f, Color.White * (80 / 255f) );
-			return;
-		}
-		for ( var i = 0; i < 3; i++ )
-		{
-			var size = (3 + 3 * i) * scale;
-			var sprite = burst.Add( "effects/muzzleflash4", mount, 0, size, Color.White * (80 / 255f), 0.08f, ((float)Game.Random.Int( 0, 3 )).RadianToDegree() );
-			burst.FadeTo( sprite, size * 0.8f, Color.White * (30 / 255f) );
-		}
-	}
-
-	/// <summary>Counter-Strike's muzzle dlight: 255 192 64 at exponent 5, radius 70, for 0.05 seconds.</summary>
-	static void MuzzleLight( GameObject attachment )
-	{
-		var go = new GameObject( attachment, true, "Muzzle flash light" );
-		go.NetworkMode = NetworkMode.Never;
-		go.LocalPosition = Vector3.Zero;
-		var light = go.AddComponent<PointLight>();
-		light.Radius = 70;
-		light.LightColor = new Color( 1, 192 / 255f, 64 / 255f ) * 4;
-		light.Shadows = false;
-		go.AddComponent<TemporaryEffect>().DestroyAfterSeconds = 0.05f;
+		return burst;
 	}
 
 	static void PlayerFlash( string type, SpriteBurst burst, string mount )
@@ -162,7 +118,7 @@ static partial class WeaponEffects
 		_ => 1f
 	};
 
-	static void WorldFlash( string type, SpriteBurst burst, string mount, float scale )
+	internal static void WorldFlash( string type, SpriteBurst burst, string mount, float scale )
 	{
 		var size = Math.Clamp( Game.Random.Float( scale - 0.25f, scale + 0.25f ), 0.5f, 8 );
 		var singleFrame = type is "PISTOL" or "357" or "SMG1";
@@ -345,53 +301,36 @@ static partial class WeaponEffects
 		for ( var i = 0; i < 6; i++ )
 		{
 			var offset = new Vector3( Game.Random.Float( -4, 4 ), Game.Random.Float( -4, 4 ), Game.Random.Float( -4, 4 ) );
-			EjectBrass( Shells[0], center + offset, Vector3.Down, default, default, null, facing, default, mount );
+			EjectBrass( Shells[0], center + offset, Vector3.Down, facing, mount );
 		}
 	}
 
 	/// <summary>The shell model of an HL2 CL_EVENT_EJECTBRASS1 type.</summary>
 	public static string ShellModel( int type ) => Shells[Math.Clamp( type, 0, Shells.Length - 1 )];
 
-	/// <summary>
-	/// A spent shell thrown from an ejection port whose axes are given. With an authored speed this is
-	/// Counter-Strike shells follow the port's forward at 1.2-2.8 times the event's speed,
-	/// a little up and right scatter, plus the shooter's velocity, slowly tumbling for ten seconds.
-	/// Without a port, eject at 150-200 along forward with world scatter, spinning
-	/// fast for one to two seconds. Both face the shooter's view, fall at full gravity, bounce at half
-	/// speed and fade out over two seconds.
-	/// </summary>
-	public static void EjectBrass( string model, Vector3 position, Vector3 forward, Vector3 right, Vector3 up, float? speed, Rotation facing, Vector3 inherited, string mount )
+	internal static void EjectBrass( string model, Vector3 position, Vector3 forward, Rotation facing, string mount )
+	{
+		var velocity = forward * Game.Random.Float( 150, 200 ) + new Vector3( Game.Random.Float( -64, 64 ), Game.Random.Float( -64, 64 ), Game.Random.Float( 0, 64 ) );
+		var spin = new Angles( Game.Random.Float( -1024, 1024 ), Game.Random.Float( -1024, 1024 ), Game.Random.Float( -1024, 1024 ) );
+		var bounce = model == Shells[2] ? "Bounce.ShotgunShell" : "Bounce.Shell";
+		SpawnShell( model, position, facing, velocity, spin, mount, Game.Random.Float( 1, 2 ), bounce );
+	}
+
+	internal static void SpawnShell( string model, Vector3 position, Rotation facing, Vector3 velocity, Angles spin, string mount,
+		float lifetime, string bounce, bool casing = true, bool viewModelLayer = false )
 	{
 		if ( Application.IsDedicatedServer || string.IsNullOrWhiteSpace( model ) ) return;
 		var path = $"mount://{mount}/{model}.vmdl";
 		if ( Sandbox.Mounting.Directory.Get( mount )?.GetByPath( path ) is null ) return;
 		var mesh = Model.Load( path );
 		if ( !mesh.IsValid() || mesh.IsError ) return;
-		Vector3 velocity;
-		Angles spin;
-		string bounce;
-		float lifetime;
-		if ( speed is { } authored )
-		{
-			velocity = forward * authored * Game.Random.Float( 1.2f, 2.8f ) + up * Game.Random.Float( -10, 10 ) + right * Game.Random.Float( -20, 20 ) + inherited;
-			spin = new Angles( Game.Random.Float( -256, 256 ), Game.Random.Float( -256, 256 ), 0 );
-			lifetime = 10;
-			bounce = model.Contains( "12gauge", StringComparison.OrdinalIgnoreCase ) ? "Bounce.ShotgunShell"
-				: model.Contains( "9mm", StringComparison.OrdinalIgnoreCase ) || model.Contains( "_57", StringComparison.OrdinalIgnoreCase ) ? "Bounce.PistolShell"
-				: "Bounce.RifleShell";
-		}
-		else
-		{
-			velocity = forward * Game.Random.Float( 150, 200 ) + new Vector3( Game.Random.Float( -64, 64 ), Game.Random.Float( -64, 64 ), Game.Random.Float( 0, 64 ) );
-			spin = new Angles( Game.Random.Float( -1024, 1024 ), Game.Random.Float( -1024, 1024 ), Game.Random.Float( -1024, 1024 ) );
-			lifetime = Game.Random.Float( 1, 2 );
-			bounce = model == Shells[2] ? "Bounce.ShotgunShell" : "Bounce.Shell";
-		}
-		var go = new GameObject( false, "HL2 shell" );
+		var go = new GameObject( false, "Shell casing" );
 		go.NetworkMode = NetworkMode.Never;
 		go.Tags.Add( "debris", "nocollide_props" );
 		go.WorldTransform = new Transform( position, facing );
-		go.AddComponent<ModelRenderer>().Model = mesh;
+		var renderer = go.AddComponent<ModelRenderer>();
+		renderer.Model = mesh;
+		renderer.RenderOptions.Overlay = viewModelLayer;
 		var collider = go.AddComponent<BoxCollider>();
 		collider.Center = mesh.Bounds.Center;
 		collider.Scale = Vector3.Max( mesh.Bounds.Size, 0.5f );
@@ -402,7 +341,7 @@ static partial class WeaponEffects
 		var shell = go.AddComponent<Shell>();
 		shell.Lifetime = lifetime;
 		shell.BounceSound = Sounds.Sound( bounce, mount );
-		shell.Casing = speed is null;
+		shell.Casing = casing;
 		go.Enabled = true;
 		body.Velocity = velocity;
 		// Tempent spin is pitch, yaw and roll in degrees per second.
@@ -778,6 +717,8 @@ public sealed class Shell : Component, Component.ICollisionListener
 
 	public void OnCollisionStart( Collision collision )
 	{
+		if ( GetComponent<ModelRenderer>() is { RenderOptions.Overlay: true } renderer )
+			renderer.RenderOptions.Overlay = false;
 		if ( BounceSound is null ) return;
 		var play = Casing ? MathF.Abs( collision.Contact.Speed.z ) >= 200 || Game.Random.Int( 0, 3 ) == 0 : Game.Random.Int( 0, 5 ) == 0;
 		if ( play ) Sound.Play( BounceSound, WorldPosition );

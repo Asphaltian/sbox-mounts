@@ -98,7 +98,7 @@ public sealed class PhysGunInteractions
 
 /// <summary>Weapon-script data associated with imported first- and third-person models.</summary>
 [Sandbox.ModelEditor.GameData( "weapon_data", AllowMultiple = true ), Hide]
-public sealed class SourceModelWeaponData
+public class SourceModelWeaponData
 {
 	public float? ViewModelFov { get; set; }
 	public Vector3 ViewModelOffset { get; set; }
@@ -154,6 +154,7 @@ public sealed class SourceModelWeaponData
 	/// <summary>False when the viewmodel is authored left-handed and is mirrored for right-handed use.</summary>
 	public bool? BuiltRightHanded { get; set; }
 	public string SilencerModel { get; set; }
+	public string DroppedModel { get; set; }
 	/// <summary>Counter-Strike muzzle flash style: CS_MUZZLEFLASH_NORM, CS_MUZZLEFLASH_X or CS_MUZZLEFLASH_NONE.</summary>
 	public string MuzzleFlashStyle { get; set; }
 	public float? MuzzleFlashScale { get; set; }

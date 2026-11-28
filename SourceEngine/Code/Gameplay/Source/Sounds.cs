@@ -5,6 +5,10 @@ namespace Source1;
 /// <summary>Mounted sound scripts and the sounds a weapon script names by role.</summary>
 static class Sounds
 {
+	// Remounting can retire a sound that an equipped weapon or animation still holds.
+	public static SoundEvent Refresh( SoundEvent sound ) =>
+		sound is not null && !sound.IsValid() && !string.IsNullOrEmpty( sound.ResourcePath ) ? GameResource.Load<SoundEvent>( sound.ResourcePath ) : sound;
+
 	public static SoundEvent Sound( string name, string mountName )
 	{
 		if ( string.IsNullOrWhiteSpace( name ) ) return null;

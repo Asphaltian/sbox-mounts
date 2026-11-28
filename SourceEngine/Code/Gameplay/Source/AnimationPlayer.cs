@@ -508,8 +508,11 @@ public sealed class AnimationPlayer : IDisposable
 		return Math.Clamp( value, axis.Min, axis.Max );
 	}
 
-	SoundEvent EventSound( SourceModelSequenceData.Event evt ) =>
-		Sounds.IsSoundEvent( evt ) && evt.Options is { } name ? _eventSounds.GetValueOrDefault( name ) : null;
+	SoundEvent EventSound( SourceModelSequenceData.Event evt )
+	{
+		if ( !Sounds.IsSoundEvent( evt ) || evt.Options is not { } name || !_eventSounds.TryGetValue( name, out var sound ) ) return null;
+		return sound.IsValid() ? sound : _eventSounds[name] = Sounds.Refresh( sound );
+	}
 
 	internal bool PlaysSound( string clip, SoundEvent sound ) =>
 		_sequences?.Get( clip )?.Events.Any( evt => EventSound( evt ) == sound ) == true;

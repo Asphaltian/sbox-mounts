@@ -73,6 +73,20 @@ partial class MapLoader
 					continue;
 				loader.Load( builder, entity );
 			}
+			else if ( !skybox && Host.TriggerTag( className ) is { } tag )
+			{
+				var path = entity.Get( "model" );
+				if ( path?.StartsWith( '*' ) != true || !int.TryParse( path.AsSpan( 1 ), out var index ) || index <= 0 || index >= bsp.Models.Length ) continue;
+				var trigger = new GameObject( world, false, entity.Get( "targetname", className ) );
+				trigger.LocalTransform = new Transform( entity.Vector( "origin" ), Rotation.From( entity.Angles ) );
+				BuildWorldPhysics( bsp, trigger, modelIndex: index );
+				foreach ( var collider in trigger.GetComponentsInChildren<PhysicsCollider>( true ) )
+				{
+					collider.IsTrigger = true;
+					collider.GameObject.Tags.Add( tag );
+				}
+				trigger.Enabled = true;
+			}
 			else if ( className?.StartsWith( "prop_", StringComparison.OrdinalIgnoreCase ) == true || className?.StartsWith( "env_soundscape", StringComparison.OrdinalIgnoreCase ) == true || string.Equals( className, "infodecal", StringComparison.OrdinalIgnoreCase ) || string.Equals( className, "info_projecteddecal", StringComparison.OrdinalIgnoreCase ) || string.Equals( className, "ambient_generic", StringComparison.OrdinalIgnoreCase ) || string.Equals( className, "info_particle_system", StringComparison.OrdinalIgnoreCase ) )
 				builder.ReportUnsupported( className );
 		}

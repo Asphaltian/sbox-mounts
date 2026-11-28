@@ -21,29 +21,13 @@ static class Rules
 	/// <summary>CWeaponCSBaseGun toggles zoom, burst and silencer at most every 0.3s.</summary>
 	public const float ToggleDelay = 0.3f;
 
-	public const int BurstShots = 3;
-
 	/// <summary>MuzzleFlashStyle values, used as flash types.</summary>
 	public const string Flash = "CS_MUZZLEFLASH_NORM";
 	public const string FlashX = "CS_MUZZLEFLASH_X";
 	public const string FlashNone = "CS_MUZZLEFLASH_NONE";
 
-	/// <summary>Scoped rifles (CWeaponAug, CWeaponSG552) zoom once.</summary>
-	static readonly float[] ScopedRifleZoom = [55];
-	/// <summary>CWeaponScout, CWeaponSG550 and CWeaponG3SG1 zoom twice; the AWP's second step (10) is in its catalog entry.</summary>
-	static readonly float[] SniperRifleZoom = [40, 15];
-
 	/// <summary>True for a weapon made from Counter-Strike: Source content.</summary>
 	public static bool Owns( BaseCombatWeapon weapon ) => MountContent.OfWeapon( weapon ) == Mount;
-
-	/// <summary>
-	/// Seconds between a burst's rounds and from its first round to the next trigger pull: CWeaponGlock18's
-	/// kGlockBurstCycleTime 0.06 and 0.5, CWeaponFamas's kFamasBurstCycleTime 0.075 and 0.55. They are the only
-	/// burst weapons, a pistol and a rifle.
-	/// </summary>
-	public static (float Interval, float Cycle) Burst( string weaponType ) => weaponType == "Pistol" ? (0.06f, 0.5f) : (0.075f, 0.55f);
-
-	public static float[] ZoomLevels( string weaponType ) => weaponType == "SniperRifle" ? SniperRifleZoom : ScopedRifleZoom;
 
 	public static bool IsFlash( string type ) => type is Flash or FlashX;
 
@@ -83,8 +67,5 @@ static class Rules
 			_ => null
 		};
 	}
-
-	/// <summary>How a Counter-Strike grenade leaves the hand, see <see cref="Grenade.ThrowVelocity"/>.</summary>
-	public static Vector3 ThrowVelocity( Vector3 forward, Vector3 inherited ) => Grenade.ThrowVelocity( forward, inherited );
 
 }

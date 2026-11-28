@@ -64,6 +64,8 @@ public sealed class WeaponWorldModel : BaseWeaponModel
 	/// </summary>
 	GameObject NextMuzzle()
 	{
+		if ( _weapon is Weapon { WorldMuzzleAttachment: { } name } && Renderer.GetAttachmentObject( name ) is { } muzzle )
+			return MuzzleGameObject = muzzle;
 		if ( _alternateMuzzles.Length == 0 ) return MuzzleGameObject;
 		MuzzleGameObject = Renderer.GetAttachmentObject( _alternateMuzzles[_shots++ % _alternateMuzzles.Length] );
 		return MuzzleGameObject;
@@ -84,14 +86,9 @@ public sealed class WeaponWorldModel : BaseWeaponModel
 		var inherited = owner.IsValid() ? owner.Velocity : Vector3.Zero;
 		var eye = Rotation.LookAt( weapon.AimRay.Forward );
 		if ( Renderer.Model.Attachments.All.Any( a => a.Name == brass.Attachment ) && Renderer.GetAttachmentObject( brass.Attachment ) is { } port )
-		{
-			var axes = port.WorldRotation;
-			WeaponEffects.EjectBrass( brass.Model, port.WorldPosition, axes.Forward, axes.Right, axes.Up, brass.Speed, eye, inherited, mount );
-			return;
-		}
-		if ( brass.Speed is null || !MuzzleGameObject.IsValid() ) return;
-		var toss = Rotation.LookAt( eye.Right * 100 + eye.Up * 20 );
-		WeaponEffects.EjectBrass( brass.Model, MuzzleGameObject.WorldPosition, toss.Forward, toss.Right, toss.Up, 120, eye, inherited, mount );
+			brass.Eject( port, eye, inherited, mount );
+		else if ( MuzzleGameObject.IsValid() )
+			brass.EjectFromMuzzle( MuzzleGameObject, eye, inherited, mount );
 	}
 
 	/// <summary>
@@ -121,13 +118,7 @@ public sealed class WeaponWorldModel : BaseWeaponModel
 		FollowLeftHand();
 	}
 
-	/// <summary>
-	/// The holder's animation graph poses the arms; attach the weapon in the hand's grip frame.
-	/// Holds the model the way an NPC's bonemerge would: its ValveBiped.Bip01_R_Hand goes to the holder's wrist,
-	/// the hold bone's parent. Source's hand bone points down the barrel with its up axis along the grip, the hold
-	/// bone's grip frame rolled half a turn. Models without the bone (props such as HL2's w_357 and w_crossbow,
-	/// Counter-Strike's weapon_bone models) are held by their origin, X forward and Z up, as Source authors them.
-	/// </summary>
+	/// <summary>Fit an authored wrist to the holder's grip frame. A ValveBiped hand uses the opposite roll axis.</summary>
 	void AlignToHand()
 	{
 		_alignedModel = Renderer.Model;
@@ -140,9 +131,21 @@ public sealed class WeaponWorldModel : BaseWeaponModel
 			_leftHand = leftObject;
 		}
 		var hand = Renderer.Model.Bones.GetBone( "ValveBiped.Bip01_R_Hand" );
-		if ( hand is null || WristOffset( GameObject.Parent ) is not { } wrist ) return;
+		if ( WristOffset( GameObject.Parent ) is not { } wrist ) return;
+		if ( hand is null )
+		{
+			if ( _weapon is Weapon weapon ) _ = AlignGrip( weapon, Renderer.Model, wrist );
+			return;
+		}
 		var grip = new Transform( wrist, Rotation.FromRoll( 180 ) );
 		Renderer.LocalTransform = grip.ToWorld( hand.LocalTransform.ToLocal( global::Transform.Zero ) );
+	}
+
+	async Task AlignGrip( Weapon weapon, Model model, Vector3 wrist )
+	{
+		var offset = await weapon.GetGripPosition( model );
+		if ( offset.HasValue && Renderer.IsValid() && Renderer.Model == model && !Renderer.BoneMergeTarget.IsValid() )
+			Renderer.LocalPosition = wrist - offset.Value;
 	}
 
 	void ReleaseLeftHand()

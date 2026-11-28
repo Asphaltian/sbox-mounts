@@ -1,6 +1,6 @@
 namespace Source1;
 
-public sealed partial class ProjectileWeapon
+public partial class ProjectileWeapon
 {
 	Vector3? _dropVelocity;
 	BBox? _dropBounds;

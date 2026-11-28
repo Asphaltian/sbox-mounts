@@ -228,11 +228,14 @@ public abstract partial class Projectile : Component
 		return true;
 	}
 
+	protected virtual bool IsBlastUnderwater() => SourceWaterMap.IsUnderwater( Scene, WorldPosition )
+		&& SourceWaterMap.IsUnderwater( Scene, WorldPosition + Vector3.Up * 24 );
+
 	protected void Explode( bool playPrefabSound = false, string particle = null, Rotation rotation = default )
 	{
 		var prefab = MountContent.Prefab( MountName, "explosion" );
 		var depth = SourceWaterMap.ExplosionDepth( Scene, WorldPosition ) ?? -1;
-		UnderwaterBlast = SourceWaterMap.IsUnderwater( Scene, WorldPosition ) && SourceWaterMap.IsUnderwater( Scene, WorldPosition + Vector3.Up * 24 );
+		UnderwaterBlast = IsBlastUnderwater();
 		var blast = new Explosion
 		{
 			Source = GameObject,
@@ -242,8 +245,8 @@ public abstract partial class Projectile : Component
 			Damage = Damage,
 			ForceScale = 1.5f,
 			Prefab = prefab
-		}.Spawn( playPrefabSound, playPrefabParticle: depth < 0 && particle is null, applyDamage: Blast != BlastMode.Traced );
-		if ( Blast == BlastMode.Traced ) ApplyBlast();
+		}.Spawn( playPrefabSound, playPrefabParticle: depth < 0 && particle is null, applyDamage: Blast == BlastMode.PropFalloff );
+		if ( Blast != BlastMode.PropFalloff ) ApplyBlast();
 
 		if ( (prefab is not null || particle is not null) && blast.IsValid() ) ExplosionEffects( WorldPosition, MountName, depth, Damage, particle, rotation );
 		GameObject.Destroy();

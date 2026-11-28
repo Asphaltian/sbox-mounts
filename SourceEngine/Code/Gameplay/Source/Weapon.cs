@@ -10,6 +10,9 @@ namespace Source1;
 [Alias( "Source1.SourceWeapon", "SourceWeapon" )]
 public abstract class Weapon : BaseCombatWeapon
 {
+	/// <summary>The authored wrist position in the held model when the model has no wrist bone of its own.</summary>
+	internal virtual ValueTask<Vector3?> GetGripPosition( Model worldModel ) => default;
+
 	WeaponSetup _setup;
 	protected SourceGameMount ContentMount => Sandbox.Mounting.Directory.Get( MountContent.OfWeapon( this ) ) as SourceGameMount;
 	internal WeaponSetup Setup => _setup ??= new();
@@ -81,6 +84,8 @@ public abstract class Weapon : BaseCombatWeapon
 	public override bool CanReload() => (!HasOwner || !IsDeploying) && base.CanReload();
 
 	internal virtual string BrassForEvent( SourceModelSequenceData.Event e ) => null;
+	internal virtual string SelectAttackClip( WeaponClips clips ) => null;
+	internal virtual string WorldMuzzleAttachment => null;
 	internal virtual bool UsesDeployedClips => false;
 	internal virtual float ViewModelFovOffset => 0;
 	internal virtual float ViewModelSway => 1;
@@ -97,7 +102,11 @@ public abstract class Weapon : BaseCombatWeapon
 	public override void DryFire()
 	{
 		if ( WantsEmptyClick ) TryPlayEmptyClick( EmptyClickInterval );
-		else base.DryFire();
+		else
+		{
+			DryFireSound = Sounds.Refresh( DryFireSound );
+			base.DryFire();
+		}
 	}
 
 	protected bool TryPlayEmptyClick( float interval )
@@ -111,7 +120,7 @@ public abstract class Weapon : BaseCombatWeapon
 	[Rpc.Broadcast( NetFlags.OwnerOnly )]
 	protected void PlayEmptySound()
 	{
-		var sound = DryFireSound ?? Sounds.WeaponSound( this, "empty" );
+		var sound = DryFireSound = Sounds.Refresh( DryFireSound ) ?? Sounds.WeaponSound( this, "empty" );
 		if ( sound is null ) return;
 		if ( !Application.IsDedicatedServer ) Sounds.PlayWeaponSound( this, sound );
 		if ( Networking.IsHost && HasOwner )
@@ -170,12 +179,14 @@ public abstract class Weapon : BaseCombatWeapon
 	[Sync( SyncFlags.FromHost )] public bool WasDropped { get; private set; }
 	TimeUntil _touchPickupAllowed;
 
+	protected virtual float UnderwaterRefireDelay => 0.2f;
+
 	protected bool BlockSubmergedShot( bool blockBothTriggers, bool playEmptySound = true )
 	{
 		if ( !HasOwner || !SourceWaterMap.IsUnderwater( Scene, Owner.EyeTransform.Position ) ) return false;
 		if ( playEmptySound ) PlayEmptySound();
-		SetNextPrimaryFire( 0.2f );
-		if ( blockBothTriggers ) SetNextSecondaryFire( 0.2f );
+		SetNextPrimaryFire( UnderwaterRefireDelay );
+		if ( blockBothTriggers ) SetNextSecondaryFire( UnderwaterRefireDelay );
 		return true;
 	}
 
@@ -269,7 +280,7 @@ public abstract class Weapon : BaseCombatWeapon
 	/// Kicks the owner's aim, then punches and shakes their view if they're the local player in first person.
 	/// Returns whether the view was kicked.
 	/// </summary>
-	protected bool KickView( Angles? punchOverride = null )
+	protected virtual bool KickView( Angles? punchOverride = null )
 	{
 		if ( !HasOwner ) return false;
 
@@ -439,13 +450,17 @@ public abstract class Weapon : BaseCombatWeapon
 		}
 
 		WasDropped = true;
-		Network.DropOwnership();
+		var wasNetworked = Network.Active;
 		GameObject.SetParent( null, true );
 		WorldScale = PrefabWorldScale();
 		GameObject.Enabled = true;
 		WorldPosition = position;
 		WorldRotation = rotation;
 		StartDrop( velocity );
+		if ( Network.Active )
+			Network.DropOwnership();
+		else if ( wasNetworked )
+			GameObject.NetworkSpawn( true, null );
 		return true;
 	}
 

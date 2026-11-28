@@ -9,11 +9,24 @@ namespace Source1.Css;
 public sealed class Mount : SourceGameMount
 {
 	protected override string ContentDirectory => "cstrike";
+	internal override string TriggerTag( string className ) => className == "func_bomb_target" ? C4.SiteTag : null;
 	public override string Ident => "css";
 
 	public override string Title => "Counter-Strike: Source";
 	public override long AppId => 240;
+	protected internal override bool UseDrawSequenceDuration => true;
+	protected internal override ViewModelMotion.Settings ViewModelMovement { get; } = new( BobCycle: 0.8f, ForwardBob: 0.4f,
+		SideBob: 0, BobAcceleration: 320, MirrorSway: false );
 	protected override string WeaponScriptKey => "d7NSuLq2";
+
+	internal override ShellEjection ReadBrassEvent( SourceModelSequenceData.Event e ) =>
+		e.Name == "AE_CLIENT_EFFECT_ATTACH" ? Effects.Brass( e.Options ) : null;
+
+	internal override bool DrawMuzzleFlash( string type, GameObject attachment, bool firstPerson, float scale ) =>
+		Effects.MuzzleFlash( type, attachment, firstPerson, scale, Ident );
+
+	internal override SourceModelWeaponData CreateWeaponData( VmtParameters script ) =>
+		script.Contains( "InaccuracyStand" ) ? new Accuracy( script ) : new SourceModelWeaponData();
 
 	internal override void ApplyWeaponDefaults( BaseCombatWeapon weapon, WeaponSetup setup, string worldModel )
 	{
@@ -29,27 +42,25 @@ public sealed class Mount : SourceGameMount
 			(setup.FlashType, setup.FlashScale) = flash;
 	}
 
-	// A fallback: Counter-Strike: Source keeps the most a player carries of each ammo type in code, as the defaults of
-	// its ammo_*_max console variables, and in none of its files. These are those defaults. The weapon scripts name
-	// each weapon's ammo type and clip.
-	private static readonly Dictionary<string, int> AmmoCarry = new( StringComparer.OrdinalIgnoreCase )
+	private static readonly Dictionary<string, (string Title, int? Capacity)> AmmoTypes = new( StringComparer.OrdinalIgnoreCase )
 	{
-		["BULLET_PLAYER_50AE"] = 35,
-		["BULLET_PLAYER_762MM"] = 90,
-		["BULLET_PLAYER_556MM"] = 90,
-		["BULLET_PLAYER_556MM_BOX"] = 200,
-		["BULLET_PLAYER_338MAG"] = 30,
-		["BULLET_PLAYER_9MM"] = 120,
-		["BULLET_PLAYER_BUCKSHOT"] = 32,
-		["BULLET_PLAYER_45ACP"] = 100,
-		["BULLET_PLAYER_357SIG"] = 52,
-		["BULLET_PLAYER_57MM"] = 100,
-		["AMMO_TYPE_HEGRENADE"] = 1,
-		["AMMO_TYPE_FLASHBANG"] = 2,
-		["AMMO_TYPE_SMOKEGRENADE"] = 1,
+		["BULLET_PLAYER_50AE"] = (".50 Action Express", 35),
+		["BULLET_PLAYER_762MM"] = ("7.62 NATO", 90),
+		["BULLET_PLAYER_556MM"] = ("5.56 NATO", 90),
+		["BULLET_PLAYER_556MM_BOX"] = ("5.56 NATO Box", 200),
+		["BULLET_PLAYER_338MAG"] = (".338 Lapua Magnum", 30),
+		["BULLET_PLAYER_9MM"] = ("9mm Parabellum", 120),
+		["BULLET_PLAYER_BUCKSHOT"] = ("12 Gauge Buckshot", 32),
+		["BULLET_PLAYER_45ACP"] = (".45 ACP", 100),
+		["BULLET_PLAYER_357SIG"] = (".357 SIG", 52),
+		["BULLET_PLAYER_57MM"] = ("5.7 × 28mm", 100),
+		["AMMO_TYPE_HEGRENADE"] = ("HE Grenade", 1),
+		["AMMO_TYPE_FLASHBANG"] = ("Flashbang", 2),
+		["AMMO_TYPE_SMOKEGRENADE"] = ("Smoke Grenade", 1),
 	};
 
-	private protected override int? AmmoCarryLimit( string ammo ) => ammo is not null && AmmoCarry.TryGetValue( ammo, out var limit ) ? limit : null;
+	private protected override (string Title, int? Capacity) AmmoDefaults( string ammo ) =>
+		AmmoTypes.TryGetValue( ammo, out var type ) ? type : base.AmmoDefaults( ammo );
 
 	protected internal override string[] VoicePatterns( VoiceLine line ) => line switch
 	{

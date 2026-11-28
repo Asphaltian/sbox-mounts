@@ -13,7 +13,7 @@ public abstract class Grenade : Projectile, Component.ICollisionListener
 
 	// GRENADE_TIMER for the HE grenade and the flashbang; the smoke grenade waits as long before it can pop.
 	const float Fuse = 1.5f;
-	const float HalfSize = 2;
+	internal const float HullSize = 4;
 	// CBaseCSGrenadeProjectile::GetGrenadeGravity and its bounce elasticity.
 	const float GravityScale = 0.4f;
 	const float Elasticity = 0.45f;
@@ -25,29 +25,68 @@ public abstract class Grenade : Projectile, Component.ICollisionListener
 	/// </summary>
 	public static Vector3 ThrowVelocity( Vector3 forward, Vector3 inherited )
 	{
+		var (direction, speed) = ThrowDirection( forward );
+		return inherited + direction * speed;
+	}
+
+	internal static (Vector3 Direction, float Speed) ThrowDirection( Vector3 forward )
+	{
 		var angles = Rotation.LookAt( forward ).Angles();
 		var pitch = angles.pitch >= 0 ? -10 + angles.pitch * (100f / 90) : -10 + angles.pitch * (80f / 90);
 		var speed = MathF.Min( (90 - pitch) * 6, MaxThrowSpeed );
-		return Rotation.From( pitch, angles.yaw, 0 ).Forward * speed + inherited;
+		return (Rotation.From( pitch, angles.yaw, 0 ).Forward, speed);
 	}
 
 	protected override float Lifetime => Fuse;
-	protected override float? Physical => HalfSize;
-	protected override Vector3 Spin => new Vector3( 600, Game.Random.Float( -1200, 1200 ), 0 ) * (MathF.PI / 180);
+	protected override float? Physical => HullSize / 2;
+	[Sync( SyncFlags.FromHost )] float YawSpeed { get; set; }
+	[Sync( SyncFlags.FromHost )] Angles? RestAngles { get; set; }
 	/// <summary>The sound script played when the grenade bounces, such as HEGrenade.Bounce.</summary>
 	protected abstract string BounceSound { get; }
 
 	protected override void OnStart()
 	{
 		base.OnStart();
-		if ( GetComponent<Rigidbody>() is { } body ) body.GravityScale = GravityScale;
-		if ( GetComponent<BoxCollider>() is { } box ) box.Elasticity = Elasticity;
+		var body = GetComponent<Rigidbody>();
+		if ( !body.IsValid() ) return;
+		body.GravityScale = GravityScale;
+		body.Locking = new PhysicsLock { Pitch = true, Yaw = true, Roll = true };
+		body.CollisionUpdateEventsEnabled = Networking.IsHost;
+	}
+
+	protected override Collider CreateCollider( float halfSize )
+	{
+		WorldRotation = Rotation.Identity;
+		YawSpeed = Game.Random.Int( -1200, 1200 );
+		var box = base.CreateCollider( halfSize );
+		box.Elasticity = Elasticity;
+		return box;
+	}
+
+	protected override void OnUpdate()
+	{
+		base.OnUpdate();
+		if ( Visual.IsValid() )
+			Visual.LocalRotation = (RestAngles ?? new Angles( Age * 600, Age * YawSpeed, 0 )).ToRotation();
 	}
 
 	public void OnCollisionStart( Collision collision )
 	{
 		if ( Application.IsDedicatedServer || collision.Contact.Speed.Length < 50 ) return;
 		if ( Sounds.Sound( BounceSound, MountName ) is { } sound ) Sound.Play( sound, WorldPosition );
+	}
+
+	public void OnCollisionUpdate( Collision collision )
+	{
+		var self = collision.Self.Body;
+		if ( !self.IsValid() || self.Velocity.LengthSquared >= 30 * 30 ) return;
+		var body = GetComponent<Rigidbody>();
+		if ( !body.IsValid() || body.PhysicsBody != self ) return;
+		var normal = collision.Contact.Normal;
+		if ( normal.Dot( self.Position - collision.Contact.Point ) < 0 ) normal = -normal;
+		if ( normal.z <= 0.7f ) return;
+		RestAngles = new Angles( Rotation.LookAt( normal ).Pitch(), Game.Random.Float( 0, 360 ), 0 );
+		body.CollisionUpdateEventsEnabled = false;
 	}
 }
 
@@ -62,6 +101,39 @@ public sealed class HeGrenade : Grenade
 	const float BlastRadius = BlastDamage * 3.5f;
 
 	protected override string BounceSound => "HEGrenade.Bounce";
+	protected override bool IsBlastUnderwater() => SourceWaterMap.IsUnderwater( Scene, WorldPosition );
+
+	protected override float BlastDamageAt( GameObject target, Vector3 origin, Vector3 center, out Vector3 position )
+	{
+		position = center;
+		var trace = Scene.Trace.Ray( origin, center ).IgnoreGameObjectHierarchy( target )
+			.IgnoreGameObjectHierarchy( GameObject ).WithoutTags( "trigger" );
+
+		float Exposure( Vector3 point )
+		{
+			var ray = trace.FromTo( origin, point );
+			var hit = ray.Run();
+			if ( !hit.Hit ) return 1;
+			if ( hit.HasTag( "world" ) || ray.WithTag( "world" ).Run().Hit ) return 0;
+			return hit.GameObject.GetComponentInParent<Rigidbody>().IsValid()
+				? 1 - ((hit.Surface?.Density ?? 3000) / 3000).Clamp( 0, 1 ) : 0.75f;
+		}
+
+		float exposed;
+		if ( target.GetComponent<PlayerController>() is { } player )
+		{
+			var feet = player.WorldPosition;
+			var eye = player.EyeTransform.Position;
+			var side = player.EyeTransform.Rotation.Right.WithZ( 0 ).Normal * 16;
+			exposed = 0.4f * Exposure( eye ) + 0.2f * (Exposure( feet ) + Exposure( feet + Vector3.Up * 71 ))
+				+ 0.1f * (Exposure( eye - side ) + Exposure( eye + side ));
+			position = Vector3.Lerp( feet, eye, Game.Random.Float( 0.7f, 1 ) );
+		}
+		else exposed = Exposure( center );
+
+		var sigma = Radius / 3;
+		return Damage * MathF.Exp( -origin.DistanceSquared( position ) / (2 * sigma * sigma) ) * exposed;
+	}
 
 	protected override void Expire()
 	{
@@ -121,14 +193,25 @@ public sealed class Flashbang : Grenade
 		MountedEffects.SetSprite( glow, 2, 255 );
 		go.AddComponent<TemporaryEffect>().DestroyAfterSeconds = LightTime;
 		var camera = Game.ActiveScene?.Camera;
-		if ( !camera.IsValid() ) return;
-		var eye = camera.WorldPosition;
+		if ( camera.IsValid() ) FlashViewer( camera, position );
+	}
+
+	static void FlashViewer( CameraComponent camera, Vector3 position )
+	{
+		var scene = camera.Scene;
+		var viewer = scene.GetAll<PlayerController>().FirstOrDefault( p => p.Active && !p.IsProxy && p.UseCameraControls );
+		var view = viewer?.EyeTransform ?? camera.WorldTransform;
+		var eye = view.Position;
 		var distance = eye.Distance( position );
 		if ( distance > Range ) return;
-		var tr = Game.ActiveScene.Trace.Ray( position, eye ).WithoutTags( "player", "projectile", "trigger" ).Run();
-		if ( tr.Hit && tr.EndPosition.Distance( eye ) > 32 ) return;
-		var forward = camera.WorldRotation.Forward;
-		var percentage = SmokeCloud.FlashScale( Game.ActiveScene, eye, forward );
+		var trace = scene.Trace.Ray( position, eye ).WithoutTags( "projectile", "trigger" );
+		if ( viewer.IsValid() ) trace = trace.IgnoreGameObjectHierarchy( viewer.GameObject );
+		if ( trace.Run().Hit ) return;
+		var underwater = SourceWaterMap.IsUnderwater( scene, position );
+		var sample = underwater && viewer.IsValid() ? viewer.WorldPosition + Vector3.Up : eye;
+		if ( underwater != SourceWaterMap.IsUnderwater( scene, sample ) ) return;
+		var forward = view.Rotation.Forward;
+		var percentage = SmokeCloud.FlashScale( scene, eye, forward );
 		var facing = forward.Dot( (position - eye).Normal );
 		var flash = FlashDamage * (1 - distance / Range);
 		var seconds = flash * (facing >= 0.5f ? 2.5f : facing >= -0.5f ? 1.75f : 1) * percentage / 1.4f;
@@ -148,44 +231,54 @@ public sealed class Flashbang : Grenade
 [WeaponProjectile( Projectile.Kinds.SmokeGrenade )]
 public sealed class SmokeGrenade : Grenade
 {
-	protected override string BounceSound => "SmokeGrenade.Bounce";
-	bool _popped;
-	TimeSince _sincePop;
+	const float FadeDelay = 5;
+	const float FadeDuration = 255 * 0.015f;
+	[Sync( SyncFlags.FromHost )] TimeUntil RemoveAt { get; set; }
+	TimeUntil _checkRest;
+	bool Smoking => RemoveAt.Absolute > 0;
+	protected override string BounceSound => Smoking ? null : "SmokeGrenade.Bounce";
 
 	protected override void Expire()
 	{
-		if ( _popped )
+		if ( Smoking )
 		{
-			if ( _sincePop > SmokeCloud.FadeEnd ) GameObject.Destroy();
+			if ( RemoveAt <= 0 ) GameObject.Destroy();
 			return;
 		}
-		if ( GetComponent<Rigidbody>() is { } body && body.Velocity.Length > 0.1f ) return;
-		_popped = true;
-		_sincePop = 0;
-		Cloud( WorldPosition, MountName );
+		if ( _checkRest > 0 ) return;
+		if ( GetComponent<Rigidbody>() is { } body && body.Velocity.LengthSquared > 0.01f )
+		{
+			_checkRest = 0.2f;
+			return;
+		}
+		RemoveAt = FadeDelay + FadeDuration;
+		var go = new GameObject( false, "Smoke grenade cloud" );
+		go.WorldPosition = WorldPosition;
+		var cloud = go.AddComponent<SmokeCloud>();
+		cloud.MountName = MountName;
+		cloud.Age = 0;
+		go.Enabled = true;
+		go.NetworkSpawn();
+		PlaySmokeSound( MountName );
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]
-	static void Cloud( Vector3 position, string mount )
+	void PlaySmokeSound( string mount )
 	{
-		if ( Application.IsDedicatedServer ) return;
-		if ( Sounds.Sound( "BaseSmokeEffect.Sound", mount ) is { } sound ) Sound.Play( sound, position );
-		var go = new GameObject( true, "Smoke grenade cloud" );
-		go.NetworkMode = NetworkMode.Never;
-		go.WorldPosition = position;
-		go.AddComponent<SmokeCloud>().MountName = mount;
+		if ( !Application.IsDedicatedServer && Sounds.Sound( "BaseSmokeEffect.Sound", mount ) is { } sound )
+			Sound.Play( sound, WorldPosition );
+	}
+
+	protected override void OnUpdate()
+	{
+		base.OnUpdate();
+		if ( Smoking && Renderer.IsValid() && RemoveAt < FadeDuration )
+			Renderer.Tint = Color.White.WithAlpha( ((float)RemoveAt / FadeDuration).Clamp( 0, 1 ) );
 	}
 }
 
 /// <summary>
-/// C_ParticleSmokeGrenade: a 4x4x4 grid of puffs 80 units in radius, spaced over 240 units, in a sphere that grows
-/// to 240 in a second (puffs past half of it wait at that edge, so they push out as it grows), solid in its core and
-/// thinning at the edge. Each puff spins at up to 0.1 radians a second and keeps trading places with a free
-/// neighbour over 10 to 20 seconds, eased, so the cloud churns. Faded out between 15 and 20 seconds
-/// (SetFadeTime( 15, 20 )), and the view inside it is greyed by DrawSmokeFogOverlay.
-/// Approximations: puffs are kept out of walls and floors by tracing from the centre (the SDK's own trace fade is
-/// disabled), lit per pixel by the scene's light probes and lights instead of a sampled lightmap colour, and
-/// softened where they meet geometry.
+/// A 4×4×4 grid of rotating smoke puffs. Each puff trades places with a neighbour as the cloud expands and fades.
 /// </summary>
 [Title( "CS:S Smoke Cloud" )]
 [Category( "Counter-Strike: Source" )]
@@ -206,11 +299,10 @@ public sealed class SmokeCloud : Component, ISmokeCloud
 	const float CoreCutoff = 0.3f;
 	const float MinColor = 0.5f;
 	const float MaxColor = 0.6f;
-	const float WallMargin = ParticleSize * 0.5f;
 	const float NearFade = 10;
 	static readonly int[] Offsets = [-1, 0, 1];
 
-	public string MountName { get; set; }
+	[Sync] public string MountName { get; set; }
 
 	sealed class Puff
 	{
@@ -231,13 +323,13 @@ public sealed class SmokeCloud : Component, ISmokeCloud
 
 	readonly Slot[] _slots = new Slot[PerDimension * PerDimension * PerDimension];
 	ParticleEffect _effect;
-	TimeSince _age;
+	[Sync] internal TimeSince Age { get; set; }
 	float _expand;
 	float _fade;
 
 	protected override void OnStart()
 	{
-		_age = 0;
+		if ( Application.IsDedicatedServer ) return;
 		// particle_smokegrenade1, the material CS:S draws the cloud with.
 		_effect = Particles.Emitter( GameObject, "particle/particle_smokegrenade_thick", MountName, false, true, _slots.Length )
 			?? Particles.Emitter( GameObject, "particle/particle_smokegrenade", MountName, false, true, _slots.Length );
@@ -245,7 +337,6 @@ public sealed class SmokeCloud : Component, ISmokeCloud
 		var renderer = _effect.GetComponent<ParticleSpriteRenderer>();
 		renderer.DepthFeather = 24;
 		var center = WorldPosition;
-		var trace = Scene.Trace.IgnoreDynamic().WithoutTags( "player", "projectile", "trigger", "debris" );
 		for ( var i = 0; i < _slots.Length; i++ )
 		{
 			var (x, y, z) = Coordinates( i );
@@ -258,22 +349,9 @@ public sealed class SmokeCloud : Component, ISmokeCloud
 			// Desaturated halfway to 0.5 as RenderParticles does, as the albedo the scene's light falls on; halved, as a
 			// sprite takes all of a light that only the lit side of a puff would get.
 			p.Color = Color.White * ((grey + 0.5f) / 4);
-			_slots[i] = new Slot { Home = Conform( trace, center, home ), Puff = new Puff { Particle = p, Roll = Game.Random.Float( -6, 6 ), RollSpeed = Game.Random.Float( -RotationSpeed, RotationSpeed ) } };
+			_slots[i] = new Slot { Home = home, Puff = new Puff { Particle = p, Roll = Game.Random.Float( -6, 6 ), RollSpeed = Game.Random.Float( -RotationSpeed, RotationSpeed ) } };
 			_slots[i].Puff.Local = _slots[i].Home;
 		}
-	}
-
-	/// <summary>Slides a puff's home out of the surface between it and the centre, then clamps it to the open space.</summary>
-	static Vector3 Conform( SceneTrace trace, Vector3 center, Vector3 home )
-	{
-		var tr = trace.Ray( center, center + home ).Run();
-		if ( !tr.Hit ) return home;
-		var depth = (tr.HitPosition - (center + home)).Dot( tr.Normal );
-		var slid = home + tr.Normal * (depth + WallMargin);
-		var again = trace.Ray( center, center + slid ).Run();
-		if ( !again.Hit ) return slid;
-		var length = MathF.Max( again.Distance - WallMargin, 0 );
-		return slid.Normal * length;
 	}
 
 	static (int X, int Y, int Z) Coordinates( int index ) => (index % PerDimension, index / PerDimension % PerDimension, index / (PerDimension * PerDimension));
@@ -342,7 +420,7 @@ public sealed class SmokeCloud : Component, ISmokeCloud
 		var scale = 1f;
 		foreach ( var cloud in scene.GetAllComponents<SmokeCloud>() )
 		{
-			if ( cloud._age > FadeStart ) continue;
+			if ( cloud.Age > FadeStart ) continue;
 			var toCenter = cloud.WorldPosition - eye;
 			var closest = toCenter - forward * toCenter.Dot( forward );
 			if ( closest.Length < ParticleRadius ) scale *= 0.8f;
@@ -352,8 +430,13 @@ public sealed class SmokeCloud : Component, ISmokeCloud
 
 	protected override void OnUpdate()
 	{
+		if ( Age >= FadeEnd )
+		{
+			if ( Networking.IsHost ) GameObject.Destroy();
+			return;
+		}
 		if ( _effect is null ) return;
-		var age = (float)_age;
+		var age = (float)Age;
 		var dt = Time.Delta;
 		_expand = SpacingRadius * 2 * MathF.Sin( MathF.Min( age, ExpandTime ) * MathF.PI * 0.5f / ExpandTime );
 		_fade = age < FadeStart ? 1 : age < FadeEnd ? MathF.Cos( (age - FadeStart) / (FadeEnd - FadeStart) * MathF.PI ) * 0.5f + 0.5f : 0;
@@ -385,7 +468,6 @@ public sealed class SmokeCloud : Component, ISmokeCloud
 			p.Alpha = alpha;
 		}
 		SmokeFog.Ensure( Scene );
-		if ( age > FadeEnd ) GameObject.Destroy();
 	}
 }
 

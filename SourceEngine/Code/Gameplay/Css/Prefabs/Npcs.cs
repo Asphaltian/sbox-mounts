@@ -24,6 +24,7 @@ public static class Npcs
 			RequiredPrefabs = [$"entities/weapons/{weapon}.prefab"],
 			Build = p =>
 			{
+				p.Root.AddComponent<PlayerAnimState>();
 				var npc = p.Npc<CombatNpc>();
 				p.Navigation( radius: 16, run: 180, walk: 85 );
 				p.Root.GetComponent<SensesLayer>( true ).SightRange = 8192;
@@ -37,7 +38,6 @@ public static class Npcs
 
 				npc.WeaponChoices = p.WeaponChoices( "glock", "usp", "p228", "deagle", "fiveseven", "elite", "mac10", "tmp", "mp5navy", "ump45", "p90",
 					"galil", "famas", "ak47", "m4a1", "sg552", "aug", "scout", "awp", "g3sg1", "sg550", "m3", "xm1014", "m249" );
-				p.Root.AddComponent<NpcAnimator>();
 				p.Root.AddComponent<PlayerSounds>();
 				p.Box( 32, 72 );
 				npc.Weapon = p.Equip( weapon );

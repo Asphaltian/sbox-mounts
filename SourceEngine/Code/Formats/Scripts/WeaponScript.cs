@@ -25,7 +25,7 @@ internal static class WeaponScript
 		VmtFile.ParseKeyValues( text, path, diagnostic => Log.Trace( $"{diagnostic.Path}:{diagnostic.Line}: {diagnostic.Message}" ), escapeSequences: false )
 			.FirstOrDefault( x => x.IsBlock && x.Name.Equals( "WeaponData", StringComparison.OrdinalIgnoreCase ) );
 
-	internal static SourceModelWeaponData Read( VmtNode root, string path, SkillConfig skill )
+	internal static SourceModelWeaponData Read( VmtNode root, string path, SkillConfig skill, SourceGameMount mount = null )
 	{
 		if ( root is null )
 			return null;
@@ -37,49 +37,48 @@ internal static class WeaponScript
 		var damage = p.Contains( "Damage" ) ? p.Float( "Damage" ) : (float?)null;
 		var clip = p.Integer( "clip_size", -1 );
 		var clip2 = p.Integer( "clip2_size", -1 );
-		var data = new SourceModelWeaponData
-		{
-			ClassName = weaponClass,
-			ViewModel = ModelPath( p, "viewmodel" ),
-			WorldModel = ModelPath( p, "playermodel" ),
-			SilencerModel = ModelPath( p, "SilencerModel" ),
-			PrimaryAmmo = primaryAmmo,
-			SecondaryAmmo = secondaryAmmo,
-			PrintName = p.String( "printname" ),
-			ScriptDamage = damage,
-			PlayerDamage = damage ?? skill.WeaponDamage( primaryAmmo, weaponClass ),
-			NpcDamage = damage ?? skill.WeaponDamage( primaryAmmo, weaponClass, npc: true ),
-			SecondaryPlayerDamage = skill.WeaponDamage( secondaryAmmo, null ),
-			SecondaryNpcDamage = skill.WeaponDamage( secondaryAmmo, null, npc: true ),
-			BlastRadius = skill.WeaponRadius( primaryAmmo, weaponClass ),
-			SecondaryBlastRadius = skill.WeaponRadius( secondaryAmmo, null ),
-			ClipSize = clip,
-			DefaultClip = p.Integer( "default_clip", clip > 0 ? clip * Math.Max( 1, p.Integer( "DefaultAmmoClips", 1 ) ) : clip ),
-			SecondaryClipSize = clip2,
-			SecondaryDefaultClip = p.Integer( "default_clip2", clip2 ),
-			Bucket = p.Integer( "bucket", 0 ),
-			BucketPosition = p.Integer( "bucket_position", -1 ) is var position && position >= 0 ? position : null,
-			Weight = p.Integer( "weight", -1 ) is var weight && weight >= 0 ? weight : null,
-			CycleTime = p.Contains( "CycleTime" ) ? p.Float( "CycleTime" ) : p.Contains( "FireDelay" ) ? p.Float( "FireDelay" ) : null,
-			ViewModelFov = p.Contains( "ViewModelFOV" ) ? p.Float( "ViewModelFOV" ) : null,
-			ViewModelOffset = p.Vector( "vm_normal_offset", Vector3.Zero ),
-			IronSightOffset = p.Contains( "vm_ironsight_offset" ) ? p.Vector( "vm_ironsight_offset", Vector3.Zero ) : null,
-			SecondaryAccuracy = p.Contains( "SecondaryAccuracy" ) ? p.Float( "SecondaryAccuracy" ) : null,
-			SecondaryCycleTime = p.Contains( "SecondaryFireDelay" ) ? p.Float( "SecondaryFireDelay" ) : null,
-			AccuracyMovePenalty = p.Contains( "AccuracyMovePenalty" ) ? p.Float( "AccuracyMovePenalty" ) : null,
-			Accuracy = p.Contains( "Accuracy" ) ? p.Float( "Accuracy" ) : null,
-			Recoil = p.Contains( "Recoil" ) ? p.Float( "Recoil" ) : null,
-			Bullets = p.Contains( "Bullets" ) ? p.Integer( "Bullets" ) : null,
-			FullAuto = p.Contains( "FullAuto" ) ? p.Boolean( "FullAuto" ) : null,
-			Range = p.Contains( "Range" ) ? p.Float( "Range" ) : null,
-			RangeModifier = p.Contains( "RangeModifier" ) ? p.Float( "RangeModifier" ) : null,
-			WeaponType = p.String( "WeaponType" ),
-			Team = p.String( "Team" ),
-			PlayerAnimationExtension = p.String( "PlayerAnimationExtension" ),
-			BuiltRightHanded = p.Contains( "BuiltRightHanded" ) ? p.Boolean( "BuiltRightHanded" ) : null,
-			MuzzleFlashStyle = p.String( "MuzzleFlashStyle" ),
-			MuzzleFlashScale = p.Contains( "MuzzleFlashScale" ) ? p.Float( "MuzzleFlashScale" ) : null
-		};
+		var data = mount?.CreateWeaponData( p ) ?? new SourceModelWeaponData();
+		data.ClassName = weaponClass;
+		data.ViewModel = ModelPath( p, "viewmodel" );
+		data.WorldModel = ModelPath( p, "playermodel" );
+		data.DroppedModel = ModelPath( p, "DroppedModel" );
+		data.SilencerModel = ModelPath( p, "SilencerModel" );
+		data.PrimaryAmmo = primaryAmmo;
+		data.SecondaryAmmo = secondaryAmmo;
+		data.PrintName = p.String( "printname" );
+		data.ScriptDamage = damage;
+		data.PlayerDamage = damage ?? skill.WeaponDamage( primaryAmmo, weaponClass );
+		data.NpcDamage = damage ?? skill.WeaponDamage( primaryAmmo, weaponClass, npc: true );
+		data.SecondaryPlayerDamage = skill.WeaponDamage( secondaryAmmo, null );
+		data.SecondaryNpcDamage = skill.WeaponDamage( secondaryAmmo, null, npc: true );
+		data.BlastRadius = skill.WeaponRadius( primaryAmmo, weaponClass );
+		data.SecondaryBlastRadius = skill.WeaponRadius( secondaryAmmo, null );
+		data.ClipSize = clip;
+		data.DefaultClip = p.Integer( "default_clip", clip > 0 ? clip * Math.Max( 1, p.Integer( "DefaultAmmoClips", 1 ) ) : clip );
+		data.SecondaryClipSize = clip2;
+		data.SecondaryDefaultClip = p.Integer( "default_clip2", clip2 );
+		data.Bucket = p.Integer( "bucket", 0 );
+		data.BucketPosition = p.Integer( "bucket_position", -1 ) is var position && position >= 0 ? position : null;
+		data.Weight = p.Integer( "weight", -1 ) is var weight && weight >= 0 ? weight : null;
+		data.CycleTime = p.Contains( "CycleTime" ) ? p.Float( "CycleTime" ) : p.Contains( "FireDelay" ) ? p.Float( "FireDelay" ) : null;
+		data.ViewModelFov = p.Contains( "ViewModelFOV" ) ? p.Float( "ViewModelFOV" ) : null;
+		data.ViewModelOffset = p.Vector( "vm_normal_offset", Vector3.Zero );
+		data.IronSightOffset = p.Contains( "vm_ironsight_offset" ) ? p.Vector( "vm_ironsight_offset", Vector3.Zero ) : null;
+		data.SecondaryAccuracy = p.Contains( "SecondaryAccuracy" ) ? p.Float( "SecondaryAccuracy" ) : null;
+		data.SecondaryCycleTime = p.Contains( "SecondaryFireDelay" ) ? p.Float( "SecondaryFireDelay" ) : null;
+		data.AccuracyMovePenalty = p.Contains( "AccuracyMovePenalty" ) ? p.Float( "AccuracyMovePenalty" ) : null;
+		data.Accuracy = p.Contains( "Accuracy" ) ? p.Float( "Accuracy" ) : null;
+		data.Recoil = p.Contains( "Recoil" ) ? p.Float( "Recoil" ) : null;
+		data.Bullets = p.Contains( "Bullets" ) ? p.Integer( "Bullets" ) : null;
+		data.FullAuto = p.Contains( "FullAuto" ) ? p.Boolean( "FullAuto" ) : null;
+		data.Range = p.Contains( "Range" ) ? p.Float( "Range" ) : null;
+		data.RangeModifier = p.Contains( "RangeModifier" ) ? p.Float( "RangeModifier" ) : null;
+		data.WeaponType = p.String( "WeaponType" );
+		data.Team = p.String( "Team" );
+		data.PlayerAnimationExtension = p.String( "PlayerAnimationExtension" );
+		data.BuiltRightHanded = p.Contains( "BuiltRightHanded" ) ? p.Boolean( "BuiltRightHanded" ) : null;
+		data.MuzzleFlashStyle = p.String( "MuzzleFlashStyle" );
+		data.MuzzleFlashScale = p.Contains( "MuzzleFlashScale" ) ? p.Float( "MuzzleFlashScale" ) : null;
 		foreach ( var sound in root.Children.Where( x => x.IsBlock && x.Name.Equals( "SoundData", StringComparison.OrdinalIgnoreCase ) ).SelectMany( x => x.Children ) )
 		{
 			if ( !sound.IsBlock && !string.IsNullOrWhiteSpace( sound.Value ) )

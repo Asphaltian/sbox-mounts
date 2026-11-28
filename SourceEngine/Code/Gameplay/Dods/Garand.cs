@@ -22,7 +22,6 @@ public sealed class Garand : Rifle
 		if ( !port.IsValid() && model.Renderer.IsValid() ) port = model.Renderer.GetAttachmentObject( "shell_eject" );
 		if ( !port.IsValid() ) return;
 		var position = model is ViewModel view ? view.DrawnPosition( port ) : port.WorldPosition;
-		WeaponEffects.EjectBrass( "models/shells/garand_clip.mdl", position, Vector3.Up, Vector3.Right, Vector3.Forward,
-			null, port.WorldRotation, default, MountContent.OfWeapon( this ) );
+		WeaponEffects.EjectBrass( "models/shells/garand_clip.mdl", position, Vector3.Up, port.WorldRotation, MountContent.OfWeapon( this ) );
 	}
 }

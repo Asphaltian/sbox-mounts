@@ -6,8 +6,12 @@ namespace Source1.Css;
 /// CCSPlayerAnimState's weapon layers on a Counter-Strike player model: the legs are its activities, the weapon layers are found by name,
 /// &lt;stance&gt;_&lt;layer&gt;_&lt;extension&gt;, such as Walk_Upper_AK.
 /// </summary>
-public static class PlayerAnimState
+[Title( "CS:S NPC Animator" )]
+public sealed class PlayerAnimState : NpcAnimator
 {
+	protected override NpcWeaponLayers ResolveWeaponLayers( Model model, ModelSequences sequences, BaseCombatWeapon weapon, Model worldModel, NpcWeaponLayers legs ) =>
+		Resolve( model, sequences, weapon, worldModel, legs ) ?? legs;
+
 	static readonly string[] Stances = ["Idle", "Walk", "Run"];
 
 	/// <summary>A shotgun reloads by looping a shell insert.</summary>

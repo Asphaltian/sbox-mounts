@@ -20,25 +20,6 @@ static class Crosshair
 	}
 }
 
-/// <summary>Counter-Strike's sniper scope: black outside the lens, with thin cross lines through it.</summary>
-static class Scope
-{
-	public static void Draw( Painter painter, Vector2 size )
-	{
-		using var scope = painter.Scope();
-		var center = size * 0.5f;
-		var radius = MathF.Min( size.x, size.y ) * 0.5f;
-		painter.BlendMode = BlendMode.Normal;
-		painter.Stroke = Stroke.None;
-		painter.Fill = Color.Black;
-		painter.Ring( center, radius, size.Length );
-		painter.Fill = Color.Transparent;
-		painter.Stroke = Stroke.Solid( Color.Black, 1 );
-		painter.Line( center - new Vector2( radius, 0 ), center + new Vector2( radius, 0 ) );
-		painter.Line( center - new Vector2( 0, radius ), center + new Vector2( 0, radius ) );
-	}
-}
-
 /// <summary>Shared mounted hitscan weapon; firing/reloading rules and presentation are prefab data.</summary>
 [Title( "Source Bullet Weapon" )]
 [Category( "Source 1" )]
@@ -71,6 +52,7 @@ public class BulletWeapon : Weapon
 	// weapon_shotgun SecondaryAttack fires a literal 12 pellets.
 	const int DoubleShotPellets = 12;
 
+	[Property, Feature( "Shooting" )] public string PelletCountSetting { get; set; }
 	[Property, Feature( "Shooting" )] public bool FiresUnderwater { get; set; } = true;
 	/// <summary>Minimum interval between separate trigger pulls for weapons that fire more slowly when held.</summary>
 	[Property, Feature( "Shooting" )] public float TapRefireDelay { get; set; }
@@ -97,9 +79,11 @@ public class BulletWeapon : Weapon
 	[Property] public SecondaryFires Secondary { get; set; }
 	/// <summary>Field of view of each <see cref="SecondaryFires.Zoom"/> step; empty zooms once to <see cref="Zoom.FieldOfView"/>.</summary>
 	[Property] public List<float> ZoomLevels { get; set; }
+	public sealed record BurstSettings( int Rounds, float Interval, float Cycle );
+	[Property] public BurstSettings Burst { get; set; }
 	[Sync] public bool BurstMode { get; set; }
 	[Sync, Change( nameof( OnSilencedChanged ) )] public bool Silenced { get; set; }
-	internal float SilencerDuration { get; set; }
+	TimeUntil _silencerReady;
 	/// <summary>True while firing the second and later rounds of a burst.</summary>
 	internal bool BurstFollowUp { get; private set; }
 	internal float? AlternateDamage { get; set; }
@@ -131,7 +115,7 @@ public class BulletWeapon : Weapon
 	int _burstRemaining;
 	TimeUntil _burstAt;
 	GameObject _burstAttacker;
-	bool _scoped;
+	protected bool IsZoomed => _zoomLevel > 0;
 
 	bool Launches => Secondary == SecondaryFires.Default && AlternateProjectile is not null;
 	bool BlocksUnusedSecondaryUnderwater => !FiresUnderwater && Secondary == SecondaryFires.Default && AlternateProjectile is null;
@@ -258,6 +242,11 @@ public class BulletWeapon : Weapon
 
 	protected override void OnHolstered()
 	{
+		if ( _silencerReady > 0 )
+		{
+			Silenced = !Silenced;
+			_silencerReady = 0;
+		}
 		if ( (IsReloading || _lastShellInserting) && !ShotQueued && ContentMount?.ResetFireOnHolsteredReload == true ) SetNextFire( 0 );
 		_holdingEmptyTrigger = false;
 		_lastShellInserting = false;
@@ -428,7 +417,10 @@ public class BulletWeapon : Weapon
 
 	protected virtual bool UseSpreadDisk => false;
 
-	void FirePrimaryRound()
+	protected static Vector2 SpreadDegrees( float cone ) =>
+		Vector2.One * (2 * MathF.Asin( Math.Clamp( cone, 0, 1 ) ).RadianToDegree());
+
+	void FireBullets()
 	{
 		if ( (UseSpreadDisk || Secondary == SecondaryFires.DoubleShot || AccuracyPenaltyPerShot > 0) && HasOwner && !NpcControlled )
 		{
@@ -436,6 +428,11 @@ public class BulletWeapon : Weapon
 			ShootEffects( FireVolley( Ballistics.Pellets ) );
 		}
 		else base.PrimaryAttack();
+	}
+
+	void FirePrimaryRound()
+	{
+		FireBullets();
 		if ( Secondary == SecondaryFires.DoubleShot && Setup.PumpDelay is { } delay ) _pumpStarts = delay;
 		if ( AccuracyPenaltyPerShot > 0 && HasOwner ) _accuracyPenalty += AccuracyPenaltyPerShot;
 		if ( Secondary == SecondaryFires.DoubleShot || BlocksUnusedSecondaryUnderwater ) SetNextFire( PrimaryDelay );
@@ -450,9 +447,8 @@ public class BulletWeapon : Weapon
 			}
 		}
 		else DoRecoil();
-		if ( !BurstMode || NpcControlled ) return;
-		var burst = Css.Rules.Burst( Setup.WeaponType );
-		_burstRemaining = Css.Rules.BurstShots - 1;
+		if ( !BurstMode || NpcControlled || Burst is not { Rounds: > 1 } burst ) return;
+		_burstRemaining = burst.Rounds - 1;
 		_burstAttacker = Attacker;
 		_burstAt = burst.Interval;
 		SetNextFire( burst.Cycle );
@@ -462,7 +458,7 @@ public class BulletWeapon : Weapon
 	{
 		if ( _burstRemaining <= 0 || _burstAt > 0 ) return;
 		_burstRemaining--;
-		_burstAt = Css.Rules.Burst( Setup.WeaponType ).Interval;
+		_burstAt = (float)_burstAt + Burst.Interval;
 		if ( !HasPrimaryAmmo() || IsReloading )
 		{
 			CancelBurst();
@@ -471,8 +467,8 @@ public class BulletWeapon : Weapon
 		BurstFollowUp = true;
 		try
 		{
-			base.PrimaryAttack();
-			DoRecoil();
+			FireBullets();
+			OnBurstFollowUp();
 		}
 		finally
 		{
@@ -480,6 +476,8 @@ public class BulletWeapon : Weapon
 			if ( _burstRemaining <= 0 ) _burstAttacker = null;
 		}
 	}
+
+	protected virtual void OnBurstFollowUp() => DoRecoil();
 
 	void CancelBurst()
 	{
@@ -500,6 +498,7 @@ public class BulletWeapon : Weapon
 		{
 			await WeaponSetup.ConfigureWeapon( this );
 			if ( !IsValid ) return;
+			if ( Silenced ) UpdateDroppedModel();
 			if ( Networking.IsHost && NpcControlled && UsesPrimaryClip )
 				Clip1 = ClipMaxSize;
 			_weaponConfigured = true;
@@ -537,25 +536,10 @@ public class BulletWeapon : Weapon
 	protected static float ZoomedFov( float fov, float sourceFov ) =>
 		(2 * MathF.Atan( MathF.Tan( (fov * 0.5f).DegreeToRadian() ) * MathF.Tan( (sourceFov * 0.5f).DegreeToRadian() ) )).RadianToDegree();
 
-	public override void DrawHud( Painter painter, Vector2 crosshair )
-	{
-		if ( _scoped && Scene.Camera.IsValid() ) Scope.Draw( painter, Scene.Camera.ScreenRect.Size );
-		base.DrawHud( painter, crosshair );
-	}
-
-	public override void DrawCrosshair( Painter painter, Vector2 center )
-	{
-		if ( _scoped ) return;
+	public override void DrawCrosshair( Painter painter, Vector2 center ) =>
 		Crosshair.Draw( painter, center, CanPrimaryAttack(), SpreadBloom );
-	}
 
-	/// <summary>Sniper rifles look through the scope overlay with the viewmodel hidden, as Counter-Strike does.</summary>
-	void SetZoom( int level )
-	{
-		_zoomLevel = level;
-		_scoped = level > 0 && Setup.WeaponType == "SniperRifle" && HasOwner && !Owner.ThirdPerson;
-		if ( ViewModel.IsValid() ) ViewModel.Tags.Set( "sniper_scoped", _scoped );
-	}
+	protected virtual void SetZoom( int level ) => _zoomLevel = level;
 
 	public override bool HasSecondaryAmmo() => Secondary switch
 	{
@@ -575,7 +559,7 @@ public class BulletWeapon : Weapon
 		if ( _alternatePending || !HasSecondaryAmmo() ) return;
 		if ( Secondary == SecondaryFires.Zoom )
 		{
-			SetNextSecondaryFire( Css.Rules.ToggleDelay );
+			SetNextSecondaryFire( SecondaryDelay );
 			var steps = ZoomLevels is { Count: > 0 } ? ZoomLevels.Count : 1;
 			SetZoom( (_zoomLevel + 1) % (steps + 1) );
 			if ( Sounds.WeaponSound( this, "special3" ) is { } zoomSound ) GameObject.PlaySound( zoomSound );
@@ -583,13 +567,14 @@ public class BulletWeapon : Weapon
 		}
 		if ( Secondary == SecondaryFires.Burst )
 		{
-			SetNextSecondaryFire( Css.Rules.ToggleDelay );
+			SetNextSecondaryFire( SecondaryDelay );
 			BurstMode = !BurstMode;
 			return;
 		}
 		if ( Secondary == SecondaryFires.Silencer )
 		{
-			SetNextFire( Math.Max( SilencerDuration, Css.Rules.ToggleDelay ) );
+			_silencerReady = SecondaryDelay;
+			SetNextFire( SecondaryDelay );
 			Silenced = !Silenced;
 			SilencerEffects( Silenced );
 			return;
@@ -642,19 +627,18 @@ public class BulletWeapon : Weapon
 
 	ShotEffect[] FireVolley( int count )
 	{
-		var config = Ballistics;
-		var spread = CurrentSpread;
+		var spread = Vector2.Zero;
 		var previous = _volley;
 		try
 		{
 			if ( HasOwner && !NpcControlled )
 			{
 				var aim = Rotation.LookAt( AimRay.Forward );
-				_volley = (count, 0, aim.Right * MathF.Sin( (spread.x * 0.5f).DegreeToRadian() ),
-					aim.Up * MathF.Sin( (spread.y * 0.5f).DegreeToRadian() ));
-				spread = Vector2.Zero;
+				var cone = PrepareVolley();
+				_volley = (count, 0, aim.Right * cone.x, aim.Up * cone.y);
 			}
-			var hits = ShootBullets( count, spread, config.Range, config.Radius, config.Damage, config.Force );
+			else spread = CurrentSpread;
+			var hits = TraceVolley( count, spread );
 			TimeSinceShoot = 0;
 			var effects = new ShotEffect[hits.Length];
 			for ( int i = 0; i < hits.Length; i++ )
@@ -667,10 +651,17 @@ public class BulletWeapon : Weapon
 		finally { _volley = previous; }
 	}
 
-	protected override SceneTrace BulletTrace( Ray ray, float distance, float radius )
-	{
-		if ( _volley.Count == 0 ) return base.BulletTrace( ray, distance, radius );
+	protected virtual SceneTraceResult[] TraceVolley( int count, Vector2 spread ) =>
+		ShootBullets( count, spread, Ballistics.Range, Ballistics.Radius, Ballistics.Damage, Ballistics.Force );
 
+	protected virtual Vector2 PrepareVolley()
+	{
+		var spread = CurrentSpread;
+		return new( MathF.Sin( (spread.x * 0.5f).DegreeToRadian() ), MathF.Sin( (spread.y * 0.5f).DegreeToRadian() ) );
+	}
+
+	protected virtual Vector2 SampleSpread()
+	{
 		Vector2 offset;
 		do
 		{
@@ -678,17 +669,37 @@ public class BulletWeapon : Weapon
 				Random.Shared.Float( -0.5f, 0.5f ) + Random.Shared.Float( -0.5f, 0.5f ) );
 		} while ( offset.LengthSquared > 1 );
 
+		return offset;
+	}
+
+	protected override SceneTrace BulletTrace( Ray ray, float distance, float radius )
+	{
+		if ( _volley.Count == 0 ) return base.BulletTrace( ray, distance, radius );
+
+		var pellet = _volley.Index++;
+		var offset = SampleSpread();
 		ray.Forward = (ray.Forward + _volley.Right * offset.x + _volley.Up * offset.y).Normal;
 		if ( Secondary != SecondaryFires.DoubleShot ) return base.BulletTrace( ray, distance, radius );
 		var trace = base.BulletTrace( ray, distance, 0 );
-		return (_volley.Index++ & 1) == 0 ? trace : trace.Size( Vector3.One * 6 );
+		return (pellet & 1) == 0 ? trace : trace.Size( Vector3.One * 6 );
 	}
 
 	[Rpc.Broadcast( NetFlags.OwnerOnly )]
 	void SilencerEffects( bool silenced ) => (WeaponModel as ViewModel)?.OnSilencer( silenced );
 
+	void UpdateDroppedModel()
+	{
+		if ( Setup.Data is not { SilencerModel: { } silencer } script || !DroppedGameObject.IsValid() ) return;
+		var model = DroppedGameObject.GetComponent<MountedModel>( true );
+		if ( !model.IsValid() ) return;
+		var path = Silenced ? silencer : script.DroppedModel ?? script.WorldModel;
+		if ( path is not null && model.ModelPath != path )
+			model.ChangeModel( path );
+	}
+
 	void OnSilencedChanged( bool previous, bool silenced )
 	{
+		UpdateDroppedModel();
 		if ( Sounds.WeaponSound( this, Sounds.FireSoundRole( this ) ) is { } fire ) AttackSound = fire;
 	}
 

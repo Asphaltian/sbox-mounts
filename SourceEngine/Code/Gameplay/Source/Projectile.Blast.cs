@@ -28,39 +28,45 @@ public abstract partial class Projectile
 			if ( SourceWaterMap.IsUnderwater( Scene, bounds.Center.WithZ( UnderwaterBlast ? bounds.Mins.z : bounds.Maxs.z ) ) != UnderwaterBlast ) continue;
 			var grenade = target.GetComponent<Hl2.Grenade>();
 			var center = grenade.IsValid() ? target.WorldPosition : bounds.Center;
+			var damage = BlastDamageAt( target, origin, center, out var position );
 			var direction = (center - origin).Normal;
-			var trace = Scene.Trace.Ray( origin, center ).WithoutTags( "trigger", "debris" ).IgnoreGameObjectHierarchy( GameObject );
-			var hit = trace.Run();
-			var position = hit.StartedSolid ? origin : hit.EndPosition;
-			var transmission = 1f;
-			if ( hit.Hit && hit.GameObject.IsValid() && !target.IsDescendant( hit.GameObject ) )
-			{
-				if ( trace.WithTag( "world" ).Run().Hit ) continue;
-				var blocker = hit.GameObject.GetComponentInParent<Rigidbody>();
-				transmission = blocker.IsValid() ? 1 - (blocker.Mass / 350).Clamp( 0, 1 ) : 0.75f;
-				position = center;
-			}
-
-			if ( grenade.IsValid() && direction != Vector3.Zero && !hit.StartedSolid && hit.GameObject == target )
-			{
-				// Grenades take blast damage on their four-unit box, while their model hull handles bouncing.
-				var axis = direction.Abs();
-				var surface = Hl2.Grenade.HalfSize / MathF.Max( axis.x, MathF.Max( axis.y, axis.z ) );
-				position = center - direction * MathF.Min( origin.Distance( center ), surface );
-			}
-
-			var damage = Damage * (1 - origin.Distance( position ) / Radius) * transmission;
 			if ( damage <= 0 ) continue;
 			var impulse = direction * (MathF.Min( damage, 100 ) * 300 * Random.Shared.Float( 0.85f, 1.15f ));
 			if ( prop?.Model?.GetData<PropDamageModifiers>() is { } modifiers )
 			{
 				damage *= modifiers.Explosive;
-				if ( prop.IsProxy && !modifiers.FireResistant && damage >= 1 && (int)damage < prop.Health )
+				if ( Blast == BlastMode.Traced && prop.IsProxy && !modifiers.FireResistant && damage >= 1 && (int)damage < prop.Health )
 					PropFire.Ignite( prop );
 			}
 			if ( target.Network.IsProxy ) RemoteBlastHit( target, origin, position, damage, impulse );
 			else ApplyBlastHit( target, origin, position, damage, impulse );
 		}
+	}
+
+	protected virtual float BlastDamageAt( GameObject target, Vector3 origin, Vector3 center, out Vector3 position )
+	{
+		var trace = Scene.Trace.Ray( origin, center ).WithoutTags( "trigger", "debris" ).IgnoreGameObjectHierarchy( GameObject );
+		var hit = trace.Run();
+		position = hit.StartedSolid ? origin : hit.EndPosition;
+		var transmission = 1f;
+		if ( hit.Hit && hit.GameObject.IsValid() && !target.IsDescendant( hit.GameObject ) )
+		{
+			if ( trace.WithTag( "world" ).Run().Hit ) return 0;
+			var blocker = hit.GameObject.GetComponentInParent<Rigidbody>();
+			transmission = blocker.IsValid() ? 1 - (blocker.Mass / 350).Clamp( 0, 1 ) : 0.75f;
+			position = center;
+		}
+
+		var direction = (center - origin).Normal;
+		if ( target.GetComponent<Hl2.Grenade>().IsValid() && direction != Vector3.Zero && !hit.StartedSolid && hit.GameObject == target )
+		{
+			// Grenades take blast damage on their four-unit box, while their model hull handles bouncing.
+			var axis = direction.Abs();
+			var surface = Hl2.Grenade.HalfSize / MathF.Max( axis.x, MathF.Max( axis.y, axis.z ) );
+			position = center - direction * MathF.Min( origin.Distance( center ), surface );
+		}
+
+		return Damage * (1 - origin.Distance( position ) / Radius) * transmission;
 	}
 
 	[Rpc.Broadcast( NetFlags.HostOnly )]

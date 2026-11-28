@@ -14,9 +14,6 @@ public sealed class Mount : SourceGameMount
 	public override Source1.GameRules GameRules { get; } = new GameRules();
 	protected internal override BaseAmmoResource CreateAmmoResource() => new Ammo();
 
-	internal override void ApplyWeaponDefaults( BaseCombatWeapon weapon, WeaponSetup setup, string worldModel ) =>
-		Hl2.Mount.ApplyShotgunDefaults( this, weapon, setup.Data );
-
 	internal const long SteamId = 4000;
 
 	// Garry's Mod's copy of the archives in a standalone game's shared hl2 folder.

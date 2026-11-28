@@ -5,6 +5,8 @@ namespace Source1;
 
 public abstract partial class SourceGameMount
 {
+	internal virtual string TriggerTag( string className ) => null;
+
 	internal static string GetMapPakRoot( string path ) => $"{Path.ChangeExtension( path, null )}/pak/";
 
 	internal virtual BspFormat CreateMapFormat() => BspFormat.Default;
