@@ -305,6 +305,7 @@ public sealed class NpcGrenade : Component
 	{
 		var holder = Holder.IsValid() ? Holder.GetComponent<Sandbox.Npcs.BaseNpc>() : null;
 		var healthBefore = holder.IsValid() ? holder.Health : 0;
+		ExplosionEffect.Shake( WorldPosition, 25, 750 );
 		new Explosion { Source = GameObject, Attacker = Attacker, Position = WorldPosition, Radius = Radius, Damage = Damage,
 			Prefab = MountContent.Prefab( MountName, "explosion" ) }.Spawn();
 

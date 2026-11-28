@@ -179,6 +179,7 @@ public sealed class PlantedC4 : Component
 	{
 		if ( !Networking.IsHost || Expires > 0 ) return;
 		var mount = GetComponent<MountedModel>().MountName;
+		ExplosionEffect.Shake( WorldPosition, 25, 3000 );
 		new Explosion
 		{
 			Position = WorldPosition,

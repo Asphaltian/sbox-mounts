@@ -493,23 +493,8 @@ public sealed class Grenade : Projectile
 			WorldPosition = ground.EndPosition + ground.Normal * 0.6f;
 			Scorch( ground.GameObject, WeaponEffects.DecalTransform( ground.GameObject, ground.EndPosition, ground.Normal ), MountName, large: true );
 		}
-		Shake( WorldPosition );
+		ExplosionEffect.Shake( WorldPosition, 25, 750 );
 		Explode( playPrefabSound: true );
-	}
-
-	[Rpc.Broadcast( NetFlags.HostOnly )]
-	internal static void Shake( Vector3 origin )
-	{
-		if ( Application.IsDedicatedServer ) return;
-		var scene = Game.ActiveScene;
-		if ( scene?.Camera is not { } camera ) return;
-		var player = scene.GetAllComponents<PlayerController>().FirstOrDefault( x => !x.IsProxy );
-		if ( player is not { IsOnGround: true } ) return;
-
-		// Source caps the grenade's shake amplitude at 16 before attenuating it by distance.
-		var center = player.WorldPosition + Vector3.Up * (player.CurrentHeight * 0.5f);
-		var amplitude = 16 * (1 - center.Distance( origin ) / 750);
-		if ( amplitude > 0 ) camera.AddShake( amplitude, 150, 1 );
 	}
 }
 
@@ -586,7 +571,7 @@ public sealed class ContactGrenade : TumblingProjectile, Component.IDamageable
 			var world = mark.Collider is PhysicsCollider && mark.HasTag( "world" ) && !mark.GameObject.Tags.Has( "source1_entity" );
 			Scorch( mark.GameObject, WeaponEffects.DecalTransform( mark.GameObject, mark.HitPosition, mark.Normal ), MountName, world );
 		}
-		Grenade.Shake( WorldPosition );
+		ExplosionEffect.Shake( WorldPosition, 25, 750 );
 		Explode();
 	}
 }
@@ -659,6 +644,7 @@ public sealed class EnergyBall : Projectile
 
 	protected override void Expire()
 	{
+		ExplosionEffect.Shake( WorldPosition, 20, 1250 );
 		Burst( WorldPosition, TraceRadius, MountName );
 		GameObject.Destroy();
 	}

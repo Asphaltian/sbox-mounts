@@ -22,10 +22,8 @@ public sealed class StriderCannon : CreatureBehaviour
 	const float BlastDamage = 200;
 	const float BlastRadius = 256;
 
-	/// <summary>Approximation: the concussive blast also shows the frag explosion at this scale and shakes cameras within this distance.</summary>
+	/// <summary>Approximation: the concussive blast also shows the frag explosion at this scale.</summary>
 	const float ExplosionScale = 2;
-	const float ShakeRadius = 1024;
-	const float ShakeAmplitude = 8;
 
 	/// <summary>Gameplay choice standing in for a map's cannon target: how long between shots and what is worth one.</summary>
 	const float Cooldown = 15;
@@ -226,11 +224,6 @@ public sealed class StriderCannon : CreatureBehaviour
 		var halo = burst.Add( "effects/blueflare1", mount, 0, 64, Color.White * 0.125f, 0.2f );
 		burst.FadeTo( halo, 128, Color.Black );
 		BeamRing.Create( position, 16, 750, 128, 0.3f, 24, mount );
-
-		var camera = Scene.Camera;
-		var shake = camera.IsValid() ? 1 - camera.WorldPosition.Distance( position ) / ShakeRadius : 0;
-		if ( shake > 0 )
-			camera.AddShake( ShakeAmplitude * shake, 40, 1 );
 	}
 
 	void PlaySound( string name, Vector3 position )

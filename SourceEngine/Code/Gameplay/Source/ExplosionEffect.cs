@@ -32,6 +32,19 @@ public sealed class ExplosionEffect : Component
 	PointLight _light;
 	TimeSince _age;
 
+	/// <summary>Start a one-second, 150 Hz blast shake for grounded players within the radius.</summary>
+	[Rpc.Broadcast( NetFlags.HostOnly )]
+	internal static void Shake( Vector3 origin, float amplitude, float radius )
+	{
+		if ( Application.IsDedicatedServer || Game.ActiveScene?.Camera is not { } camera ) return;
+		var player = camera.Scene.GetAllComponents<PlayerController>().FirstOrDefault( x => !x.IsProxy );
+		if ( player is not { IsOnGround: true } ) return;
+
+		var center = player.WorldPosition + Vector3.Up * (player.CurrentHeight * 0.5f);
+		var falloff = 1 - center.Distance( origin ) / radius;
+		if ( falloff > 0 ) camera.AddShake( System.MathF.Min( amplitude, 16 ) * falloff, 150, 1 );
+	}
+
 	protected override async void OnStart()
 	{
 		if ( Application.IsDedicatedServer ) return;
